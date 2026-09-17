@@ -5,67 +5,49 @@ import { QRCodeSVG } from 'qrcode.react';
 
 interface QRItem {
   title: string;
-  tabKey: string;
-  place: string;
-  desc: string;
-  color: string;
+  subTitle: string;
+  path: string;
+  note: string;
 }
 
-const QR_LIST: QRItem[] = [
+const qrList: QRItem[] = [
   {
-    title: '温度衛生管理（出勤時）',
-    tabKey: 'temp',
-    place: '各保冷庫・売場 掲示用',
-    desc: '出勤時の本庫・鮮魚庫・売場温度および衛生状況の記録',
-    color: 'border-cyan-600 text-cyan-800',
+    title: '出勤時：温度・衛生チェック',
+    subTitle: '保冷庫温度・手洗い・健康状態確認',
+    path: '/?tab=temp_hygiene',
+    note: '出勤後、身支度を整えたら最初に読み取って入力してください。',
   },
   {
-    title: '生魚加工 衛生管理',
-    tabKey: 'fish',
-    place: '加工場・手洗い場 掲示用',
-    desc: '加工前の健康確認、手洗い、魚体洗浄、作業温度の記録',
-    color: 'border-emerald-600 text-emerald-800',
+    title: '生魚加工：衛生管理チェック',
+    subTitle: 'まな板消毒・手洗い・作業前点検',
+    path: '/?tab=fish_processing',
+    note: '加工場に入る前、まな板・包丁の消毒後に読み取ってください。',
   },
   {
-    title: 'アルコールチェック',
-    tabKey: 'alcohol',
-    place: '事務所・点呼デスク 掲示用',
-    desc: '対面点呼での検知器測定値と確認者の記録',
-    color: 'border-blue-600 text-blue-800',
+    title: '点呼：アルコールチェック',
+    subTitle: '乗車前・降車後の呼気検査記録',
+    path: '/?tab=alcohol',
+    note: '事務所デスクで検知器の測定値を確認しながら入力してください。',
   },
   {
-    title: '運転日報（乗車・降車）',
-    tabKey: 'drive',
-    place: '社用車キー置き場・車内用',
-    desc: '出発時の乗車メーター・帰社時の降車メーター記録',
-    color: 'border-amber-600 text-amber-800',
+    title: '社用車：運転日報記録',
+    subTitle: 'メーター・給油・日常点検',
+    path: '/?tab=driving_report',
+    note: '出発前のメーターと、帰着後のメーター・給油量を入力してください。',
   },
   {
-    title: '退勤前 温度管理',
-    tabKey: 'closing',
-    place: '本庫・2号室 扉前用',
-    desc: '業務終了・退勤時の保冷庫最終温度記録',
-    color: 'border-indigo-600 text-indigo-800',
-  },
-  {
-    title: '業務日報 管理画面',
-    tabKey: 'admin',
-    place: '管理者・責任者 デスク用',
-    desc: '日次集計データの閲覧・印刷・PDF保存用',
-    color: 'border-slate-800 text-slate-800',
+    title: '退勤前：温度・施錠チェック',
+    subTitle: '最終保冷庫温度・消灯・火気確認',
+    path: '/?tab=temp_closing',
+    note: '退勤時、保冷庫の最終温度を確認して送信してください。',
   },
 ];
 
 export default function QRPrintPage() {
   const [baseUrl, setBaseUrl] = useState('');
-  const [customHost, setCustomHost] = useState('');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const origin = window.location.origin;
-      setBaseUrl(origin);
-      setCustomHost(origin);
-    }
+    setBaseUrl(window.location.origin);
   }, []);
 
   const handlePrint = () => {
@@ -73,69 +55,78 @@ export default function QRPrintPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 p-4 print:p-0 print:bg-white">
-      <div className="max-w-4xl mx-auto mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-bold">現場掲示用 QRコード印刷シート</h1>
-            <p className="text-xs text-slate-500">
-              各作業エリア・車両・保冷庫にラミネート掲示するためのカードを出力します。
-            </p>
-          </div>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow flex items-center gap-2"
-          >
-            🖨️ A4用紙に印刷する
-          </button>
-        </div>
-
-        <div className="pt-2 border-t border-slate-100 flex items-center gap-2 text-xs">
-          <label className="font-bold text-slate-600">発行元ベースURL:</label>
-          <input
-            type="text"
-            value={customHost}
-            onChange={(e) => setCustomHost(e.target.value)}
-            className="p-1.5 border border-slate-300 rounded text-xs flex-1 font-mono"
-          />
-        </div>
+    <div className="min-h-screen bg-slate-100 p-4 sm:p-8">
+      {/* 画面操作用コントロールバー（印刷時は非表示） */}
+      <div className="max-w-4xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:hidden">
+        <h1 className="text-2xl font-black text-slate-800 mb-2">壁面掲示用 特大QRコード印刷</h1>
+        <p className="text-slate-600 mb-4 text-sm">
+          各チェックシートが **A4用紙1枚に1つずつ特大サイズ** で印刷されます。
+        </p>
+        <button
+          onClick={handlePrint}
+          className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all text-lg flex items-center justify-center gap-2"
+        >
+          🖨️ A4特大サイズで印刷する
+        </button>
       </div>
 
-      <div className="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-0 print:max-w-none">
-        <div className="grid grid-cols-2 gap-4 print:gap-3">
-          {QR_LIST.map((item) => {
-            const url =
-              item.tabKey === 'admin'
-                ? `${customHost || baseUrl}/admin`
-                : `${customHost || baseUrl}/?tab=${item.tabKey}`;
+      {/* 印刷対象コンテナ */}
+      <div className="max-w-4xl mx-auto space-y-12 print:space-y-0">
+        {qrList.map((item, index) => {
+          const targetUrl = baseUrl ? `${baseUrl}${item.path}` : '';
 
-            return (
-              <div
-                key={item.tabKey}
-                className={`border-2 border-dashed rounded-xl p-4 flex flex-col justify-between items-center text-center print:border-solid print:p-3 ${item.color}`}
-              >
-                <div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
-                    {item.place}
-                  </span>
-                  <h2 className="text-base font-bold mt-1.5 leading-snug">{item.title}</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{item.desc}</p>
-                </div>
-
-                <div className="my-3 p-2 bg-white rounded-lg border border-slate-200 shadow-sm flex items-center justify-center">
-                  <QRCodeSVG value={url} size={130} level="M" />
-                </div>
-
-                <div className="w-full text-center">
-                  <span className="text-[10px] text-slate-400 font-mono block break-all">{url}</span>
-                  <div className="mt-1 text-[11px] font-bold text-slate-700 bg-slate-50 py-0.5 rounded">
-                    スマホのカメラでスキャンして入力
-                  </div>
-                </div>
+          return (
+            <div
+              key={index}
+              className="bg-white border-4 border-slate-800 rounded-3xl p-10 flex flex-col items-center justify-between text-center print:border-none print:p-8 print:m-0 print:h-screen print:break-after-page"
+              style={{ minHeight: '680px' }}
+            >
+              {/* ヘッダータイトル */}
+              <div className="w-full border-b-4 border-slate-800 pb-6 mb-6">
+                <span className="inline-block bg-slate-800 text-white text-lg font-black px-4 py-1 rounded-md mb-3 tracking-widest">
+                  業務チェックシート
+                </span>
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                  {item.title}
+                </h2>
+                <p className="text-xl font-bold text-slate-600 mt-2">
+                  {item.subTitle}
+                </p>
               </div>
-            );
-          })}
-        </div>
+
+              {/* 特大QRコード */}
+              <div className="my-auto py-6">
+                <div className="p-6 bg-white border-4 border-dashed border-slate-300 rounded-3xl inline-block shadow-sm">
+                  {targetUrl ? (
+                    <QRCodeSVG
+                      value={targetUrl}
+                      size={320}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  ) : (
+                    <div className="w-80 h-80 flex items-center justify-center bg-slate-100 rounded-2xl text-slate-400 font-bold">
+                      生成中...
+                    </div>
+                  )}
+                </div>
+                <p className="mt-4 text-2xl font-black text-blue-700 tracking-wide">
+                  ▲ スマホのカメラを向けてください ▲
+                </p>
+              </div>
+
+              {/* フッター案内枠 */}
+              <div className="w-full bg-slate-100 border-2 border-slate-300 rounded-2xl p-6 mt-6">
+                <p className="text-lg font-bold text-slate-800">
+                  【案内】{item.note}
+                </p>
+                <p className="text-xs text-slate-400 mt-2 break-all">
+                  URL: {targetUrl}
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
