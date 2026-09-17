@@ -11,40 +11,41 @@ interface QRItem {
   note: string;
 }
 
+// app/page.tsx の TabType ('alcohol' | 'fish' | 'temp' | 'closing' | 'drive') と完全一致
 const qrList: QRItem[] = [
   {
-    id: 'temp_hygiene',
-    title: '出勤時：温度・衛生チェック',
-    subTitle: '保冷庫温度・手洗い・健康状態確認',
-    path: '/?tab=temp_hygiene',
+    id: 'temp',
+    title: '荷受：温度衛生管理',
+    subTitle: '保冷庫・売場温度・衛生点検',
+    path: '/?tab=temp',
     note: '出勤後、身支度を整えたら最初に読み取って入力してください。',
   },
   {
-    id: 'fish_processing',
+    id: 'fish',
     title: '生魚加工：衛生管理チェック',
-    subTitle: 'まな板消毒・手洗い・作業前点検',
-    path: '/?tab=fish_processing',
+    subTitle: '健康状態・手洗い・器具衛生点検',
+    path: '/?tab=fish',
     note: '加工場に入る前、まな板・包丁の消毒後に読み取ってください。',
   },
   {
     id: 'alcohol',
-    title: '点呼：アルコールチェック',
-    subTitle: '乗車前・降車後の呼気検査記録',
+    title: 'アルコールチェック',
+    subTitle: '対面確認・呼気検査記録',
     path: '/?tab=alcohol',
     note: '事務所デスクで検知器の測定値を確認しながら入力してください。',
   },
   {
-    id: 'driving_report',
+    id: 'drive',
     title: '社用車：運転日報記録',
-    subTitle: 'メーター・給油・日常点検',
-    path: '/?tab=driving_report',
-    note: '出発前のメーターと、帰着後のメーター・給油量を入力してください。',
+    subTitle: '乗車時・降車時メーター・給油記録',
+    path: '/?tab=drive',
+    note: '出発前のメーターと、帰着後の降車メーター・給油量を入力してください。',
   },
   {
-    id: 'temp_closing',
-    title: '退勤前：温度・施錠チェック',
-    subTitle: '最終保冷庫温度・消灯・火気確認',
-    path: '/?tab=temp_closing',
+    id: 'closing',
+    title: '退勤前：温度衛生管理',
+    subTitle: '本庫・2号室 最終温度確認',
+    path: '/?tab=closing',
     note: '退勤時、保冷庫の最終温度を確認して送信してください。',
   },
 ];
@@ -62,12 +63,12 @@ export default function QRPrintPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 sm:p-8">
+    <div className="min-h-screen bg-slate-100 p-4 sm:p-8 font-sans">
       {/* 操作コントロールバー（印刷時は非表示） */}
       <div className="max-w-4xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:hidden">
         <h1 className="text-2xl font-black text-slate-800 mb-2">QRコード印刷センター</h1>
         <p className="text-slate-600 mb-6 text-sm">
-          現場の掲示場所に合わせて、印刷スタイルを選択できます。
+          現場の掲示場所や用途に合わせて、印刷スタイルを選択できます。
         </p>
 
         {/* スタイル切り替えタブ */}
@@ -98,7 +99,7 @@ export default function QRPrintPage() {
           onClick={handlePrint}
           className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all text-lg flex items-center justify-center gap-2"
         >
-          🖨️ {mode === 'wall' ? 'A4特大サイズ（各1枚）で印刷する' : 'コンパクト一覧を印刷する'}
+          🖨️ {mode === 'wall' ? 'A4特大サイズ（各1枚ずつ）で印刷する' : 'コンパクト一覧を印刷する'}
         </button>
       </div>
 
@@ -116,7 +117,7 @@ export default function QRPrintPage() {
               >
                 <div className="w-full border-b-4 border-slate-800 pb-6 mb-6">
                   <span className="inline-block bg-slate-800 text-white text-lg font-black px-4 py-1 rounded-md mb-3 tracking-widest">
-                    業務チェックシート
+                    業務管理チェックシート
                   </span>
                   <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">
                     {item.title}
@@ -150,7 +151,7 @@ export default function QRPrintPage() {
                   <p className="text-lg font-bold text-slate-800">
                     【案内】{item.note}
                   </p>
-                  <p className="text-xs text-slate-400 mt-2 break-all">
+                  <p className="text-xs text-slate-400 mt-2 break-all font-mono">
                     URL: {targetUrl}
                   </p>
                 </div>
@@ -174,7 +175,7 @@ export default function QRPrintPage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded">
-                      場所・車両掲示用
+                      現場掲示用
                     </span>
                   </div>
                   <h3 className="text-xl font-black text-slate-900">
