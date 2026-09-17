@@ -11,7 +11,6 @@ interface QRItem {
   note: string;
 }
 
-// app/page.tsx の TabType ('alcohol' | 'fish' | 'temp' | 'closing' | 'drive') と完全一致
 const qrList: QRItem[] = [
   {
     id: 'temp',
@@ -62,16 +61,97 @@ export default function QRPrintPage() {
     window.print();
   };
 
+  // Excelでそのまま開けるスプレッドシート形式（.xls）のダウンロード
+  const handleExportExcel = () => {
+    const tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>QR一覧</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+        <style>
+          th { background-color: #1e3a8a; color: #ffffff; font-weight: bold; border: 1px solid #000; }
+          td { border: 1px solid #ccc; font-size: 11pt; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 120px;">ID</th>
+              <th style="width: 200px;">チェック項目名</th>
+              <th style="width: 250px;">サブタイトル</th>
+              <th style="width: 320px;">直接アクセスURL</th>
+              <th style="width: 350px;">運用案内</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${qrList
+              .map(
+                (item) => `
+              <tr>
+                <td>${item.id}</td>
+                <td style="font-weight: bold;">${item.title}</td>
+                <td>${item.subTitle}</td>
+                <td><a href="${baseUrl}${item.path}">${baseUrl}${item.path}</a></td>
+                <td>${item.note}</td>
+              </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '業務チェックシート_URL一覧.xls';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 p-4 sm:p-8 font-sans">
-      {/* 操作コントロールバー（印刷時は非表示） */}
+      {/* 印刷用CSSスタイル定義：A4縦1枚に厳密に収まるように制御 */}
+      <style jsx global>{`
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        @media print {
+          html, body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .a4-page-box {
+            width: 210mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
+            padding: 16mm 18mm !important;
+            box-sizing: border-box !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            border: none !important;
+          }
+        }
+      `}</style>
+
+      {/* 操作コントロールバー（印刷時は自動非表示） */}
       <div className="max-w-4xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:hidden">
         <h1 className="text-2xl font-black text-slate-800 mb-2">QRコード印刷センター</h1>
         <p className="text-slate-600 mb-6 text-sm">
-          現場の掲示場所や用途に合わせて、印刷スタイルを選択できます。
+          現場掲示用（A4ぴったり1枚）または一覧出力、Excelでの台帳出力が可能です。
         </p>
 
-        {/* スタイル切り替えタブ */}
+        {/* スタイル切り替え */}
         <div className="flex flex-wrap gap-3 mb-6">
           <button
             onClick={() => setMode('wall')}
@@ -81,7 +161,7 @@ export default function QRPrintPage() {
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            🏢 A4壁面用（1枚に特大1個）
+            🏢 A4壁面用（1枚に1個・A4収縮対応）
           </button>
           <button
             onClick={() => setMode('compact')}
@@ -95,63 +175,74 @@ export default function QRPrintPage() {
           </button>
         </div>
 
-        <button
-          onClick={handlePrint}
-          className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all text-lg flex items-center justify-center gap-2"
-        >
-          🖨️ {mode === 'wall' ? 'A4特大サイズ（各1枚ずつ）で印刷する' : 'コンパクト一覧を印刷する'}
-        </button>
+        {/* ボタン群 */}
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={handlePrint}
+            className="px-8 py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black rounded-xl shadow-lg transition-all text-lg flex items-center justify-center gap-2"
+          >
+            🖨️ {mode === 'wall' ? 'A4壁貼り印刷（1項目1枚）' : 'コンパクト一覧を印刷'}
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="px-6 py-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-black rounded-xl shadow-lg transition-all text-lg flex items-center justify-center gap-2"
+          >
+            📊 Excel形式で保存（.xls）
+          </button>
+        </div>
       </div>
 
-      {/* --- パターン 1: A4壁貼り特大モード --- */}
+      {/* --- パターン 1: A4壁貼り特大モード（A4 1枚に確実に収まるレイアウト） --- */}
       {mode === 'wall' && (
-        <div className="max-w-4xl mx-auto space-y-12 print:space-y-0">
+        <div className="max-w-3xl mx-auto space-y-12 print:space-y-0 print:max-w-none">
           {qrList.map((item, index) => {
             const targetUrl = baseUrl ? `${baseUrl}${item.path}` : '';
 
             return (
               <div
                 key={index}
-                className="bg-white border-4 border-slate-800 rounded-3xl p-10 flex flex-col items-center justify-between text-center print:border-none print:p-8 print:m-0 print:h-screen print:break-after-page"
-                style={{ minHeight: '680px' }}
+                className="a4-page-box bg-white border-4 border-slate-900 rounded-3xl p-10 flex flex-col justify-between text-center mx-auto shadow-sm print:shadow-none"
               >
-                <div className="w-full border-b-4 border-slate-800 pb-6 mb-6">
-                  <span className="inline-block bg-slate-800 text-white text-lg font-black px-4 py-1 rounded-md mb-3 tracking-widest">
+                {/* ヘッダーエリア */}
+                <div className="w-full border-b-4 border-slate-900 pb-5">
+                  <span className="inline-block bg-slate-900 text-white text-base font-black px-4 py-1.5 rounded-lg mb-2 tracking-widest">
                     業務管理チェックシート
                   </span>
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-snug">
                     {item.title}
                   </h2>
-                  <p className="text-xl font-bold text-slate-600 mt-2">
+                  <p className="text-xl font-bold text-slate-600 mt-1">
                     {item.subTitle}
                   </p>
                 </div>
 
-                <div className="my-auto py-6">
-                  <div className="p-6 bg-white border-4 border-dashed border-slate-300 rounded-3xl inline-block shadow-sm">
+                {/* QRコード表示部（270pxでA4用紙の中央にベストバランス） */}
+                <div className="my-auto py-4">
+                  <div className="p-4 bg-white border-4 border-dashed border-slate-400 rounded-3xl inline-block shadow-inner">
                     {targetUrl ? (
                       <QRCodeSVG
                         value={targetUrl}
-                        size={320}
+                        size={270}
                         level="H"
                         includeMargin={true}
                       />
                     ) : (
-                      <div className="w-80 h-80 flex items-center justify-center bg-slate-100 rounded-2xl text-slate-400 font-bold">
+                      <div className="w-64 h-64 flex items-center justify-center bg-slate-100 rounded-2xl text-slate-400 font-bold">
                         生成中...
                       </div>
                     )}
                   </div>
-                  <p className="mt-4 text-2xl font-black text-blue-700 tracking-wide">
+                  <p className="mt-4 text-2xl font-black text-blue-800 tracking-wider">
                     ▲ スマホのカメラを向けてください ▲
                   </p>
                 </div>
 
-                <div className="w-full bg-slate-100 border-2 border-slate-300 rounded-2xl p-6 mt-6">
+                {/* フッターエリア */}
+                <div className="w-full bg-slate-50 border-2 border-slate-300 rounded-2xl p-5">
                   <p className="text-lg font-bold text-slate-800">
                     【案内】{item.note}
                   </p>
-                  <p className="text-xs text-slate-400 mt-2 break-all font-mono">
+                  <p className="text-xs text-slate-500 mt-2 break-all font-mono font-bold">
                     URL: {targetUrl}
                   </p>
                 </div>
@@ -161,7 +252,7 @@ export default function QRPrintPage() {
         </div>
       )}
 
-      {/* --- パターン 2: コンパクトカード一覧モード --- */}
+      {/* --- パターン 2: コンパクト一覧モード --- */}
       {mode === 'compact' && (
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4 print:p-0">
           {qrList.map((item, index) => {
@@ -191,7 +282,7 @@ export default function QRPrintPage() {
                     {targetUrl ? (
                       <QRCodeSVG
                         value={targetUrl}
-                        size={150}
+                        size={140}
                         level="M"
                         includeMargin={true}
                       />
