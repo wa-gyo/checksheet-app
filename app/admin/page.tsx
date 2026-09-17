@@ -169,7 +169,7 @@ export default function AdminDashboard() {
               対象日: <span className="text-sm text-blue-900 underline">{targetDate}</span>
             </div>
           </div>
-          <div className="text-right text-[11px] text-slate-500">
+          <div className="text-right text-[11px] text-slate-500" suppressHydrationWarning>
             出力: {new Date().toLocaleString('ja-JP')}
           </div>
         </div>
