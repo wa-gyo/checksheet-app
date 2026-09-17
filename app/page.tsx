@@ -5,13 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 // ==========================================
-// 1. 各種プルダウン・選択肢の編集エリア（変更なし）
+// 1. 各種プルダウン・選択肢の編集エリア
 // ==========================================
-const CHECKER_OPTIONS = ['山内', '五十嵐', '菊島', '高橋']; // アルコールチェック確認者
-const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076','ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004']; // 使用車両
-const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面']; // 行先
+const CHECKER_OPTIONS = ['山内', '五十嵐', '菊島', '高橋'];
+const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
+const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 
-// 日本時間の現在日時を取得（YYYY-MM-DDTHH:mm 形式）
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -20,15 +19,26 @@ const getNowJST = () => {
 
 type TabType = 'alcohol' | 'fish' | 'temp' | 'closing' | 'drive';
 
+const normalizeTab = (raw: string | null): TabType => {
+  if (!raw) return 'alcohol';
+  if (raw === 'temp_hygiene' || raw === 'temp') return 'temp';
+  if (raw === 'fish_processing' || raw === 'fish') return 'fish';
+  if (raw === 'alcohol') return 'alcohol';
+  if (raw === 'driving_report' || raw === 'drive') return 'drive';
+  if (raw === 'temp_closing' || raw === 'closing') return 'closing';
+  return 'alcohol';
+};
+
 function ChecksheetForm() {
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as TabType) || 'alcohol';
-
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  
+  // 初期タブを直接判定（初回レンダリング時から中身を表示させる）
+  const initialParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(initialParam));
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // 担当者名（localStorageで記憶＆オートコンプリート）
+  // 担当者名
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
@@ -88,17 +98,26 @@ function ChecksheetForm() {
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
 
+  // URLパラメータの監視（URLが変わった場合、または直接アクセス時のフォールバック同期）
   useEffect(() => {
-    const tabParam = searchParams.get('tab') as TabType;
-    if (['alcohol', 'fish', 'temp', 'closing', 'drive'].includes(tabParam)) {
-      setActiveTab(tabParam);
+    const rawParam = searchParams.get('tab') || new URLSearchParams(window.location.search).get('tab');
+    if (rawParam) {
+      setActiveTab(normalizeTab(rawParam));
     }
-    const savedName = localStorage.getItem('last_staff_name') || '';
-    if (savedName) setStaffName(savedName);
-
-    const history = JSON.parse(localStorage.getItem('staff_name_history') || '[]');
-    setStaffHistory(history);
   }, [searchParams]);
+
+  // localStorageの読み込み
+  useEffect(() => {
+    try {
+      const savedName = localStorage.getItem('last_staff_name') || '';
+      if (savedName) setStaffName(savedName);
+
+      const history = JSON.parse(localStorage.getItem('staff_name_history') || '[]');
+      setStaffHistory(history);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const fetchVehicleLastMeter = async (targetVehicle: string) => {
     if (!targetVehicle || targetVehicle === 'その他') {
@@ -164,10 +183,14 @@ function ChecksheetForm() {
 
   const saveStaffNameHistory = (name: string) => {
     if (!name.trim()) return;
-    localStorage.setItem('last_staff_name', name);
-    const updated = Array.from(new Set([name, ...staffHistory])).slice(0, 10);
-    localStorage.setItem('staff_name_history', JSON.stringify(updated));
-    setStaffHistory(updated);
+    try {
+      localStorage.setItem('last_staff_name', name);
+      const updated = Array.from(new Set([name, ...staffHistory])).slice(0, 10);
+      localStorage.setItem('staff_name_history', JSON.stringify(updated));
+      setStaffHistory(updated);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const alcNum = parseFloat(alcoholVal);
@@ -187,7 +210,7 @@ function ChecksheetForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffName.trim()) {
-      alert('担当者のお名前を入力してください');
+      alert('お名前を入力してください');
       return;
     }
 
@@ -380,7 +403,7 @@ function ChecksheetForm() {
           {[
             { key: 'alcohol', label: '🍺 アルコール' },
             { key: 'fish', label: '🐟 生魚加工' },
-            { key: 'temp', label: '🌡️ 出勤時温度' },
+            { key: 'temp', label: '🌡️ 保管庫温度' },
             { key: 'closing', label: '🌙 退勤前温度' },
             { key: 'drive', label: '🚗 運転日報' },
           ].map((tab) => (
@@ -404,7 +427,7 @@ function ChecksheetForm() {
       </div>
 
       <div className="max-w-xl mx-auto p-4 space-y-6">
-        {/* 送信成功メッセージ（超大型） */}
+        {/* 送信成功メッセージ */}
         {successMsg && (
           <div className="p-6 bg-emerald-100 border-4 border-emerald-500 text-emerald-950 rounded-2xl text-2xl text-center font-black shadow-lg animate-bounce">
             ✅ {successMsg}
@@ -415,7 +438,7 @@ function ChecksheetForm() {
           {/* 共通：担当者名 */}
           <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300">
             <label className="block text-xl font-black text-slate-900 mb-2">
-              担当者のお名前 <span className="text-red-600 text-2xl">*</span>
+              あなたのお名前 <span className="text-red-600 text-2xl">*</span>
             </label>
             <input
               type="text"
@@ -485,7 +508,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 測定値入力エリア（特大フォント＆特大0.00ボタン） */}
               <div className="bg-slate-50 p-5 rounded-2xl border-2 border-slate-300 space-y-3">
                 <div className="flex justify-between items-baseline">
                   <label className="text-xl font-black text-slate-900">
@@ -877,7 +899,6 @@ function ChecksheetForm() {
                 運転日報
               </h2>
 
-              {/* 段階切り替え（特大ボタン） */}
               <div className="grid grid-cols-2 gap-3 bg-slate-200 p-2 rounded-2xl">
                 <button
                   type="button"
@@ -1006,7 +1027,6 @@ function ChecksheetForm() {
                     />
                   </div>
 
-                  {/* 前回到達メーター表示 */}
                   {fetchingLastMeter ? (
                     <div className="text-sm text-slate-400 italic">車両の過去メーターを参照中...</div>
                   ) : lastRecordedMeter !== null ? (
@@ -1029,7 +1049,6 @@ function ChecksheetForm() {
                   )}
                 </div>
               ) : (
-                /* 帰社時ブロック */
                 (() => {
                   const currentDrive = activeDrives.find((d) => d.id === selectedDriveId);
                   const currentStartMeter = currentDrive ? Number(currentDrive.start_meter) : null;
@@ -1141,7 +1160,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン（超巨大ボタン） */}
+          {/* 送信ボタン */}
           <div className="pt-4">
             <button
               type="submit"
