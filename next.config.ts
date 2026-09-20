@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: 'export', // これが必須です（outフォルダを生成する設定）
+  images: {
+    unoptimized: true, // 静的エクスポート時の画像最適化エラーを防ぐ
+  },
 };
 
 export default nextConfig;
