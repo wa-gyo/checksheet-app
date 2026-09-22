@@ -8,10 +8,24 @@ const CHECKER_OPTIONS = ['山内', '五十嵐', '菊島', '高橋'];
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
+};
+
+// 画面表示用：西暦なし・曜日付き特大フォーマット（例: 9/22(火) 15:07）
+const formatDisplayJST = (isoString: string) => {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const month = d.getMonth() + 1;
+  const date = d.getDate();
+  const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+  const day = dayNames[d.getDay()];
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${month}/${date}(${day}) ${hours}:${minutes}`;
 };
 
 type TabType = 'alcohol' | 'fish' | 'temp' | 'closing' | 'drive';
@@ -26,12 +40,35 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度を微調整するヘルパー
+// 温度微調整ヘルパー
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseFloat(current) : defaultBase;
   if (isNaN(base)) return defaultBase.toFixed(1);
   return (Math.round((base + delta) * 10) / 10).toFixed(1);
 };
+
+// 日時表示コンポーネント（タップで時刻微調整も可能）
+function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="bg-slate-50 border-3 border-slate-300 rounded-2xl p-4">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-sm font-bold text-slate-500">記録日時</span>
+        <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">自動取得</span>
+      </div>
+      <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight text-center py-1">
+        {formatDisplayJST(value)}
+      </div>
+      <div className="mt-2 text-right">
+        <input
+          type="datetime-local"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="text-xs text-slate-400 border border-slate-200 rounded px-2 py-1 bg-white"
+        />
+      </div>
+    </div>
+  );
+}
 
 function ChecksheetForm() {
   const searchParams = useSearchParams();
@@ -43,7 +80,8 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // ---------------- 1. アルコール ----------------
+  // ---------------- 1. アルコール（出勤時 / 退勤時 セレクト対応） ----------------
+  const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [checkerType, setCheckerType] = useState(CHECKER_OPTIONS[0] || '');
   const [customChecker, setCustomChecker] = useState('');
@@ -219,13 +257,15 @@ function ChecksheetForm() {
         if (!checker.trim()) throw new Error('確認者を入力してください');
         if (alcoholVal === '') throw new Error('アルコール測定値を入力してください');
 
+        const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
+
         const { error } = await supabase.from('check_alcohol').insert([
           {
             checked_at: new Date(alcoholDate).toISOString(),
             staff_name: staffName,
             checker_name: checker,
             alcohol_value: parseFloat(alcoholVal),
-            notes: alcoholNotes,
+            notes: `${timingLabel} ${alcoholNotes}`.trim(),
           },
         ]);
         if (error) throw error;
@@ -264,7 +304,6 @@ function ChecksheetForm() {
         setToolsHygiene('');
         setFishNotes('');
       } else if (activeTab === 'temp') {
-        // 全5箇所の温度入力を厳格にチェック（空文字禁止）
         if (mainFreezerTemp === '') throw new Error('「本庫温度」を入力してください');
         if (room2Temp === '') throw new Error('「2号室温度」を入力してください');
         if (fishStorageTemp === '') throw new Error('「鮮魚庫温度」を入力してください');
@@ -297,7 +336,6 @@ function ChecksheetForm() {
         setPestEvidence('');
         setTempNotes('');
       } else if (activeTab === 'closing') {
-        // 退勤前の2室の温度入力を厳格にチェック
         if (closingMainTemp === '') throw new Error('「本庫温度」を入力してください');
         if (closingRoom2Temp === '') throw new Error('「2号室温度」を入力してください');
 
@@ -401,6 +439,7 @@ function ChecksheetForm() {
         <h1 className="text-2xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
+      {/* タブナビゲーション */}
       <div className="bg-white border-b-4 border-slate-300 sticky top-[72px] z-20 overflow-x-auto shadow-md">
         <div className="flex px-3 py-3 gap-2 min-w-max">
           {[
@@ -457,21 +496,37 @@ function ChecksheetForm() {
             </datalist>
           </div>
 
-          {/* ---------------- 1. アルコールチェック ---------------- */}
+          {/* ---------------- 1. アルコールチェック（出勤時 / 退勤時 セレクト化） ---------------- */}
           {activeTab === 'alcohol' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-blue-600 pl-3">
                 アルコールチェック記録
               </h2>
-              <div>
-                <label className="block text-lg font-bold text-slate-700 mb-2">確認日時</label>
-                <input
-                  type="datetime-local"
-                  value={alcoholDate}
-                  onChange={(e) => setAlcoholDate(e.target.value)}
-                  className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-lg font-bold"
-                />
+
+              {/* 出勤時・退勤時の切り替えボタン */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-200 p-2 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setAlcoholMode('start')}
+                  className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
+                    alcoholMode === 'start' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300' : 'text-slate-800'
+                  }`}
+                >
+                  ① 出勤時（業務前）
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAlcoholMode('finish')}
+                  className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
+                    alcoholMode === 'finish' ? 'bg-indigo-700 text-white shadow-lg ring-2 ring-indigo-300' : 'text-slate-800'
+                  }`}
+                >
+                  ② 退勤時（業務後）
+                </button>
               </div>
+
+              {/* 特大日時表示 */}
+              <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
 
               <div>
                 <div className="flex flex-wrap justify-between items-baseline mb-2 gap-2">
@@ -583,15 +638,7 @@ function ChecksheetForm() {
                 生魚加工衛生管理
               </h2>
 
-              <div>
-                <label className="block text-lg font-bold text-slate-700 mb-2">記入日時</label>
-                <input
-                  type="datetime-local"
-                  value={fishDate}
-                  onChange={(e) => setFishDate(e.target.value)}
-                  className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-lg font-bold"
-                />
-              </div>
+              <BigDateDisplay value={fishDate} onChange={setFishDate} />
 
               <div className="border-t-3 border-slate-200 pt-5">
                 <div className="text-xl font-black text-slate-900">
@@ -697,7 +744,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ---------------- 3. 温度衛生管理（出勤時：簡単入力＋必須化） ---------------- */}
+          {/* ---------------- 3. 保管庫温度管理 ---------------- */}
           {activeTab === 'temp' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-cyan-600 pl-3">
@@ -707,15 +754,7 @@ function ChecksheetForm() {
                 ⚠️ 全ての温度入力が必須です。ボタンを押すだけで目安温度を一発入力できます。
               </div>
 
-              <div>
-                <label className="block text-lg font-bold text-slate-700 mb-2">記入日時</label>
-                <input
-                  type="datetime-local"
-                  value={tempDate}
-                  onChange={(e) => setTempDate(e.target.value)}
-                  className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-lg font-bold"
-                />
-              </div>
+              <BigDateDisplay value={tempDate} onChange={setTempDate} />
 
               {[
                 { label: '本庫温度', target: 'マイナス20℃目安', val: mainFreezerTemp, set: setMainFreezerTemp, base: -20.0 },
@@ -734,7 +773,6 @@ function ChecksheetForm() {
                     </span>
                   </div>
 
-                  {/* 一発入力・微調整ボタン群 */}
                   <div className="grid grid-cols-4 gap-2 mb-3">
                     <button
                       type="button"
@@ -846,24 +884,15 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ---------------- 4. 温度衛生管理（退勤前：簡単入力＋必須化） ---------------- */}
+          {/* ---------------- 4. 退勤前温度管理 ---------------- */}
           {activeTab === 'closing' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-indigo-600 pl-3">
                 退勤前温度管理
               </h2>
 
-              <div>
-                <label className="block text-lg font-bold text-slate-700 mb-2">記入日時</label>
-                <input
-                  type="datetime-local"
-                  value={closingDate}
-                  onChange={(e) => setClosingDate(e.target.value)}
-                  className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-lg font-bold"
-                />
-              </div>
+              <BigDateDisplay value={closingDate} onChange={setClosingDate} />
 
-              {/* 本庫 */}
               <div>
                 <div className="flex flex-wrap justify-between items-baseline mb-2 gap-2">
                   <label className="text-xl font-black text-slate-900">
@@ -915,7 +944,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 2号室 */}
               <div>
                 <div className="flex flex-wrap justify-between items-baseline mb-2 gap-2">
                   <label className="text-xl font-black text-slate-900">
@@ -1081,15 +1109,9 @@ function ChecksheetForm() {
                   </div>
 
                   <div>
-                    <label className="block text-base font-bold text-slate-700 mb-2">出発日時</label>
-                    <input
-                      type="datetime-local"
-                      value={driveStart}
-                      onChange={(e) => setDriveStart(e.target.value)}
-                      className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-lg font-bold mb-4"
-                    />
+                    <BigDateDisplay value={driveStart} onChange={setDriveStart} />
 
-                    <div className="flex justify-between items-baseline mb-2">
+                    <div className="flex justify-between items-baseline mb-2 mt-4">
                       <label className="text-xl font-black text-slate-900">
                         乗車時メーター (km) <span className="text-red-600">*</span>
                       </label>
@@ -1169,15 +1191,9 @@ function ChecksheetForm() {
                       </div>
 
                       <div>
-                        <label className="block text-base font-bold text-slate-700 mb-2">帰社日時</label>
-                        <input
-                          type="datetime-local"
-                          value={driveEnd}
-                          onChange={(e) => setDriveEnd(e.target.value)}
-                          className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-lg font-bold mb-4"
-                        />
+                        <BigDateDisplay value={driveEnd} onChange={setDriveEnd} />
 
-                        <div className="flex justify-between items-baseline mb-2">
+                        <div className="flex justify-between items-baseline mb-2 mt-4">
                           <label className="text-xl font-black text-slate-900">
                             降車時メーター (km) <span className="text-red-600">*</span>
                           </label>
@@ -1260,6 +1276,10 @@ function ChecksheetForm() {
                 ? driveMode === 'start'
                   ? '① 出発を記録する'
                   : '② 運行完了を記録する'
+                : activeTab === 'alcohol'
+                ? alcoholMode === 'start'
+                  ? '① 出勤時アルコール記録を送信'
+                  : '② 退勤時アルコール記録を送信'
                 : '送信する'}
             </button>
           </div>
