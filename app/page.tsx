@@ -15,6 +15,13 @@ const getNowJST = () => {
   return now.toISOString().slice(0, 16);
 };
 
+// 本日（当日朝0時）のISO文字列を取得（前日分混入防止用）
+const getTodayStartISO = () => {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return now.toISOString();
+};
+
 // 画面表示用：西暦なし・曜日付き特大フォーマット（例: 9/22(火) 15:07）
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
@@ -80,13 +87,17 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // ---------------- 1. アルコール（出勤時 / 退勤時 セレクト対応） ----------------
+  // ---------------- 1. アルコール（出勤時 / 退勤時 連動） ----------------
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [checkerType, setCheckerType] = useState(CHECKER_OPTIONS[0] || '');
   const [customChecker, setCustomChecker] = useState('');
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
+
+  // 退勤時選択用の本日出勤者リスト
+  const [todayActiveAlcoholStaff, setTodayActiveAlcoholStaff] = useState<any[]>([]);
+  const [selectedAlcoholStaffId, setSelectedAlcoholStaffId] = useState<string>('custom');
 
   // ---------------- 2. 生魚加工 ----------------
   const [fishDate, setFishDate] = useState(getNowJST());
@@ -152,6 +163,49 @@ function ChecksheetForm() {
       console.error(e);
     }
   }, []);
+
+  // 本日出勤記録のあるアルコールチェックデータを取得（退勤時の選択肢用）
+  const fetchTodayAlcoholStaff = async () => {
+    try {
+      const todayStart = getTodayStartISO();
+      const { data, error } = await supabase
+        .from('check_alcohol')
+        .select('*')
+        .gte('checked_at', todayStart)
+        .ilike('notes', '%出勤時%')
+        .order('checked_at', { ascending: false });
+
+      if (error) throw error;
+      setTodayActiveAlcoholStaff(data || []);
+      if (data && data.length > 0) {
+        setSelectedAlcoholStaffId(data[0].id);
+        setStaffName(data[0].staff_name);
+      } else {
+        setSelectedAlcoholStaffId('custom');
+      }
+    } catch (e) {
+      console.error('Failed to fetch today alcohol staff:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'alcohol' && alcoholMode === 'finish') {
+      fetchTodayAlcoholStaff();
+    }
+  }, [activeTab, alcoholMode]);
+
+  const handleSelectAlcoholStaff = (id: string) => {
+    setSelectedAlcoholStaffId(id);
+    if (id === 'custom') {
+      const savedName = localStorage.getItem('last_staff_name') || '';
+      setStaffName(savedName);
+    } else {
+      const target = todayActiveAlcoholStaff.find((item) => item.id === id);
+      if (target) {
+        setStaffName(target.staff_name);
+      }
+    }
+  };
 
   const fetchVehicleLastMeter = async (targetVehicle: string) => {
     if (!targetVehicle || targetVehicle === 'その他') {
@@ -271,6 +325,9 @@ function ChecksheetForm() {
         if (error) throw error;
         setAlcoholVal('');
         setAlcoholNotes('');
+        if (alcoholMode === 'finish') {
+          await fetchTodayAlcoholStaff();
+        }
       } else if (activeTab === 'fish') {
         if (!healthStatus) throw new Error('健康状態を選択してください');
         if (!handWashing) throw new Error('手洗い実施を選択してください');
@@ -476,6 +533,7 @@ function ChecksheetForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 共通：担当者名（退勤時の選択連動時は自動入力） */}
           <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300">
             <label className="block text-xl font-black text-slate-900 mb-2">
               あなたのお名前 <span className="text-red-600 text-2xl">*</span>
@@ -496,14 +554,14 @@ function ChecksheetForm() {
             </datalist>
           </div>
 
-          {/* ---------------- 1. アルコールチェック（出勤時 / 退勤時 セレクト化） ---------------- */}
+          {/* ---------------- 1. アルコールチェック（出勤・退勤選択連動） ---------------- */}
           {activeTab === 'alcohol' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-blue-600 pl-3">
                 アルコールチェック記録
               </h2>
 
-              {/* 出勤時・退勤時の切り替えボタン */}
+              {/* 出勤時・退勤時切り替え */}
               <div className="grid grid-cols-2 gap-3 bg-slate-200 p-2 rounded-2xl">
                 <button
                   type="button"
@@ -516,7 +574,10 @@ function ChecksheetForm() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAlcoholMode('finish')}
+                  onClick={() => {
+                    setAlcoholMode('finish');
+                    fetchTodayAlcoholStaff();
+                  }}
                   className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
                     alcoholMode === 'finish' ? 'bg-indigo-700 text-white shadow-lg ring-2 ring-indigo-300' : 'text-slate-800'
                   }`}
@@ -524,6 +585,41 @@ function ChecksheetForm() {
                   ② 退勤時（業務後）
                 </button>
               </div>
+
+              {/* 退勤時：本日出勤済みリストからの選択（逃げ道付き） */}
+              {alcoholMode === 'finish' && (
+                <div className="bg-indigo-50 border-3 border-indigo-300 p-4 rounded-2xl space-y-2">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-lg font-black text-indigo-950">
+                      退勤する担当者を選択
+                    </label>
+                    <span className="text-xs font-bold text-indigo-700">本日出勤者</span>
+                  </div>
+                  <select
+                    value={selectedAlcoholStaffId}
+                    onChange={(e) => handleSelectAlcoholStaff(e.target.value)}
+                    className="w-full h-16 px-4 border-3 border-indigo-400 bg-white rounded-2xl text-lg font-black"
+                  >
+                    {todayActiveAlcoholStaff.length > 0 && (
+                      <optgroup label="本日の出勤記録あり（タップで選択）">
+                        {todayActiveAlcoholStaff.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.staff_name} さん（出勤記録: {formatDisplayJST(item.checked_at)}）
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="その他の場合">
+                      <option value="custom">一覧にない場合（朝未記録・手入力）</option>
+                    </optgroup>
+                  </select>
+                  {selectedAlcoholStaffId === 'custom' && (
+                    <p className="text-xs text-indigo-800 font-bold">
+                      ※朝の記録を忘れた場合も、上部の「あなたのお名前」を入力すれば退勤記録が可能です。
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* 特大日時表示 */}
               <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
@@ -722,13 +818,13 @@ function ChecksheetForm() {
                               ? 'bg-emerald-600 text-white border-emerald-800 shadow-lg scale-[1.02]'
                               : 'bg-red-600 text-white border-red-800 shadow-lg scale-[1.02]'
                             : 'bg-slate-50 text-slate-800 border-slate-300'
-                        }`}
-                      >
-                        {btn.label}
-                      </button>
-                    ))}
-                  </div>
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
                 </div>
+              </div>
               ))}
 
               <div className="border-t-3 border-slate-200 pt-5">
