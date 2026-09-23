@@ -923,7 +923,7 @@ function ChecksheetForm() {
                   rows={3}
                   value={receivingNotes}
                   onChange={(e) => setReceivingNotes(e.target.value)}
-                  placeholder="「わるい」がある場合は、納品業者名、品名、具体的な破損・温度異常の状態、指示内容を必ず記入してください。"
+                  placeholder="「わるい」がある場合は、品名、担当営業名、具体的な破損・温度異常の状態、指示内容を必ず記入してください。"
                   className={`w-full p-4 text-lg border-3 rounded-2xl ${
                     (pkgStatus === 'わるい' || freshnessStatus === 'わるい' || transitTempStatus === 'わるい') && !receivingNotes.trim()
                       ? 'border-red-500 bg-red-50/50'
