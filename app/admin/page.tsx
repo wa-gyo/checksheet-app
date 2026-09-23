@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   const [fishes, setFishes] = useState<any[]>([]);
   const [temps, setTemps] = useState<any[]>([]);
   const [closings, setClosings] = useState<any[]>([]);
+  const [receivings, setReceivings] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
 
   // データ取得
@@ -26,7 +27,7 @@ export default function AdminDashboard() {
     const end = `${dateStr}T23:59:59+09:00`;
 
     try {
-      // 1. アルコール
+      // 1. 基本チェック（アルコール・体調）
       const { data: dAlc } = await supabase
         .from('check_alcohol')
         .select('*')
@@ -44,7 +45,7 @@ export default function AdminDashboard() {
         .order('checked_at', { ascending: true });
       setFishes(dFish || []);
 
-      // 3. 温度管理
+      // 3. 温度管理（日常・出勤時）
       const { data: dTemp } = await supabase
         .from('check_temp_hygiene')
         .select('*')
@@ -62,7 +63,16 @@ export default function AdminDashboard() {
         .order('checked_at', { ascending: true });
       setClosings(dClose || []);
 
-      // 5. 運転日報
+      // 5. 荷物受入（専用テーブル）
+      const { data: dRec } = await supabase
+        .from('check_receiving')
+        .select('*')
+        .gte('checked_at', start)
+        .lte('checked_at', end)
+        .order('checked_at', { ascending: true });
+      setReceivings(dRec || []);
+
+      // 6. 運転日報
       const { data: dDrive } = await supabase
         .from('check_driving_report')
         .select('*')
@@ -133,9 +143,9 @@ export default function AdminDashboard() {
         <div className="mt-3 pt-3 border-t border-slate-100 flex gap-1.5 overflow-x-auto">
           {[
             { key: 'all', label: '📋 日報まとめ（一括・印刷用）' },
-            { key: 'temp', label: `🌡️ 温度管理 (${temps.length + closings.length})` },
+            { key: 'temp', label: `🌡️ 温度・受入管理 (${temps.length + closings.length + receivings.length})` },
             { key: 'fish', label: `🐟 生魚加工 (${fishes.length})` },
-            { key: 'alcohol', label: `🍺 アルコール (${alcohols.length})` },
+            { key: 'alcohol', label: `📋 基本・点呼 (${alcohols.length})` },
             { key: 'drive', label: `🚗 運転日報 (${drives.length})` },
           ].map((tab) => (
             <button
@@ -160,9 +170,9 @@ export default function AdminDashboard() {
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
               {viewMode === 'all' && '業務点検日報（日次取りまとめ）'}
-              {viewMode === 'temp' && '温度衛生管理 点検記録簿'}
+              {viewMode === 'temp' && '温度衛生管理・荷物受入 点検記録簿'}
               {viewMode === 'fish' && '生魚加工 衛生管理点検記録簿'}
-              {viewMode === 'alcohol' && 'アルコールチェック点検簿（対面確認）'}
+              {viewMode === 'alcohol' && '基本チェック・点呼記録簿（対面確認）'}
               {viewMode === 'drive' && '運転日報 運行記録簿'}
             </h2>
             <div className="text-xs font-bold text-slate-700 mt-1">
@@ -179,14 +189,16 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-6 print:space-y-4 text-xs">
             {/* ========================================================
-                1. 温度衛生管理（日常・出勤時 & 退勤前）
+                1. 温度衛生管理（出勤時 & 退勤前 & 荷物受入）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'temp') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-cyan-600 mb-2">
-                  1. 温度衛生管理（日常・出勤時 & 退勤前）
+                  1. 温度衛生管理（日常・出勤時 & 退勤前 & 荷物受入）
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
+
+                {/* 温度管理グリッド（出勤時・退勤前） */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 mb-3">
                   {/* 出勤時 */}
                   <div className="border border-slate-300 rounded p-2.5">
                     <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 日常・出勤時 点検</div>
@@ -200,11 +212,11 @@ export default function AdminDashboard() {
                             <span>{new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-x-2 gap-y-1 bg-slate-50 p-2 rounded font-mono">
-                            <div>本庫: <b>{row.main_freezer_temp ?? '-'}℃</b></div>
-                            <div>2号室: <b>{row.room2_freezer_temp ?? '-'}℃</b></div>
-                            <div>鮮魚庫: <b>{row.fish_storage_temp ?? '-'}℃</b></div>
-                            <div>定温売場: <b>{row.constant_floor_temp ?? '-'}℃</b></div>
-                            <div>売場(場内): <b>{row.floor_temp ?? '-'}℃</b></div>
+                            <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
+                            <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
+                            <div>鮮魚庫: <b>{row.fish_storage_temp !== null ? `${row.fish_storage_temp}℃` : '-'}</b></div>
+                            <div>定温売場: <b>{row.constant_floor_temp !== null ? `${row.constant_floor_temp}℃` : '-'}</b></div>
+                            <div>売場(場内): <b>{row.floor_temp !== null ? `${row.floor_temp}℃` : '-'}</b></div>
                           </div>
                           <div className="text-[11px] text-slate-600 space-y-0.5">
                             <div>太物売場衛生: <b>{row.processing_zone_status}</b></div>
@@ -229,14 +241,63 @@ export default function AdminDashboard() {
                             <span>{new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-x-2 gap-y-1 bg-slate-50 p-2 rounded font-mono">
-                            <div>本庫: <b>{row.main_freezer_temp ?? '-'}℃</b></div>
-                            <div>2号室: <b>{row.room2_freezer_temp ?? '-'}℃</b></div>
+                            <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
+                            <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
                           </div>
                           {row.notes && <div className="text-[11px] text-amber-800">特記: {row.notes}</div>}
                         </div>
                       ))
                     )}
                   </div>
+                </div>
+
+                {/* ★ 荷物受入 点検記録（内包表示） */}
+                <div className="border border-slate-300 rounded p-2.5 bg-white">
+                  <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
+                    <span>■ 荷物受入 点検記録</span>
+                    <span className="text-[11px] text-slate-500 font-normal">（外観・包装破損／鮮度におい／輸送温度）</span>
+                  </div>
+                  {receivings.length === 0 ? (
+                    <div className="text-slate-400 italic p-1">記録なし</div>
+                  ) : (
+                    <table className="w-full border-collapse border border-slate-300">
+                      <thead>
+                        <tr className="bg-slate-50 text-center">
+                          <th className="border border-slate-300 p-1">受入時刻</th>
+                          <th className="border border-slate-300 p-1">受入担当</th>
+                          <th className="border border-slate-300 p-1">外観・包装</th>
+                          <th className="border border-slate-300 p-1">鮮度・におい</th>
+                          <th className="border border-slate-300 p-1">輸送温度</th>
+                          <th className="border border-slate-300 p-1">特記事項・連絡事項</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {receivings.map((row) => {
+                          const hasBad = row.pkg_status === 'わるい' || row.freshness_status === 'わるい' || row.transit_temp_status === 'わるい';
+                          return (
+                            <tr key={row.id} className="text-center">
+                              <td className="border border-slate-300 p-1 font-mono">
+                                {new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
+                              <td className={`border border-slate-300 p-1 ${row.pkg_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                                {row.pkg_status}
+                              </td>
+                              <td className={`border border-slate-300 p-1 ${row.freshness_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                                {row.freshness_status}
+                              </td>
+                              <td className={`border border-slate-300 p-1 ${row.transit_temp_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                                {row.transit_temp_status}
+                              </td>
+                              <td className={`border border-slate-300 p-1 text-left ${hasBad ? 'text-red-700 font-bold' : ''}`}>
+                                {row.notes || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </section>
             )}
@@ -297,12 +358,12 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. アルコールチェック点検簿（対面確認）
+                3. 基本チェック・点呼記録簿（対面確認）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-blue-600 mb-2">
-                  3. アルコールチェック点検簿（対面確認）
+                  3. 基本チェック・点呼記録簿（対面確認）
                 </h3>
                 {alcohols.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
@@ -315,7 +376,7 @@ export default function AdminDashboard() {
                         <th className="border border-slate-300 p-1.5">確認者名</th>
                         <th className="border border-slate-300 p-1.5">測定値 (mg/L)</th>
                         <th className="border border-slate-300 p-1.5">判定</th>
-                        <th className="border border-slate-300 p-1.5">特記事項</th>
+                        <th className="border border-slate-300 p-1.5">点検・特記事項</th>
                       </tr>
                     </thead>
                     <tbody>

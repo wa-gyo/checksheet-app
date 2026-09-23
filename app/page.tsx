@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const CHECKER_OPTIONS = ['山内', '五十嵐', '菊島', '高橋'];
+const CHECKER_OPTIONS = ['石川', '武藤', '長谷川', '五十嵐'];
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 
@@ -15,7 +15,7 @@ const getNowJST = () => {
   return now.toISOString().slice(0, 16);
 };
 
-// 画面表示用：西暦なし・曜日付き特大フォーマット（例: 9/22(火) 15:07）
+// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -28,13 +28,14 @@ const formatDisplayJST = (isoString: string) => {
   return `${month}/${date}(${day}) ${hours}:${minutes}`;
 };
 
-type TabType = 'alcohol' | 'fish' | 'temp' | 'closing' | 'drive';
+type TabType = 'alcohol' | 'fish' | 'temp' | 'receiving' | 'closing' | 'drive';
 
 const normalizeTab = (raw: string | null): TabType => {
   if (!raw) return 'alcohol';
   if (raw === 'temp_hygiene' || raw === 'temp') return 'temp';
   if (raw === 'fish_processing' || raw === 'fish') return 'fish';
-  if (raw === 'alcohol') return 'alcohol';
+  if (raw === 'alcohol' || raw === 'basic') return 'alcohol';
+  if (raw === 'receiving') return 'receiving';
   if (raw === 'driving_report' || raw === 'drive') return 'drive';
   if (raw === 'temp_closing' || raw === 'closing') return 'closing';
   return 'alcohol';
@@ -50,20 +51,20 @@ const adjustTempValue = (current: string, delta: number, defaultBase: number): s
 // 日時表示コンポーネント（タップで時刻微調整も可能）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="bg-slate-50 border-3 border-slate-300 rounded-2xl p-4">
+    <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-bold text-slate-500">記録日時</span>
-        <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">自動取得</span>
+        <span className="text-xs font-bold text-slate-500">記録日時</span>
+        <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">自動取得</span>
       </div>
       <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight text-center py-1">
         {formatDisplayJST(value)}
       </div>
-      <div className="mt-2 text-right">
+      <div className="mt-1 text-right">
         <input
           type="datetime-local"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="text-xs text-slate-400 border border-slate-200 rounded px-2 py-1 bg-white"
+          className="text-[11px] text-slate-400 border border-slate-200 rounded px-2 py-0.5 bg-white"
         />
       </div>
     </div>
@@ -80,9 +81,11 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // ---------------- 1. アルコール（出勤時 / 退勤時 セレクト対応） ----------------
+  // ---------------- 1. 基本チェック（体調＋手の衛生＋アルコール） ----------------
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
+  const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
+  const [handHygieneStatus, setHandHygieneStatus] = useState<'良' | '否' | ''>('');
   const [checkerType, setCheckerType] = useState(CHECKER_OPTIONS[0] || '');
   const [customChecker, setCustomChecker] = useState('');
   const [alcoholVal, setAlcoholVal] = useState('');
@@ -99,7 +102,14 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // ---------------- 3. 保管庫温度 ----------------
+  // ---------------- 3. 荷物受入（3項目） ----------------
+  const [receivingDate, setReceivingDate] = useState(getNowJST());
+  const [pkgStatus, setPkgStatus] = useState<'よい' | 'わるい' | ''>('');
+  const [freshnessStatus, setFreshnessStatus] = useState<'よい' | 'わるい' | ''>('');
+  const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
+  const [receivingNotes, setReceivingNotes] = useState('');
+
+  // ---------------- 4. 保管庫温度 ----------------
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -110,13 +120,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // ---------------- 4. 退勤前温度 ----------------
+  // ---------------- 5. 退勤前温度 ----------------
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // ---------------- 5. 運転日報 ----------------
+  // ---------------- 6. 運転日報 ----------------
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -141,6 +151,28 @@ function ChecksheetForm() {
       setActiveTab(normalizeTab(rawParam));
     }
   }, [searchParams]);
+
+  // タブ切り替え時に現在時刻を各入力欄へ即時反映
+  useEffect(() => {
+    const now = getNowJST();
+    if (activeTab === 'alcohol') {
+      setAlcoholDate(now);
+    } else if (activeTab === 'receiving') {
+      setReceivingDate(now);
+    } else if (activeTab === 'fish') {
+      setFishDate(now);
+    } else if (activeTab === 'temp') {
+      setTempDate(now);
+    } else if (activeTab === 'closing') {
+      setClosingDate(now);
+    } else if (activeTab === 'drive') {
+      if (driveMode === 'start') {
+        setDriveStart(now);
+      } else {
+        setDriveEnd(now);
+      }
+    }
+  }, [activeTab, driveMode]);
 
   useEffect(() => {
     try {
@@ -253,11 +285,15 @@ function ChecksheetForm() {
 
     try {
       if (activeTab === 'alcohol') {
+        if (!basicHealthStatus) throw new Error('体調チェックを選択してください');
+        if (!handHygieneStatus) throw new Error('手の衛生チェックを選択してください');
         const checker = checkerType === 'その他' ? customChecker : checkerType;
         if (!checker.trim()) throw new Error('確認者を入力してください');
         if (alcoholVal === '') throw new Error('アルコール測定値を入力してください');
 
         const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
+        const healthNote = `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】`;
+        const handNote = `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】`;
 
         const { error } = await supabase.from('check_alcohol').insert([
           {
@@ -265,12 +301,42 @@ function ChecksheetForm() {
             staff_name: staffName,
             checker_name: checker,
             alcohol_value: parseFloat(alcoholVal),
-            notes: `${timingLabel} ${alcoholNotes}`.trim(),
+            notes: `${timingLabel} ${healthNote} ${handNote} ${alcoholNotes}`.trim(),
           },
         ]);
         if (error) throw error;
         setAlcoholVal('');
         setAlcoholNotes('');
+        setBasicHealthStatus('');
+        setHandHygieneStatus('');
+      } else if (activeTab === 'receiving') {
+        if (!pkgStatus) throw new Error('外観・包装の破損有無を選択してください');
+        if (!freshnessStatus) throw new Error('鮮度・においを選択してください');
+        if (!transitTempStatus) throw new Error('輸送温度を選択してください');
+
+        // 「わるい」が選択されている場合は特記事項を必須化
+        const hasBad = pkgStatus === 'わるい' || freshnessStatus === 'わるい' || transitTempStatus === 'わるい';
+        if (hasBad && !receivingNotes.trim()) {
+          throw new Error('「わるい」が選択されている項目があります。特記事項に具体的な状態や対応内容を必ず記入してください。');
+        }
+
+        // 専用テーブル check_receiving への安全な保存
+        const { error } = await supabase.from('check_receiving').insert([
+          {
+            checked_at: new Date(receivingDate).toISOString(),
+            staff_name: staffName,
+            pkg_status: pkgStatus,
+            freshness_status: freshnessStatus,
+            transit_temp_status: transitTempStatus,
+            notes: receivingNotes.trim() || null,
+          },
+        ]);
+        if (error) throw error;
+
+        setPkgStatus('');
+        setFreshnessStatus('');
+        setTransitTempStatus('');
+        setReceivingNotes('');
       } else if (activeTab === 'fish') {
         if (!healthStatus) throw new Error('健康状態を選択してください');
         if (!handWashing) throw new Error('手洗い実施を選択してください');
@@ -443,9 +509,10 @@ function ChecksheetForm() {
       <div className="bg-white border-b-4 border-slate-300 sticky top-[72px] z-20 overflow-x-auto shadow-md">
         <div className="flex px-3 py-3 gap-2 min-w-max">
           {[
-            { key: 'alcohol', label: '🍺 アルコール' },
-            { key: 'fish', label: '🐟 生魚加工' },
+            { key: 'alcohol', label: '📋 基本チェック' },
+            { key: 'receiving', label: '📦 荷物受入' },
             { key: 'temp', label: '🌡️ 保管庫温度' },
+            { key: 'fish', label: '🐟 生魚加工' },
             { key: 'closing', label: '🌙 退勤前温度' },
             { key: 'drive', label: '🚗 運転日報' },
           ].map((tab) => (
@@ -496,142 +563,303 @@ function ChecksheetForm() {
             </datalist>
           </div>
 
-          {/* ---------------- 1. アルコールチェック（出勤時 / 退勤時 セレクト化） ---------------- */}
+          {/* ---------------- 1. 基本チェック ---------------- */}
           {activeTab === 'alcohol' && (
-            <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
-              <h2 className="font-black text-2xl text-slate-900 border-l-8 border-blue-600 pl-3">
-                アルコールチェック記録
-              </h2>
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-5">
+                <h2 className="font-black text-2xl text-slate-900 border-l-8 border-blue-600 pl-3">
+                  基本チェック
+                </h2>
 
-              {/* 出勤時・退勤時の切り替えボタン */}
-              <div className="grid grid-cols-2 gap-3 bg-slate-200 p-2 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => setAlcoholMode('start')}
-                  className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
-                    alcoholMode === 'start' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300' : 'text-slate-800'
-                  }`}
-                >
-                  ① 出勤時（業務前）
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAlcoholMode('finish')}
-                  className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
-                    alcoholMode === 'finish' ? 'bg-indigo-700 text-white shadow-lg ring-2 ring-indigo-300' : 'text-slate-800'
-                  }`}
-                >
-                  ② 退勤時（業務後）
-                </button>
+                <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
+
+                {/* 体調チェック項目 */}
+                <div className="bg-white border-2 border-slate-300 p-5 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xl font-black text-slate-900">
+                      体調チェック <span className="text-red-600">*</span>
+                    </label>
+                    <span className="text-sm font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-300">
+                      出勤時
+                    </span>
+                  </div>
+
+                  <div className="text-base sm:text-lg font-black text-red-950 bg-amber-100 p-4 rounded-xl border-2 border-amber-400 shadow-sm leading-snug">
+                    ※本人、同居者に発熱、下痢、嘔吐がない
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setBasicHealthStatus('良')}
+                      className={`h-18 text-lg font-black rounded-2xl border-2 transition-all ${
+                        basicHealthStatus === '良'
+                          ? 'bg-emerald-600 text-white border-emerald-800 shadow-md scale-[1.01]'
+                          : 'bg-white text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      ○ よい（症状なし）
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBasicHealthStatus('否')}
+                      className={`h-18 text-lg font-black rounded-2xl border-2 transition-all ${
+                        basicHealthStatus === '否'
+                          ? 'bg-red-600 text-white border-red-800 shadow-md scale-[1.01]'
+                          : 'bg-white text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      ○ 否（要報告）
+                    </button>
+                  </div>
+                </div>
+
+                {/* 手の衛生チェック項目 */}
+                <div className="bg-white border-2 border-slate-300 p-5 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xl font-black text-slate-900">
+                      手の衛生チェック <span className="text-red-600">*</span>
+                    </label>
+                    <span className="text-sm font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-300">
+                      点検項目
+                    </span>
+                  </div>
+
+                  <div className="text-sm sm:text-base font-black text-slate-800 bg-blue-50 p-3 rounded-xl border border-blue-200 leading-snug">
+                    ※爪の長さ・手荒れ・傷・手指消毒の実施
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setHandHygieneStatus('良')}
+                      className={`h-18 text-lg font-black rounded-2xl border-2 transition-all ${
+                        handHygieneStatus === '良'
+                          ? 'bg-emerald-600 text-white border-emerald-800 shadow-md scale-[1.01]'
+                          : 'bg-white text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      ○ よい（異常なし）
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHandHygieneStatus('否')}
+                      className={`h-18 text-lg font-black rounded-2xl border-2 transition-all ${
+                        handHygieneStatus === '否'
+                          ? 'bg-red-600 text-white border-red-800 shadow-md scale-[1.01]'
+                          : 'bg-white text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      ○ 否（要報告）
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* 特大日時表示 */}
-              <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
+              {/* アルコールチェックカード */}
+              <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
+                <h3 className="font-black text-2xl text-slate-900 border-l-8 border-blue-600 pl-3">
+                  アルコールチェック
+                </h3>
 
-              <div>
-                <div className="flex flex-wrap justify-between items-baseline mb-2 gap-2">
-                  <label className="text-xl font-black text-slate-900">
-                    確認者（対面確認） <span className="text-red-600">*</span>
-                  </label>
-                  <span className="text-sm font-black text-amber-900 bg-amber-100 px-3 py-1 rounded-lg border-2 border-amber-300">
-                    第三者と対面
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <select
-                    value={checkerType}
-                    onChange={(e) => setCheckerType(e.target.value)}
-                    className="w-full h-16 px-4 border-3 border-slate-400 rounded-2xl text-xl font-black bg-white"
-                  >
-                    {CHECKER_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                    <option value="その他">その他（手入力）</option>
-                  </select>
-                  {checkerType === 'その他' && (
-                    <input
-                      type="text"
-                      placeholder="確認者の名前を入力"
-                      value={customChecker}
-                      onChange={(e) => setCustomChecker(e.target.value)}
-                      className="w-full h-16 px-4 border-3 border-blue-400 bg-blue-50 rounded-2xl text-xl font-bold"
-                      required
-                    />
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-5 rounded-2xl border-2 border-slate-300 space-y-3">
-                <div className="flex justify-between items-baseline">
-                  <label className="text-xl font-black text-slate-900">
-                    測定数値 (mg/L) <span className="text-red-600">*</span>
-                  </label>
-                  <span className="text-sm font-bold text-slate-500">検知器の数字</span>
-                </div>
-                <div className="flex gap-3 items-stretch">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    inputMode="decimal"
-                    required
-                    placeholder="0.00"
-                    value={alcoholVal}
-                    onChange={(e) => setAlcoholVal(e.target.value)}
-                    className="w-full text-5xl font-black h-20 px-4 border-3 border-slate-400 rounded-2xl text-center bg-white shadow-inner"
-                  />
+                <div className="grid grid-cols-2 gap-3 bg-slate-200 p-2 rounded-2xl">
                   <button
                     type="button"
-                    onClick={() => setAlcoholVal('0.00')}
-                    className="px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black rounded-2xl shadow-md whitespace-nowrap flex flex-col items-center justify-center border-2 border-emerald-700"
+                    onClick={() => setAlcoholMode('start')}
+                    className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
+                      alcoholMode === 'start' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300' : 'text-slate-800'
+                    }`}
                   >
-                    <span className="text-xs">一発入力</span>
-                    <span className="text-2xl mt-0.5">0.00</span>
+                    ① 出勤時（業務前）
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAlcoholMode('finish')}
+                    className={`h-16 text-lg md:text-xl font-black rounded-xl transition-all ${
+                      alcoholMode === 'finish' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300' : 'text-slate-800'
+                    }`}
+                  >
+                    ② 退勤時（業務後）
                   </button>
                 </div>
 
-                {alcoholVal !== '' && (
-                  <div className="mt-4 text-center">
-                    {alcNum === 0 && (
-                      <div className="p-4 bg-emerald-100 text-emerald-950 rounded-2xl border-3 border-emerald-500 text-xl font-black">
-                        ✅ 0.00（正常・運転可）
-                      </div>
-                    )}
-                    {isAlcoholWarning && (
-                      <div className="p-4 bg-amber-100 text-amber-950 rounded-2xl border-3 border-amber-400 text-lg font-black leading-snug">
-                        ⚠️ 0.15未満（{alcNum} mg/L）再計測または確認を行ってください
-                      </div>
-                    )}
-                    {isAlcoholDanger && (
-                      <div className="p-5 bg-red-600 text-white rounded-2xl shadow-xl text-lg font-black leading-relaxed">
-                        🚨 0.15以上〜0.25未満：運転禁止！<br />
-                        上席に指示を仰ぎ、特記事項に理由を記入してください
-                      </div>
-                    )}
-                    {isAlcoholFlashing && (
-                      <div className="p-5 bg-red-700 text-white rounded-2xl shadow-2xl animate-pulse border-4 border-yellow-300 text-xl font-black leading-relaxed">
-                        ⚡ 0.25以上：運転厳禁！<br />
-                        直ちに上席に連絡してください
-                      </div>
+                <div>
+                  <div className="flex flex-wrap justify-between items-baseline mb-2 gap-2">
+                    <label className="text-xl font-black text-slate-900">
+                      確認者（対面確認） <span className="text-red-600">*</span>
+                    </label>
+                    <span className="text-sm font-black text-amber-900 bg-amber-100 px-3 py-1 rounded-lg border border-amber-300">
+                      第三者と対面
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    <select
+                      value={checkerType}
+                      onChange={(e) => setCheckerType(e.target.value)}
+                      className="w-full h-16 px-4 border-2 border-slate-300 rounded-2xl text-xl font-black bg-white outline-none focus:border-blue-600"
+                    >
+                      {CHECKER_OPTIONS.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="その他">その他（手入力）</option>
+                    </select>
+                    {checkerType === 'その他' && (
+                      <input
+                        type="text"
+                        placeholder="確認者の名前を入力"
+                        value={customChecker}
+                        onChange={(e) => setCustomChecker(e.target.value)}
+                        className="w-full h-16 px-4 border-2 border-blue-400 bg-blue-50 rounded-2xl text-xl font-bold"
+                        required
+                      />
                     )}
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div>
-                <label className="block text-base font-bold text-slate-700 mb-2">特記事項・連絡事項</label>
+                <div className="bg-slate-50 p-5 rounded-2xl border-2 border-slate-300 space-y-3">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xl font-black text-slate-900">
+                      アルコール測定値 (mg/L) <span className="text-red-600">*</span>
+                    </label>
+                    <span className="text-sm font-bold text-slate-500">検知器の数字</span>
+                  </div>
+                  <div className="flex gap-3 items-stretch">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      required
+                      placeholder="0.00"
+                      value={alcoholVal}
+                      onChange={(e) => setAlcoholVal(e.target.value)}
+                      className="w-full text-5xl font-black h-20 px-4 border-2 border-slate-400 rounded-2xl text-center bg-white shadow-inner"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAlcoholVal('0.00')}
+                      className="px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black rounded-2xl shadow-md whitespace-nowrap flex flex-col items-center justify-center border-2 border-emerald-700"
+                    >
+                      <span className="text-xs">一発入力</span>
+                      <span className="text-2xl mt-0.5">0.00</span>
+                    </button>
+                  </div>
+
+                  {alcoholVal !== '' && (
+                    <div className="mt-4 text-center">
+                      {alcNum === 0 && (
+                        <div className="p-4 bg-emerald-100 text-emerald-950 rounded-2xl border-2 border-emerald-500 text-xl font-black">
+                          ✅ 0.00（正常・運転可）
+                        </div>
+                      )}
+                      {isAlcoholWarning && (
+                        <div className="p-4 bg-amber-100 text-amber-950 rounded-2xl border-2 border-amber-400 text-lg font-black leading-snug">
+                          ⚠️ 0.15未満（{alcNum} mg/L）再計測または確認を行ってください
+                        </div>
+                      )}
+                      {isAlcoholDanger && (
+                        <div className="p-5 bg-red-600 text-white rounded-2xl shadow-xl text-lg font-black leading-relaxed">
+                          🚨 0.15以上〜0.25未満：運転禁止！<br />
+                          上席に指示を仰ぎ、特記事項に理由を記入してください
+                        </div>
+                      )}
+                      {isAlcoholFlashing && (
+                        <div className="p-5 bg-red-700 text-white rounded-2xl shadow-2xl animate-pulse border-4 border-yellow-300 text-xl font-black leading-relaxed">
+                          ⚡ 0.25以上：運転厳禁！<br />
+                          直ちに上席に連絡してください
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-base font-bold text-slate-700 mb-2">特記事項・連絡事項</label>
+                  <textarea
+                    rows={2}
+                    value={alcoholNotes}
+                    onChange={(e) => setAlcoholNotes(e.target.value)}
+                    placeholder="0.15以上の場合や体調不良時は内容を記入"
+                    className="w-full p-4 text-lg border-2 border-slate-400 rounded-2xl"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---------------- 2. 荷物受入チェック（3項目＆専用テーブル連携） ---------------- */}
+          {activeTab === 'receiving' && (
+            <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
+              <h2 className="font-black text-2xl text-slate-900 border-l-8 border-teal-600 pl-3">
+                荷物受入チェック
+              </h2>
+
+              <BigDateDisplay value={receivingDate} onChange={setReceivingDate} />
+
+              {[
+                { label: '外観、包装に破損がないこと', sub: '箱潰れ・破れ・液漏れ等なし', val: pkgStatus, set: setPkgStatus },
+                { label: '鮮度・においに問題がないこと（鮮魚）', sub: '異臭・変色・ドリップ異常なし', val: freshnessStatus, set: setFreshnessStatus },
+                { label: '輸送温度に問題がなかったこと（目視、触診）', sub: '保冷状態・品温の異常なし', val: transitTempStatus, set: setTransitTempStatus },
+              ].map((item, idx) => (
+                <div key={idx} className="border-t-3 border-slate-200 pt-5">
+                  <div className="text-xl font-black text-slate-900">
+                    {item.label} <span className="text-red-600">*</span>
+                  </div>
+                  <div className="text-sm text-slate-600 font-bold mb-3">{item.sub}</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => item.set('よい')}
+                      className={`h-20 text-lg font-black rounded-2xl border-3 transition-all ${
+                        item.val === 'よい'
+                          ? 'bg-emerald-600 text-white border-emerald-800 shadow-lg scale-[1.02]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      ○ よい（異常なし）
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => item.set('わるい')}
+                      className={`h-20 text-lg font-black rounded-2xl border-3 transition-all ${
+                        item.val === 'わるい'
+                          ? 'bg-red-600 text-white border-red-800 shadow-lg scale-[1.02]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      ○ わるい（要報告）
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="border-t-3 border-slate-200 pt-5">
+                <div className="flex justify-between items-baseline mb-2">
+                  <label className="text-base font-bold text-slate-700">
+                    特記事項・連絡事項
+                  </label>
+                  {(pkgStatus === 'わるい' || freshnessStatus === 'わるい' || transitTempStatus === 'わるい') && (
+                    <span className="text-sm font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300">
+                      ※「わるい」があるため記入必須
+                    </span>
+                  )}
+                </div>
                 <textarea
-                  rows={2}
-                  value={alcoholNotes}
-                  onChange={(e) => setAlcoholNotes(e.target.value)}
-                  placeholder="0.15以上の場合は上席の指示内容を記入"
-                  className="w-full p-4 text-lg border-3 border-slate-400 rounded-2xl"
+                  rows={3}
+                  value={receivingNotes}
+                  onChange={(e) => setReceivingNotes(e.target.value)}
+                  placeholder="「わるい」がある場合は、納品業者名、品名、具体的な破損・温度異常の状態、指示内容を必ず記入してください。"
+                  className={`w-full p-4 text-lg border-3 rounded-2xl ${
+                    (pkgStatus === 'わるい' || freshnessStatus === 'わるい' || transitTempStatus === 'わるい') && !receivingNotes.trim()
+                      ? 'border-red-500 bg-red-50/50'
+                      : 'border-slate-400'
+                  }`}
                 />
               </div>
             </div>
           )}
 
-          {/* ---------------- 2. 生魚加工衛生管理 ---------------- */}
+          {/* ---------------- 3. 生魚加工衛生管理 ---------------- */}
           {activeTab === 'fish' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-emerald-600 pl-3">
@@ -744,7 +972,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ---------------- 3. 保管庫温度管理 ---------------- */}
+          {/* ---------------- 4. 保管庫温度管理 ---------------- */}
           {activeTab === 'temp' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-cyan-600 pl-3">
@@ -792,7 +1020,7 @@ function ChecksheetForm() {
                     <button
                       type="button"
                       onClick={() => item.set(adjustTempValue(item.val, +0.5, item.base))}
-                      className="py-3 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-900 font-black text-lg rounded-xl border-2 border-slate-400"
+                      className="py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-black text-lg rounded-xl border-2 border-slate-400"
                     >
                       +0.5
                     </button>
@@ -884,7 +1112,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ---------------- 4. 退勤前温度管理 ---------------- */}
+          {/* ---------------- 5. 退勤前温度管理 ---------------- */}
           {activeTab === 'closing' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-indigo-600 pl-3">
@@ -1008,7 +1236,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ---------------- 5. 運転日報 ---------------- */}
+          {/* ---------------- 6. 運転日報 ---------------- */}
           {activeTab === 'drive' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-amber-600 pl-3">
@@ -1278,8 +1506,10 @@ function ChecksheetForm() {
                   : '② 運行完了を記録する'
                 : activeTab === 'alcohol'
                 ? alcoholMode === 'start'
-                  ? '① 出勤時アルコール記録を送信'
-                  : '② 退勤時アルコール記録を送信'
+                  ? '① 出勤時 基本チェックを送信'
+                  : '② 退勤時 基本チェックを送信'
+                : activeTab === 'receiving'
+                ? '荷物受入チェックを送信'
                 : '送信する'}
             </button>
           </div>
