@@ -798,8 +798,8 @@ function ChecksheetForm() {
 
               {[
                 { label: '外観、包装に破損がないこと', sub: '箱潰れ・破れ・液漏れ等なし', val: pkgStatus, set: setPkgStatus },
-                { label: '鮮度・においに問題がないこと（鮮魚）', sub: '異臭・変色・ドリップ異常なし', val: freshnessStatus, set: setFreshnessStatus },
-                { label: '輸送温度に問題がなかったこと（目視、触診）', sub: '保冷状態・品温の異常なし', val: transitTempStatus, set: setTransitTempStatus },
+                { label: '鮮度・においに問題がないこと', sub: '異臭・変色・ドリップ異常なし', val: freshnessStatus, set: setFreshnessStatus },
+                { label: '輸送温度に問題がなかったこと（目視、触診）', sub: '保冷状態・品温の異常を推測', val: transitTempStatus, set: setTransitTempStatus },
               ].map((item, idx) => (
                 <div key={idx} className="border-t-3 border-slate-200 pt-5">
                   <div className="text-xl font-black text-slate-900">

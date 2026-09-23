@@ -358,12 +358,12 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. 基本チェック・点呼記録簿（対面確認）
+                3. 基本チェック・アルコールチェック記録簿（対面確認）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-blue-600 mb-2">
-                  3. 基本チェック・点呼記録簿（対面確認）
+                  3. 基本チェック・アルコールチェック（対面確認）
                 </h3>
                 {alcohols.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
