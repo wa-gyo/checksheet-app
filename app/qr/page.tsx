@@ -13,11 +13,25 @@ interface QRItem {
 
 const qrList: QRItem[] = [
   {
+    id: 'basic',
+    title: '基本チェック',
+    subTitle: '体調確認・手の衛生・アルコール点呼',
+    path: '/?tab=alcohol',
+    note: '出勤時・退勤時に対面確認の上、呼気測定・体調確認を行ってください。',
+  },
+  {
+    id: 'receiving',
+    title: '荷物受入チェック',
+    subTitle: '外観包装・鮮度におい・輸送温度確認',
+    path: '/?tab=receiving',
+    note: '荷受時、商品荷下ろしと同時に外観・鮮度・品温を確認して送信してください。',
+  },
+  {
     id: 'temp',
-    title: '荷受：温度衛生管理',
-    subTitle: '保冷庫・売場温度・衛生点検',
+    title: '保管庫温度管理',
+    subTitle: '本庫・2号室・鮮魚庫・売場温度点検',
     path: '/?tab=temp',
-    note: '出勤後、身支度を整えたら最初に読み取って入力してください。',
+    note: '出勤後、身支度を整えたら各保管庫・売場の温度を確認して入力してください。',
   },
   {
     id: 'fish',
@@ -27,11 +41,11 @@ const qrList: QRItem[] = [
     note: '加工場に入る前、まな板・包丁の消毒後に読み取ってください。',
   },
   {
-    id: 'alcohol',
-    title: 'アルコールチェック',
-    subTitle: '対面確認・呼気検査記録',
-    path: '/?tab=alcohol',
-    note: '事務所デスクで検知器の測定値を確認しながら入力してください。',
+    id: 'closing',
+    title: '退勤前：温度管理',
+    subTitle: '本庫・2号室 最終温度確認',
+    path: '/?tab=closing',
+    note: '退勤時、冷凍保冷庫の最終温度を確認して送信してください。',
   },
   {
     id: 'drive',
@@ -39,13 +53,6 @@ const qrList: QRItem[] = [
     subTitle: '乗車時・降車時メーター・給油記録',
     path: '/?tab=drive',
     note: '出発前のメーターと、帰着後の降車メーター・給油量を入力してください。',
-  },
-  {
-    id: 'closing',
-    title: '退勤前：温度衛生管理',
-    subTitle: '本庫・2号室 最終温度確認',
-    path: '/?tab=closing',
-    note: '退勤時、保冷庫の最終温度を確認して送信してください。',
   },
 ];
 
@@ -78,10 +85,10 @@ export default function QRPrintPage() {
           <thead>
             <tr>
               <th style="width: 120px;">ID</th>
-              <th style="width: 200px;">チェック項目名</th>
-              <th style="width: 250px;">サブタイトル</th>
+              <th style="width: 220px;">チェック項目名</th>
+              <th style="width: 260px;">サブタイトル</th>
               <th style="width: 320px;">直接アクセスURL</th>
-              <th style="width: 350px;">運用案内</th>
+              <th style="width: 380px;">運用案内</th>
             </tr>
           </thead>
           <tbody>
