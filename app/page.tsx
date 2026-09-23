@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 const CHECKER_OPTIONS = ['石川', '武藤', '長谷川', '五十嵐'];
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
+const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸水', 'N-キャリー', '村瀬エコライン'];
 
 // 日本時間の現在日時を取得（内部送信用 ISO 文字列）
 const getNowJST = () => {
@@ -102,8 +103,11 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // ---------------- 3. 荷物受入（3項目） ----------------
+  // ---------------- 3. 荷物受入（便名選択・手入力自動追加対応） ----------------
   const [receivingDate, setReceivingDate] = useState(getNowJST());
+  const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
+  const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '1便');
+  const [customFlight, setCustomFlight] = useState('');
   const [pkgStatus, setPkgStatus] = useState<'よい' | 'わるい' | ''>('');
   const [freshnessStatus, setFreshnessStatus] = useState<'よい' | 'わるい' | ''>('');
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
@@ -174,12 +178,21 @@ function ChecksheetForm() {
     }
   }, [activeTab, driveMode]);
 
+  // ローカルストレージから履歴（お名前、便名リスト）を復元
   useEffect(() => {
     try {
       const savedName = localStorage.getItem('last_staff_name') || '';
       if (savedName) setStaffName(savedName);
       const history = JSON.parse(localStorage.getItem('staff_name_history') || '[]');
       setStaffHistory(history);
+
+      // 便名リストの読み込み
+      const savedFlights = JSON.parse(localStorage.getItem('custom_flight_options') || '[]');
+      if (savedFlights && Array.isArray(savedFlights) && savedFlights.length > 0) {
+        // デフォルトとマージして重複排除
+        const merged = Array.from(new Set([...DEFAULT_FLIGHT_OPTIONS, ...savedFlights]));
+        setFlightOptions(merged);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -310,6 +323,24 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
       } else if (activeTab === 'receiving') {
+        // 便名の決定
+        let flightNameToSave = selectedFlight;
+        if (selectedFlight === 'その他') {
+          if (!customFlight.trim()) throw new Error('便名を入力してください');
+          flightNameToSave = customFlight.trim();
+
+          // 新しい便名を最後尾に追加して永続化
+          if (!flightOptions.includes(flightNameToSave)) {
+            const updated = [...flightOptions, flightNameToSave];
+            setFlightOptions(updated);
+            try {
+              localStorage.setItem('custom_flight_options', JSON.stringify(updated));
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        }
+
         if (!pkgStatus) throw new Error('外観・包装の破損有無を選択してください');
         if (!freshnessStatus) throw new Error('鮮度・においを選択してください');
         if (!transitTempStatus) throw new Error('輸送温度を選択してください');
@@ -320,11 +351,12 @@ function ChecksheetForm() {
           throw new Error('「わるい」が選択されている項目があります。特記事項に具体的な状態や対応内容を必ず記入してください。');
         }
 
-        // 専用テーブル check_receiving への安全な保存
+        // 専用テーブル check_receiving へ便名も含めて保存
         const { error } = await supabase.from('check_receiving').insert([
           {
             checked_at: new Date(receivingDate).toISOString(),
             staff_name: staffName,
+            flight_name: flightNameToSave,
             pkg_status: pkgStatus,
             freshness_status: freshnessStatus,
             transit_temp_status: transitTempStatus,
@@ -333,6 +365,9 @@ function ChecksheetForm() {
         ]);
         if (error) throw error;
 
+        // リセット処理
+        setSelectedFlight(flightNameToSave);
+        setCustomFlight('');
         setPkgStatus('');
         setFreshnessStatus('');
         setTransitTempStatus('');
@@ -787,7 +822,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ---------------- 2. 荷物受入チェック（3項目＆専用テーブル連携） ---------------- */}
+          {/* ---------------- 2. 荷物受入チェック（便名追加・自動候補化） ---------------- */}
           {activeTab === 'receiving' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-teal-600 pl-3">
@@ -796,10 +831,50 @@ function ChecksheetForm() {
 
               <BigDateDisplay value={receivingDate} onChange={setReceivingDate} />
 
+              {/* 便名選択 / 手入力自動追加 */}
+              <div className="bg-slate-50 border-2 border-slate-300 p-5 rounded-2xl space-y-3">
+                <div className="flex justify-between items-baseline">
+                  <label className="text-xl font-black text-slate-900">
+                    便名 <span className="text-red-600">*</span>
+                  </label>
+                  <span className="text-xs font-bold text-slate-500">
+                    受入トラック・便を選択
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  <select
+                    value={selectedFlight}
+                    onChange={(e) => setSelectedFlight(e.target.value)}
+                    className="w-full h-16 px-4 border-2 border-slate-400 rounded-2xl text-xl font-black bg-white outline-none focus:border-teal-600 shadow-sm"
+                  >
+                    {flightOptions.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                    <option value="その他">その他（直接文字入力）</option>
+                  </select>
+
+                  {selectedFlight === 'その他' && (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        placeholder="便名を入力（例：ヤマト便、4便、臨時便）"
+                        value={customFlight}
+                        onChange={(e) => setCustomFlight(e.target.value)}
+                        className="w-full h-16 px-4 border-2 border-teal-500 bg-teal-50/40 rounded-2xl text-xl font-bold outline-none"
+                        required
+                      />
+                      <p className="text-xs text-teal-800 font-bold px-1">
+                        ※入力して送信すると、次回からメニューの最後尾に自動追加されます。
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {[
                 { label: '外観、包装に破損がないこと', sub: '箱潰れ・破れ・液漏れ等なし', val: pkgStatus, set: setPkgStatus },
-                { label: '鮮度・においに問題がないこと', sub: '異臭・変色・ドリップ異常なし', val: freshnessStatus, set: setFreshnessStatus },
-                { label: '輸送温度に問題がなかったこと（目視、触診）', sub: '保冷状態・品温の異常を推測', val: transitTempStatus, set: setTransitTempStatus },
+                { label: '鮮度・においに問題がないこと（鮮魚）', sub: '異臭・変色・ドリップ異常なし', val: freshnessStatus, set: setFreshnessStatus },
+                { label: '輸送温度に問題がなかったこと（目視、触診）', sub: '保冷状態・品温の異常なし', val: transitTempStatus, set: setTransitTempStatus },
               ].map((item, idx) => (
                 <div key={idx} className="border-t-3 border-slate-200 pt-5">
                   <div className="text-xl font-black text-slate-900">
@@ -1020,7 +1095,7 @@ function ChecksheetForm() {
                     <button
                       type="button"
                       onClick={() => item.set(adjustTempValue(item.val, +0.5, item.base))}
-                      className="py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-black text-lg rounded-xl border-2 border-slate-400"
+                      className="py-3 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-900 font-black text-lg rounded-xl border-2 border-slate-400"
                     >
                       +0.5
                     </button>
