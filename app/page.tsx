@@ -9,7 +9,7 @@ const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイ
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸水', 'N-キャリー', '村瀬エコライン'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 1, 3, 5]
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -42,21 +42,21 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー
+// 温度微調整ヘルパー（1℃単位の整数増減に変更）
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
-  const base = current !== '' ? parseFloat(current) : defaultBase;
-  if (isNaN(base)) return defaultBase.toFixed(1);
-  return (Math.round((base + delta) * 10) / 10).toFixed(1);
+  const base = current !== '' ? parseInt(current, 10) : defaultBase;
+  if (isNaN(base)) return String(defaultBase);
+  return String(base + delta);
 };
 
-// ★ 温度の範囲制限チェックヘルパー
+// 温度の範囲チェックヘルパー（整数ベース）
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
-  if (valStr === '') return true; // 未入力時はバリデーション段階で別途チェック
-  const n = parseFloat(valStr);
+  if (valStr === '') return true;
+  const n = parseInt(valStr, 10);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 日時表示コンポーネント
+// 日時表示コンポーネント[cite: 1, 3, 5]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4">
@@ -79,7 +79,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// ★ 直感的な温度入力・微調整コンポーネント（矢印つき＆範囲制限対応）
+// 直感的な温度入力・微調整コンポーネント（小数点なし・1℃単位）
 function TempInputRow({
   label,
   target,
@@ -110,44 +110,44 @@ function TempInputRow({
         </span>
       </div>
 
-      {/* 目安ボタン ＆ 直感的な矢印微調整ボタン */}
+      {/* 目安ボタン ＆ 1℃単位の矢印微調整ボタン */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         <button
           type="button"
-          onClick={() => onChange(base.toFixed(1))}
+          onClick={() => onChange(String(base))}
           className="col-span-2 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-lg rounded-xl shadow-md border-2 border-blue-700 flex items-center justify-center gap-1.5"
         >
           <span>目安</span>
-          <span>{base > 0 ? `+${base.toFixed(1)}` : base.toFixed(1)}℃</span>
+          <span>{base > 0 ? `+${base}` : base}℃</span>
         </button>
         <button
           type="button"
-          onClick={() => onChange(adjustTempValue(value, -0.5, base))}
+          onClick={() => onChange(adjustTempValue(value, -1, base))}
           className="py-3 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-950 font-black text-lg rounded-xl border-2 border-sky-400 flex items-center justify-center gap-0.5 shadow-sm"
           title="温度を下げる（冷やす）"
         >
           <span className="text-xl text-sky-700 font-black">↓</span>
-          <span>-0.5</span>
+          <span>-1℃</span>
         </button>
         <button
           type="button"
-          onClick={() => onChange(adjustTempValue(value, +0.5, base))}
+          onClick={() => onChange(adjustTempValue(value, +1, base))}
           className="py-3 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-950 font-black text-lg rounded-xl border-2 border-amber-400 flex items-center justify-center gap-0.5 shadow-sm"
           title="温度を上げる（暖める）"
         >
           <span className="text-xl text-amber-600 font-black">↑</span>
-          <span>+0.5</span>
+          <span>+1℃</span>
         </button>
       </div>
 
-      {/* 入力欄 ＆ クリアボタン ＆ 単位表示 */}
+      {/* 入力欄（step="1"・整数入力） */}
       <div className="relative">
         <input
           type="number"
-          step="0.1"
-          inputMode="decimal"
+          step="1"
+          inputMode="numeric"
           required
-          placeholder={`数字を入力 (${base.toFixed(1)})`}
+          placeholder={`数字を入力 (${base})`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full h-18 text-3xl font-black px-4 pr-20 border-3 rounded-2xl transition-colors ${
@@ -193,7 +193,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック
+  // 1. 基本チェック[cite: 1, 3, 5]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -203,7 +203,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工
+  // 2. 生魚加工[cite: 1, 3, 5]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -214,7 +214,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 荷物受入
+  // 3. 荷物受入[cite: 1, 3, 5]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -224,7 +224,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 4. 保管庫温度
+  // 4. 保管庫温度（初期値・入力値を整数で管理）
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -235,13 +235,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 5. 退勤前温度
+  // 5. 退勤前温度（整数で管理）
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 6. 運転日報
+  // 6. 運転日報[cite: 1, 3, 5]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -507,7 +507,7 @@ function ChecksheetForm() {
         setToolsHygiene('');
         setFishNotes('');
       } else if (activeTab === 'temp') {
-        // ★ 保管庫温度の必須・範囲チェック
+        // 保管庫温度チェック（整数チェック）
         if (mainFreezerTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(mainFreezerTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
 
@@ -530,11 +530,11 @@ function ChecksheetForm() {
           {
             checked_at: new Date(tempDate).toISOString(),
             staff_name: staffName,
-            main_freezer_temp: parseFloat(mainFreezerTemp),
-            room2_freezer_temp: parseFloat(room2Temp),
-            fish_storage_temp: parseFloat(fishStorageTemp),
-            constant_floor_temp: parseFloat(constantFloorTemp),
-            floor_temp: parseFloat(floorTemp),
+            main_freezer_temp: parseInt(mainFreezerTemp, 10),
+            room2_freezer_temp: parseInt(room2Temp, 10),
+            fish_storage_temp: parseInt(fishStorageTemp, 10),
+            constant_floor_temp: parseInt(constantFloorTemp, 10),
+            floor_temp: parseInt(floorTemp, 10),
             processing_zone_status: processingZoneStatus,
             pest_evidence: pestEvidence,
             notes: tempNotes,
@@ -550,7 +550,7 @@ function ChecksheetForm() {
         setPestEvidence('');
         setTempNotes('');
       } else if (activeTab === 'closing') {
-        // ★ 退勤前温度の必須・範囲チェック
+        // 退勤前温度チェック（整数チェック）
         if (closingMainTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(closingMainTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
 
@@ -561,8 +561,8 @@ function ChecksheetForm() {
           {
             checked_at: new Date(closingDate).toISOString(),
             staff_name: staffName,
-            main_freezer_temp: parseFloat(closingMainTemp),
-            room2_freezer_temp: parseFloat(closingRoom2Temp),
+            main_freezer_temp: parseInt(closingMainTemp, 10),
+            room2_freezer_temp: parseInt(closingRoom2Temp, 10),
             notes: closingNotes,
           },
         ]);
@@ -689,7 +689,6 @@ function ChecksheetForm() {
           </div>
         )}
 
-        {/* ドメイン名なしのアプリ内エラーダイアログ */}
         {dialogError && (
           <div className="p-5 bg-red-100 border-4 border-red-500 text-red-950 rounded-2xl shadow-xl flex flex-col items-center gap-3">
             <div className="flex items-center gap-2 text-xl font-black">
@@ -1176,14 +1175,14 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ★ 4. 保管庫温度管理（矢印＆入力範囲制限適用部） */}
+          {/* 4. 保管庫温度管理（小数点なし・1℃単位） */}
           {activeTab === 'temp' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-cyan-600 pl-3">
                 保管庫温度管理
               </h2>
               <div className="p-4 bg-amber-50 border-3 border-amber-300 text-amber-950 text-sm font-bold rounded-2xl leading-relaxed">
-                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で0.5℃単位の微調整が可能です。
+                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
               </div>
 
               <BigDateDisplay value={tempDate} onChange={setTempDate} />
@@ -1193,9 +1192,9 @@ function ChecksheetForm() {
                 target="マイナス20℃目安"
                 value={mainFreezerTemp}
                 onChange={setMainFreezerTemp}
-                base={-20.0}
-                min={-40.0}
-                max={0.0}
+                base={-20}
+                min={-40}
+                max={0}
               />
 
               <TempInputRow
@@ -1203,9 +1202,9 @@ function ChecksheetForm() {
                 target="マイナス20℃目安"
                 value={room2Temp}
                 onChange={setRoom2Temp}
-                base={-20.0}
-                min={-40.0}
-                max={0.0}
+                base={-20}
+                min={-40}
+                max={0}
               />
 
               <TempInputRow
@@ -1213,9 +1212,9 @@ function ChecksheetForm() {
                 target="マイナス1℃目安"
                 value={fishStorageTemp}
                 onChange={setFishStorageTemp}
-                base={-1.0}
-                min={-15.0}
-                max={15.0}
+                base={-1}
+                min={-15}
+                max={15}
               />
 
               <TempInputRow
@@ -1223,9 +1222,9 @@ function ChecksheetForm() {
                 target="9℃以下目安"
                 value={constantFloorTemp}
                 onChange={setConstantFloorTemp}
-                base={8.0}
-                min={-5.0}
-                max={45.0}
+                base={8}
+                min={-5}
+                max={45}
               />
 
               <TempInputRow
@@ -1233,9 +1232,9 @@ function ChecksheetForm() {
                 target="場内実測"
                 value={floorTemp}
                 onChange={setFloorTemp}
-                base={18.0}
-                min={-5.0}
-                max={45.0}
+                base={18}
+                min={-5}
+                max={45}
               />
 
               <div className="border-t-3 border-slate-200 pt-5">
@@ -1306,7 +1305,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* ★ 5. 退勤前温度管理（矢印＆入力範囲制限適用部） */}
+          {/* 5. 退勤前温度管理（小数点なし・1℃単位） */}
           {activeTab === 'closing' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-indigo-600 pl-3">
@@ -1320,9 +1319,9 @@ function ChecksheetForm() {
                 target="マイナス20℃目安"
                 value={closingMainTemp}
                 onChange={setClosingMainTemp}
-                base={-20.0}
-                min={-40.0}
-                max={0.0}
+                base={-20}
+                min={-40}
+                max={0}
               />
 
               <TempInputRow
@@ -1330,9 +1329,9 @@ function ChecksheetForm() {
                 target="マイナス20℃目安"
                 value={closingRoom2Temp}
                 onChange={setClosingRoom2Temp}
-                base={-20.0}
-                min={-40.0}
-                max={0.0}
+                base={-20}
+                min={-40}
+                max={0}
               />
 
               <div className="border-t-3 border-slate-200 pt-5">
