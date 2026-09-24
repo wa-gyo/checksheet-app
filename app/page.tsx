@@ -9,7 +9,7 @@ const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイ
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸水', 'N-キャリー', '村瀬エコライン'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 9]
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -42,21 +42,21 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー[cite: 9]
+// 温度微調整ヘルパー
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseFloat(current) : defaultBase;
   if (isNaN(base)) return defaultBase.toFixed(1);
   return (Math.round((base + delta) * 10) / 10).toFixed(1);
 };
 
-// 温度の範囲チェックヘルパー
+// ★ 温度の範囲制限チェックヘルパー
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
   if (valStr === '') return true; // 未入力時はバリデーション段階で別途チェック
   const n = parseFloat(valStr);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 日時表示コンポーネント（タップで時刻微調整も可能）[cite: 9]
+// 日時表示コンポーネント
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4">
@@ -79,7 +79,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント
+// ★ 直感的な温度入力・微調整コンポーネント（矢印つき＆範囲制限対応）
 function TempInputRow({
   label,
   target,
@@ -110,7 +110,7 @@ function TempInputRow({
         </span>
       </div>
 
-      {/* 目安ボタン & ↑・↓ 微調整ボタン */}
+      {/* 目安ボタン ＆ 直感的な矢印微調整ボタン */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         <button
           type="button"
@@ -140,7 +140,7 @@ function TempInputRow({
         </button>
       </div>
 
-      {/* 手入力ボックスとエラー警告 */}
+      {/* 入力欄 ＆ クリアボタン ＆ 単位表示 */}
       <div className="relative">
         <input
           type="number"
@@ -193,7 +193,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 9]
+  // 1. 基本チェック
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -203,7 +203,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 9]
+  // 2. 生魚加工
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -214,7 +214,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 荷物受入[cite: 9]
+  // 3. 荷物受入
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -224,7 +224,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 4. 保管庫温度[cite: 9]
+  // 4. 保管庫温度
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -235,13 +235,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 5. 退勤前温度[cite: 9]
+  // 5. 退勤前温度
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 6. 運転日報[cite: 9]
+  // 6. 運転日報
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -507,6 +507,7 @@ function ChecksheetForm() {
         setToolsHygiene('');
         setFishNotes('');
       } else if (activeTab === 'temp') {
+        // ★ 保管庫温度の必須・範囲チェック
         if (mainFreezerTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(mainFreezerTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
 
@@ -549,6 +550,7 @@ function ChecksheetForm() {
         setPestEvidence('');
         setTempNotes('');
       } else if (activeTab === 'closing') {
+        // ★ 退勤前温度の必須・範囲チェック
         if (closingMainTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(closingMainTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
 
@@ -666,6 +668,7 @@ function ChecksheetForm() {
               onClick={() => {
                 setActiveTab(tab.key as TabType);
                 setSuccessMsg('');
+                setDialogError('');
               }}
               className={`px-5 py-3 text-base md:text-lg font-black rounded-xl transition-all ${
                 activeTab === tab.key
@@ -686,6 +689,7 @@ function ChecksheetForm() {
           </div>
         )}
 
+        {/* ドメイン名なしのアプリ内エラーダイアログ */}
         {dialogError && (
           <div className="p-5 bg-red-100 border-4 border-red-500 text-red-950 rounded-2xl shadow-xl flex flex-col items-center gap-3">
             <div className="flex items-center gap-2 text-xl font-black">
@@ -1150,13 +1154,13 @@ function ChecksheetForm() {
                               ? 'bg-emerald-600 text-white border-emerald-800 shadow-lg scale-[1.02]'
                               : 'bg-red-600 text-white border-red-800 shadow-lg scale-[1.02]'
                             : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
               ))}
 
               <div className="border-t-3 border-slate-200 pt-5">
@@ -1172,7 +1176,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 4. 保管庫温度管理（矢印＆入力範囲制限対応） */}
+          {/* ★ 4. 保管庫温度管理（矢印＆入力範囲制限適用部） */}
           {activeTab === 'temp' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-cyan-600 pl-3">
@@ -1302,7 +1306,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 5. 退勤前温度管理（矢印＆入力範囲制限対応） */}
+          {/* ★ 5. 退勤前温度管理（矢印＆入力範囲制限適用部） */}
           {activeTab === 'closing' && (
             <div className="bg-white p-6 rounded-3xl shadow-md border-3 border-slate-300 space-y-6">
               <h2 className="font-black text-2xl text-slate-900 border-l-8 border-indigo-600 pl-3">
