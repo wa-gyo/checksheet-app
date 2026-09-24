@@ -56,7 +56,7 @@ const isTempValid = (valStr: string, min: number, max: number): boolean => {
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 日時表示コンポーネント（文字拡大でも崩れない設計）
+// 日時表示コンポーネント（文字を大きく見やすく＆文字拡大でも崩れない設計）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -84,18 +84,22 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
 
   return (
     <>
-      {/* 通常表示エリア */}
-      <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-3 flex flex-wrap justify-between items-center gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-500">記録日時</span>
-          <span className="text-base sm:text-lg font-black text-slate-800 tracking-tight font-mono">
+      {/* 通常表示エリア：日時を大きく、タップしやすく配置 */}
+      <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-3.5 flex flex-wrap justify-between items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-black text-slate-500">記録日時</span>
+            <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">自動</span>
+          </div>
+          {/* 日時テキストを text-xl〜text-2xl にサイズアップ */}
+          <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
         </div>
         <button
           type="button"
           onClick={handleOpen}
-          className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-100 active:bg-slate-200 border-2 border-slate-300 rounded-xl text-xs font-black text-blue-700 shadow-sm flex items-center gap-1 shrink-0"
+          className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-100 active:bg-slate-200 border-2 border-slate-300 rounded-xl text-xs sm:text-sm font-black text-blue-700 shadow-sm flex items-center gap-1 shrink-0"
         >
           <span>🕒</span>
           <span>変更</span>
