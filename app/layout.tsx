@@ -15,6 +15,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "業務管理チェックシート",
   description: "現場の衛生管理・点呼・日報管理システム",
+  // サーチエンジンの巡回・インデックス・リンク追跡を完全拒否
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 };
 
 export default function RootLayout({
