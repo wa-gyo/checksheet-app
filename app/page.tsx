@@ -238,7 +238,7 @@ function TempInputRow({
           step="1"
           inputMode="numeric"
           required
-          placeholder={`数字を入力 (${base})`}
+          // placeholder={`数字を入力 (${base})`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full min-h-[58px] py-2 text-2xl font-black px-4 pr-16 border-2 rounded-xl transition-colors ${
@@ -1549,7 +1549,7 @@ function ChecksheetForm() {
                       step="0.1"
                       inputMode="decimal"
                       required
-                      placeholder="例: 12500.5"
+                      // placeholder="例: 12500.5"
                       value={startMeter}
                       onChange={(e) => setStartMeter(e.target.value)}
                       className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
@@ -1633,7 +1633,7 @@ function ChecksheetForm() {
                           step="0.1"
                           inputMode="decimal"
                           required
-                          placeholder="例: 12550.0"
+                          // placeholder="例: 12550.0"
                           value={endMeter}
                           onChange={(e) => setEndMeter(e.target.value)}
                           className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
@@ -1663,7 +1663,7 @@ function ChecksheetForm() {
                           type="number"
                           step="0.1"
                           inputMode="decimal"
-                          placeholder="例: 35.0"
+                          // placeholder="例: 35.0"
                           value={refuelLiters}
                           onChange={(e) => setRefuelLiters(e.target.value)}
                           className="w-full min-h-[52px] py-2 px-3 text-xl font-bold border-2 border-slate-400 rounded-xl"
