@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 type ViewMode = 'all' | 'temp' | 'fish' | 'alcohol' | 'drive';
 
 // 管理者パスコード（必要に応じて自由に変更してください）
-const ADMIN_PASSCODE = 'admin1234';
+const ADMIN_PASSCODE = 'gyorui370220';
 
 interface EditTarget {
   table: string;
