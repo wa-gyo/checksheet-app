@@ -9,14 +9,14 @@ const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイ
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 6]
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット
+// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 6]
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -42,21 +42,21 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー（1℃単位の整数増減）
+// 温度微調整ヘルパー（1℃単位の整数増減）[cite: 6]
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseInt(current, 10) : defaultBase;
   if (isNaN(base)) return String(defaultBase);
   return String(base + delta);
 };
 
-// 温度の範囲チェックヘルパー（整数ベース）
+// 温度の範囲チェックヘルパー（整数ベース）[cite: 6]
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
   if (valStr === '') return true;
   const n = parseInt(valStr, 10);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 日時表示コンポーネント（文字を大きく見やすく＆文字拡大でも崩れない設計）
+// 日時表示コンポーネント（文字を大きく見やすく＆文字拡大でも崩れない設計）[cite: 6]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -174,7 +174,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）
+// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）[cite: 6]
 function TempInputRow({
   label,
   target,
@@ -288,7 +288,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック
+  // 1. 基本チェック[cite: 6]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -298,7 +298,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工
+  // 2. 生魚加工[cite: 6]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -309,7 +309,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 荷物受入
+  // 3. 荷物受入[cite: 6]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -319,7 +319,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 4. 保管庫温度
+  // 4. 保管庫温度[cite: 6]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -330,13 +330,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 5. 退勤前温度
+  // 5. 退勤前温度[cite: 6]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 6. 運転日報
+  // 6. 運転日報[cite: 6]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -534,7 +534,7 @@ function ChecksheetForm() {
             const updated = [...flightOptions, flightNameToSave];
             setFlightOptions(updated);
             try {
-              localStorage.setItem('custom_flight_options', JSON.stringify(updated));
+              localStorage.setItem('custom_flight_options', JSON.stringify(updated.filter((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f))));
             } catch (err) {
               console.error(err);
             }
@@ -1044,7 +1044,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 2. 荷物受入チェック */}
+          {/* 2. 荷物受入チェック（便名の個別削除バッジを反映） */}
           {activeTab === 'receiving' && (
             <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
               <h2 className="font-black text-xl text-slate-900 border-l-8 border-teal-600 pl-3">
@@ -1053,7 +1053,7 @@ function ChecksheetForm() {
 
               <BigDateDisplay value={receivingDate} onChange={setReceivingDate} />
 
-              <div className="bg-slate-50 border-2 border-slate-300 p-4 rounded-2xl space-y-2">
+              <div className="bg-slate-50 border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-baseline gap-1">
                   <label className="text-lg font-black text-slate-900 leading-snug">
                     便名 <span className="text-red-600">*</span>
@@ -1074,8 +1074,45 @@ function ChecksheetForm() {
                     <option value="その他">その他（直接文字入力）</option>
                   </select>
 
+                  {/* 手動追加された便名を1件ずつ削除できるチップ一覧 */}
+                  {flightOptions.some((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f)) && (
+                    <div className="pt-1">
+                      <span className="text-[11px] font-bold text-slate-500 block mb-1">
+                        追加した便名（タップで削除）：
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {flightOptions
+                          .filter((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f))
+                          .map((customName) => (
+                            <span
+                              key={customName}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm"
+                            >
+                              <span>{customName}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = flightOptions.filter((f) => f !== customName);
+                                  setFlightOptions(updated);
+                                  const customOnly = updated.filter((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f));
+                                  localStorage.setItem('custom_flight_options', JSON.stringify(customOnly));
+                                  if (selectedFlight === customName) {
+                                    setSelectedFlight(DEFAULT_FLIGHT_OPTIONS[0]);
+                                  }
+                                }}
+                                className="text-slate-400 hover:text-red-600 active:text-red-700 font-black px-1 rounded hover:bg-slate-100"
+                                title="この便名を候補から削除"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedFlight === 'その他' && (
-                    <div className="space-y-1">
+                    <div className="space-y-1 pt-1">
                       <input
                         type="text"
                         placeholder="便名を入力（例：ヤマト便、4便、臨時便）"
