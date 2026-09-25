@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 const CHECKER_OPTIONS = ['石川', '武藤', '長谷川', '五十嵐'];
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
-const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸水', 'N-キャリー', '村瀬エコライン'];
+const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 
 // 日本時間の現在日時を取得（内部送信用 ISO 文字列）
 const getNowJST = () => {
