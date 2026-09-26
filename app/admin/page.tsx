@@ -18,6 +18,14 @@ interface EditTarget {
   timeField: string;
 }
 
+// 出勤・退勤の判定ヘルパー
+const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown' => {
+  if (!notes) return 'unknown';
+  if (notes.includes('出勤時') || notes.includes('業務前')) return 'start';
+  if (notes.includes('退勤時') || notes.includes('業務後')) return 'finish';
+  return 'unknown';
+};
+
 export default function AdminDashboard() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState(todayStr);
@@ -404,7 +412,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* ★ 荷物受入 点検記録（便名カラム対応 ＋ 修正・削除ボタン） */}
+                {/* 荷物受入 点検記録 */}
                 <div className="border border-slate-300 rounded p-2.5 bg-white">
                   <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
                     <span>■ 荷物受入 点検記録</span>
@@ -546,6 +554,7 @@ export default function AdminDashboard() {
 
             {/* ========================================================
                 3. 基本チェック・アルコール点呼記録簿（対面確認）
+                ★ 出勤時（業務前）と退勤時（業務後）を明確に色分け・バッジ化
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
@@ -557,7 +566,8 @@ export default function AdminDashboard() {
                 ) : (
                   <table className="w-full border-collapse border border-slate-300">
                     <thead>
-                      <tr className="bg-slate-50">
+                      <tr className="bg-slate-50 text-center">
+                        <th className="border border-slate-300 p-1.5 w-28">点呼区分</th>
                         <th className="border border-slate-300 p-1.5">時刻</th>
                         <th className="border border-slate-300 p-1.5">担当者名</th>
                         <th className="border border-slate-300 p-1.5">確認者名</th>
@@ -571,8 +581,40 @@ export default function AdminDashboard() {
                       {alcohols.map((row) => {
                         const v = Number(row.alcohol_value);
                         const isDanger = v >= 0.15;
+                        const timing = getTimingType(row.notes);
+                        const isStart = timing === 'start';
+                        const isFinish = timing === 'finish';
+
                         return (
-                          <tr key={row.id} className="text-center">
+                          <tr
+                            key={row.id}
+                            className={`text-center transition-colors ${
+                              isStart
+                                ? 'bg-sky-50/60 print:bg-white'
+                                : isFinish
+                                ? 'bg-purple-50/60 print:bg-slate-50'
+                                : 'bg-white'
+                            }`}
+                          >
+                            {/* 点呼区分バッジ */}
+                            <td className="border border-slate-300 p-1.5 whitespace-nowrap">
+                              {isStart && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-blue-100 text-blue-900 border border-blue-300 print:border-slate-400 print:text-black print:bg-transparent">
+                                  <span>☀️</span>
+                                  <span>出勤時</span>
+                                </span>
+                              )}
+                              {isFinish && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-purple-100 text-purple-900 border border-purple-300 print:border-slate-800 print:text-black print:bg-slate-200">
+                                  <span>🌙</span>
+                                  <span>退勤時</span>
+                                </span>
+                              )}
+                              {!isStart && !isFinish && (
+                                <span className="text-[11px] text-slate-400 font-bold">-</span>
+                              )}
+                            </td>
+
                             <td className="border border-slate-300 p-1.5 font-mono">
                               {new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </td>
