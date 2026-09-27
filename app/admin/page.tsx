@@ -26,9 +26,15 @@ const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown
   return 'unknown';
 };
 
+// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得
+const getTodayJST = () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 10);
+};
+
 export default function AdminDashboard() {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const [targetDate, setTargetDate] = useState(todayStr);
+  const [targetDate, setTargetDate] = useState(getTodayJST);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
 
