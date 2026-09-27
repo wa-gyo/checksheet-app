@@ -9,14 +9,14 @@ const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイ
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 6]
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 8]
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 6]
+// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 8]
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -42,21 +42,21 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー（1℃単位の整数増減）[cite: 6]
+// 温度微調整ヘルパー（1℃単位の整数増減）[cite: 8]
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseInt(current, 10) : defaultBase;
   if (isNaN(base)) return String(defaultBase);
   return String(base + delta);
 };
 
-// 温度の範囲チェックヘルパー（整数ベース）[cite: 6]
+// 温度の範囲チェックヘルパー（整数ベース）[cite: 8]
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
   if (valStr === '') return true;
   const n = parseInt(valStr, 10);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 日時表示コンポーネント（文字を大きく見やすく＆文字拡大でも崩れない設計）[cite: 6]
+// 日時表示コンポーネント（文字を大きく見やすく＆文字拡大でも崩れない設計）[cite: 8]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -174,7 +174,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）[cite: 6]
+// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）[cite: 8]
 function TempInputRow({
   label,
   target,
@@ -288,7 +288,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 6]
+  // 1. 基本チェック[cite: 8]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -298,7 +298,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 6]
+  // 2. 生魚加工[cite: 8]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -309,7 +309,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 荷物受入[cite: 6]
+  // 3. 荷物受入[cite: 8]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -319,7 +319,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 4. 保管庫温度[cite: 6]
+  // 4. 保管庫温度[cite: 8]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -330,13 +330,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 5. 退勤前温度[cite: 6]
+  // 5. 退勤前温度[cite: 8]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 6. 運転日報[cite: 6]
+  // 6. 運転日報[cite: 8]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -491,6 +491,7 @@ function ChecksheetForm() {
     e.preventDefault();
     if (!staffName.trim()) {
       setDialogError('あなたのお名前を入力してください');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -733,6 +734,8 @@ function ChecksheetForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setDialogError(err.message || 'Supabase接続エラー');
+      // エラー発生時に画面最上部の警告まで自動スクロール
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
     }
@@ -1728,7 +1731,15 @@ function ChecksheetForm() {
             </div>
           )}
 
-          <div className="pt-3">
+          {/* 送信ボタン手前の直近エラー表示（スクロールしなくても手元でエラーが即座に分かる） */}
+          {dialogError && (
+            <div className="p-3.5 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-sm font-bold flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
+              <span>{dialogError}</span>
+            </div>
+          )}
+
+          <div className="pt-2">
             <button
               type="submit"
               disabled={
