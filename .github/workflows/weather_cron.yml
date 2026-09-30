@@ -35,7 +35,7 @@ jobs:
               if (code >= 61 && code <= 65) return "🌧️ 雨";
               if (code >= 71 && code <= 77) return "❄️ 雪";
               if (code >= 80 && code <= 82) return "🌧️ にわか雨";
-              if (code >= 85 && code <= 86) return "🌨️ にわか雪";
+              if (code >= 85 && code <= 86) return "🌨️️ にわか雪";
               if (code >= 95) return "⚡ 雷雨";
               return "☁️ 曇り";
             };
@@ -56,29 +56,41 @@ jobs:
                   humidity: Math.round(cur.relative_humidity_2m)
                 }]);
 
-                const supabaseUrl = process.env.SUPABASE_URL + "/rest/v1/daily_weather_logs";
+                const endpoint = new URL("/rest/v1/daily_weather_logs", process.env.SUPABASE_URL);
+
                 const options = {
+                  hostname: endpoint.hostname,
+                  port: 443,
+                  path: endpoint.pathname,
                   method: "POST",
                   headers: {
                     "apikey": process.env.SUPABASE_KEY,
                     "Authorization": "Bearer " + process.env.SUPABASE_KEY,
                     "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(payload),
                     "Prefer": "resolution=merge-duplicates"
                   }
                 };
 
-                const req = https.request(supabaseUrl, options, (sRes) => {
-                  console.log("Supabase response status:", sRes.statusCode);
-                  if (sRes.statusCode >= 200 && sRes.statusCode < 300) {
-                    console.log("Successfully stored weather for:", dateStr);
-                  } else {
-                    process.exit(1);
-                  }
+                const req = https.request(options, (sRes) => {
+                  let sData = "";
+                  sRes.on("data", (c) => sData += c);
+                  sRes.on("end", () => {
+                    console.log("Supabase response status:", sRes.statusCode);
+                    if (sRes.statusCode >= 200 && sRes.statusCode < 300) {
+                      console.log("Successfully stored weather for:", dateStr);
+                    } else {
+                      console.error("Supabase error response:", sData);
+                      process.exit(1);
+                    }
+                  });
                 });
+
                 req.on("error", (err) => {
                   console.error(err);
                   process.exit(1);
                 });
+
                 req.write(payload);
                 req.end();
               });
