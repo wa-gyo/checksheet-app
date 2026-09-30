@@ -9,10 +9,6 @@ type ViewMode = 'all' | 'temp' | 'fish' | 'alcohol' | 'drive';
 // 管理者パスコード（必要に応じて自由に変更してください）
 const ADMIN_PASSCODE = 'gyorui370220';
 
-// 拠点座標（会津若松市公設地方卸売市場：北緯37.5282度, 東経139.9465度）
-const LATITUDE = 37.5282;
-const LONGITUDE = 139.9465;
-
 interface EditTarget {
   table: string;
   id: string;
@@ -36,27 +32,11 @@ const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown
   return 'unknown';
 };
 
-// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得[cite: 8]
+// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得
 const getTodayJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 10);
-};
-
-// WMO気象コードを日本語テキストと絵文字に変換
-const parseWmoCode = (code: number | null): string => {
-  if (code === null || code === undefined) return '不明';
-  if (code === 0) return '☀️ 快晴';
-  if (code === 1 || code === 2) return '🌤 晴れ';
-  if (code === 3) return '☁️ 曇り';
-  if (code === 45 || code === 48) return '🌫️ 霧';
-  if (code >= 51 && code <= 55) return '🌦️ 霧雨';
-  if (code >= 61 && code <= 65) return '🌧️ 雨';
-  if (code >= 71 && code <= 77) return '❄️ 雪';
-  if (code >= 80 && code <= 82) return '🌧️ にわか雨';
-  if (code >= 85 && code <= 86) return '🌨️ にわか雪';
-  if (code >= 95) return '⚡ 雷雨';
-  return '☁️ 曇り';
 };
 
 export default function AdminDashboard() {
@@ -64,18 +44,18 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
 
-  // 認証ステート[cite: 8]
+  // 認証ステート
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [inputPass, setInputPass] = useState('');
   const [passError, setPassError] = useState('');
 
-  // 編集モーダルステート[cite: 8]
+  // 編集モーダルステート
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editTimeValue, setEditTimeValue] = useState('');
   const [editNotesValue, setEditNotesValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // 各種データ[cite: 8]
+  // 各種データ
   const [alcohols, setAlcohols] = useState<any[]>([]);
   const [fishes, setFishes] = useState<any[]>([]);
   const [temps, setTemps] = useState<any[]>([]);
@@ -83,11 +63,11 @@ export default function AdminDashboard() {
   const [receivings, setReceivings] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
 
-  // Open-Meteo 気象データステート
+  // Supabase (daily_weather_logs) から読み込む気象データステート
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
-  // 認証チェック[cite: 8]
+  // 認証チェック
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_authenticated');
     if (authStatus === 'true') {
@@ -112,41 +92,40 @@ export default function AdminDashboard() {
     setInputPass('');
   };
 
-  // Open-Meteo から 08:00 時点の気象データを取得
+  // daily_weather_logs テーブルから確定気象データを取得
   const fetchWeather = async (dateStr: string) => {
     setWeatherLoading(true);
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&hourly=temperature_2m,relative_humidity_2m,weather_code&timezone=Asia%2FTokyo&start_date=${dateStr}&end_date=${dateStr}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Weather API error');
-      const data = await res.json();
+      const { data, error } = await supabase
+        .from('daily_weather_logs')
+        .select('weather_text, temperature, humidity')
+        .eq('target_date', dateStr)
+        .maybeSingle();
 
-      if (data && data.hourly && data.hourly.time) {
-        const targetTimeStr = `${dateStr}T08:00`;
-        const index = data.hourly.time.findIndex((t: string) => t === targetTimeStr);
-
-        if (index !== -1) {
-          const t = data.hourly.temperature_2m[index];
-          const h = data.hourly.relative_humidity_2m[index];
-          const code = data.hourly.weather_code[index];
-          setWeather({
-            weatherText: parseWmoCode(code),
-            temp: t !== undefined ? Math.round(t * 10) / 10 : null,
-            humidity: h !== undefined ? Math.round(h) : null,
-          });
-          return;
-        }
+      if (error) {
+        console.error('気象データの取得エラー:', error);
+        setWeather(null);
+        return;
       }
-      setWeather(null);
+
+      if (data) {
+        setWeather({
+          weatherText: data.weather_text,
+          temp: data.temperature !== null ? Number(data.temperature) : null,
+          humidity: data.humidity !== null ? Number(data.humidity) : null,
+        });
+      } else {
+        setWeather(null);
+      }
     } catch (e) {
-      console.error('Failed to fetch weather from Open-Meteo:', e);
+      console.error('気象データのロードに失敗しました:', e);
       setWeather(null);
     } finally {
       setWeatherLoading(false);
     }
   };
 
-  // データ取得[cite: 8]
+  // 業務データ取得
   const fetchData = async (dateStr: string) => {
     if (!isAuthenticated) return;
     setLoading(true);
@@ -183,7 +162,7 @@ export default function AdminDashboard() {
     }
   }, [targetDate, isAuthenticated]);
 
-  // レコード削除[cite: 8]
+  // レコード削除
   const handleDelete = async (table: string, id: string, label: string) => {
     if (!confirm(`【警告】この記録（${label}）を完全に削除しますか？\n誤入力やテストデータ以外は削除しないでください。`)) {
       return;
@@ -198,7 +177,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // 編集モーダルを開く[cite: 8]
+  // 編集モーダルを開く
   const openEditModal = (target: EditTarget) => {
     setEditTarget(target);
     const d = new Date(target.currentIso);
@@ -207,7 +186,7 @@ export default function AdminDashboard() {
     setEditNotesValue(target.notes || '');
   };
 
-  // 編集の保存[cite: 8]
+  // 編集の保存
   const handleSaveEdit = async () => {
     if (!editTarget || !editTimeValue) return;
     setSavingEdit(true);
@@ -238,7 +217,7 @@ export default function AdminDashboard() {
   };
 
   // -------------------------------------------------------------
-  // ログイン画面（未認証時）[cite: 8]
+  // ログイン画面（未認証時）
   // -------------------------------------------------------------
   if (!isAuthenticated) {
     return (
@@ -285,11 +264,11 @@ export default function AdminDashboard() {
   }
 
   // -------------------------------------------------------------
-  // 管理者メイン画面（認証完了時）[cite: 8]
+  // 管理者メイン画面（認証完了時）
   // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 print:p-0 print:bg-white font-sans">
-      {/* 画面操作コントロールバー（印刷時は非表示）[cite: 8] */}
+      {/* 画面操作コントロールバー（印刷時は非表示） */}
       <div className="max-w-5xl mx-auto mb-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -346,7 +325,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 単体リスト切り替えタブ[cite: 8] */}
+        {/* 単体リスト切り替えタブ */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex gap-1.5 overflow-x-auto">
           {[
             { key: 'all', label: '📋 日報まとめ（一括・印刷用）' },
@@ -370,9 +349,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* メイン表示エリア[cite: 8] */}
+      {/* メイン表示エリア */}
       <div className="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
-        {/* 帳票ヘッダー（対象日＋公設地方卸売市場地点の気象情報） */}
+        {/* 帳票ヘッダー（対象日＋公設地方卸売市場地点の確定気象情報） */}
         <div className="border-b-2 border-slate-800 pb-2 mb-4 flex flex-wrap justify-between items-end gap-2">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
@@ -387,7 +366,7 @@ export default function AdminDashboard() {
                 対象日: <span className="text-sm text-blue-900 underline font-mono font-black">{targetDate}</span>
               </div>
 
-              {/* 公設市場の気象情報バッジ */}
+              {/* 公設市場の確定気象情報バッジ */}
               <div className="text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded px-2.5 py-0.5 flex items-center gap-2 print:border-slate-400">
                 <span className="text-slate-500 font-normal">気象(08:00):</span>
                 {weatherLoading ? (
@@ -401,7 +380,7 @@ export default function AdminDashboard() {
                     <span>湿度 {weather.humidity !== null ? `${weather.humidity}%` : '-'}</span>
                   </span>
                 ) : (
-                  <span className="text-slate-400">-</span>
+                  <span className="text-slate-400 font-normal font-sans">（8:00記録待ち）</span>
                 )}
               </div>
             </div>
@@ -416,7 +395,7 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-6 print:space-y-4 text-xs">
             {/* ========================================================
-                1. 温度衛生管理（出勤時 & 退勤前 & 荷物受入）[cite: 8]
+                1. 温度衛生管理（出勤時 & 退勤前 & 荷物受入）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'temp') && (
               <section className="break-inside-avoid">
@@ -424,9 +403,9 @@ export default function AdminDashboard() {
                   1. 温度衛生管理（日常・出勤時 & 退勤前 & 荷物受入）
                 </h3>
 
-                {/* 温度管理グリッド（出勤時・退勤前）[cite: 8] */}
+                {/* 温度管理グリッド（出勤時・退勤前） */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 mb-3">
-                  {/* 出勤時[cite: 8] */}
+                  {/* 出勤時 */}
                   <div className="border border-slate-300 rounded p-2.5">
                     <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 日常・出勤時 点検</div>
                     {temps.length === 0 ? (
@@ -469,7 +448,7 @@ export default function AdminDashboard() {
                     )}
                   </div>
 
-                  {/* 退勤前[cite: 8] */}
+                  {/* 退勤前 */}
                   <div className="border border-slate-300 rounded p-2.5">
                     <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 退勤前 点検</div>
                     {closings.length === 0 ? (
@@ -506,7 +485,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* 荷物受入 点検記録[cite: 8] */}
+                {/* 荷物受入 点検記録 */}
                 <div className="border border-slate-300 rounded p-2.5 bg-white">
                   <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
                     <span>■ 荷物受入 点検記録</span>
@@ -577,7 +556,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                2. 生魚加工 衛生管理点検[cite: 8]
+                2. 生魚加工 衛生管理点検
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'fish') && (
               <section className="break-inside-avoid">
@@ -647,7 +626,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. 基本チェック・アルコール点呼記録簿（対面確認）[cite: 8]
+                3. 基本チェック・アルコール点呼記録簿（対面確認）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
@@ -751,7 +730,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                4. 運転日報[cite: 8]
+                4. 運転日報
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'drive') && (
               <section className="break-inside-avoid">
@@ -836,7 +815,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 帳票フッター（署名・承認欄）[cite: 8] */}
+        {/* 帳票フッター（署名・承認欄） */}
         <div className="mt-8 pt-4 border-t border-slate-300 flex justify-end gap-6 text-center text-xs">
           <div className="w-24 border border-slate-400 p-1 h-20 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500">管理者確認印</span>
@@ -850,7 +829,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================
-          時刻修正・特記編集モーダルダイアログ[cite: 8]
+          時刻修正・特記編集モーダルダイアログ
          ======================================================== */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
