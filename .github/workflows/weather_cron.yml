@@ -4,7 +4,7 @@ on:
   schedule:
     # 日本時間 08:00 = UTC 23:00 (前日)
     - cron: '0 23 * * *'
-  workflow_dispatch: # 手動テスト実行用
+  workflow_dispatch:
 
 jobs:
   fetch-and-store-weather:
@@ -16,83 +16,71 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           node -e '
-            const https = require("https");
+            async function main() {
+              const LAT = 37.5282;
+              const LON = 139.9465;
 
-            const LAT = 37.5282;
-            const LON = 139.9465;
+              const now = new Date();
+              const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+              const dateStr = jstNow.toISOString().slice(0, 10);
+              const recordedAt = `${dateStr}T08:00:00+09:00`;
 
-            const now = new Date();
-            const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-            const dateStr = jstNow.toISOString().slice(0, 10);
-            const recordedAt = `${dateStr}T08:00:00+09:00`;
+              const parseWmo = (code) => {
+                if (code === 0) return "☀️ 快晴";
+                if (code === 1 || code === 2) return "🌤 晴れ";
+                if (code === 3) return "☁️ 曇り";
+                if (code === 45 || code === 48) return "🌫️ 霧";
+                if (code >= 51 && code <= 55) return "🌦️ 霧雨";
+                if (code >= 61 && code <= 65) return "🌧️ 雨";
+                if (code >= 71 && code <= 77) return "❄️ 雪";
+                if (code >= 80 && code <= 82) return "🌧️ にわか雨";
+                if (code >= 85 && code <= 86) return "🌨️ にわか雪";
+                if (code >= 95) return "⚡ 雷雨";
+                return "☁️ 曇り";
+              };
 
-            const parseWmo = (code) => {
-              if (code === 0) return "☀️ 快晴";
-              if (code === 1 || code === 2) return "🌤 晴れ";
-              if (code === 3) return "☁️ 曇り";
-              if (code === 45 || code === 48) return "🌫️ 霧";
-              if (code >= 51 && code <= 55) return "🌦️ 霧雨";
-              if (code >= 61 && code <= 65) return "🌧️ 雨";
-              if (code >= 71 && code <= 77) return "❄️ 雪";
-              if (code >= 80 && code <= 82) return "🌧️ にわか雨";
-              if (code >= 85 && code <= 86) return "🌨️️ にわか雪";
-              if (code >= 95) return "⚡ 雷雨";
-              return "☁️ 曇り";
-            };
+              const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=Asia%2FTokyo`;
+              
+              const resWeather = await fetch(weatherUrl);
+              const weatherJson = await resWeather.json();
+              const cur = weatherJson.current;
 
-            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=Asia%2FTokyo`;
+              const baseUrl = (process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+              const apiKey = (process.env.SUPABASE_KEY || "").trim();
+              const targetUrl = `${baseUrl}/rest/v1/daily_weather_logs`;
 
-            https.get(weatherUrl, (res) => {
-              let data = "";
-              res.on("data", (chunk) => data += chunk);
-              res.on("end", () => {
-                const json = JSON.parse(data);
-                const cur = json.current;
-                const payload = JSON.stringify([{
-                  target_date: dateStr,
-                  recorded_at: recordedAt,
-                  weather_text: parseWmo(cur.weather_code),
-                  temperature: Math.round(cur.temperature_2m * 10) / 10,
-                  humidity: Math.round(cur.relative_humidity_2m)
-                }]);
+              const payload = [{
+                target_date: dateStr,
+                recorded_at: recordedAt,
+                weather_text: parseWmo(cur.weather_code),
+                temperature: Math.round(cur.temperature_2m * 10) / 10,
+                humidity: Math.round(cur.relative_humidity_2m)
+              }];
 
-                const endpoint = new URL("/rest/v1/daily_weather_logs", process.env.SUPABASE_URL);
-
-                const options = {
-                  hostname: endpoint.hostname,
-                  port: 443,
-                  path: endpoint.pathname,
-                  method: "POST",
-                  headers: {
-                    "apikey": process.env.SUPABASE_KEY,
-                    "Authorization": "Bearer " + process.env.SUPABASE_KEY,
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(payload),
-                    "Prefer": "resolution=merge-duplicates"
-                  }
-                };
-
-                const req = https.request(options, (sRes) => {
-                  let sData = "";
-                  sRes.on("data", (c) => sData += c);
-                  sRes.on("end", () => {
-                    console.log("Supabase response status:", sRes.statusCode);
-                    if (sRes.statusCode >= 200 && sRes.statusCode < 300) {
-                      console.log("Successfully stored weather for:", dateStr);
-                    } else {
-                      console.error("Supabase error response:", sData);
-                      process.exit(1);
-                    }
-                  });
-                });
-
-                req.on("error", (err) => {
-                  console.error(err);
-                  process.exit(1);
-                });
-
-                req.write(payload);
-                req.end();
+              const resDb = await fetch(targetUrl, {
+                method: "POST",
+                headers: {
+                  "apikey": apiKey,
+                  "Authorization": `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  "Prefer": "resolution=merge-duplicates"
+                },
+                body: JSON.stringify(payload)
               });
+
+              console.log("Supabase response status:", resDb.status);
+
+              if (!resDb.ok) {
+                const errText = await resDb.text();
+                console.error("Supabase error response:", errText);
+                process.exit(1);
+              }
+
+              console.log("Successfully stored weather for:", dateStr);
+            }
+
+            main().catch((err) => {
+              console.error(err);
+              process.exit(1);
             });
           '
