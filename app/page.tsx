@@ -9,14 +9,14 @@ const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイ
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 8]
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 8]
+// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -42,21 +42,21 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー（1℃単位の整数増減）[cite: 8]
+// 温度微調整ヘルパー（1℃単位の整数増減）
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseInt(current, 10) : defaultBase;
   if (isNaN(base)) return String(defaultBase);
   return String(base + delta);
 };
 
-// 温度の範囲チェックヘルパー（整数ベース）[cite: 8]
+// 温度の範囲チェックヘルパー（整数ベース）
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
   if (valStr === '') return true;
   const n = parseInt(valStr, 10);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 日時表示コンポーネント（文字を大きく見やすく＆文字拡大でも崩れない設計）[cite: 8]
+// 日時表示コンポーネント（記録日時のフォントサイズを1ptアップ）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -91,8 +91,8 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
             <span className="text-xs font-black text-slate-500">記録日時</span>
             <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">自動</span>
           </div>
-          {/* 日時テキストを text-xl〜text-2xl にサイズアップ */}
-          <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono leading-none">
+          {/* 日時テキストを 1pt アップ（text-[22px] sm:text-[26px]） */}
+          <span className="text-[22px] sm:text-[26px] font-black text-slate-900 tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
         </div>
@@ -174,7 +174,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）[cite: 8]
+// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）
 function TempInputRow({
   label,
   target,
@@ -242,7 +242,6 @@ function TempInputRow({
           step="1"
           inputMode="numeric"
           required
-          // placeholder={`数字を入力 (${base})`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full min-h-[58px] py-2 text-2xl font-black px-4 pr-16 border-2 rounded-xl transition-colors ${
@@ -288,7 +287,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 8]
+  // 1. 基本チェック
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -298,7 +297,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 8]
+  // 2. 生魚加工
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -309,7 +308,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 荷物受入[cite: 8]
+  // 3. 荷物受入
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -319,7 +318,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 4. 保管庫温度[cite: 8]
+  // 4. 保管庫温度
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -330,13 +329,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 5. 退勤前温度[cite: 8]
+  // 5. 退勤前温度
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 6. 運転日報[cite: 8]
+  // 6. 運転日報
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -505,6 +504,19 @@ function ChecksheetForm() {
         if (!handHygieneStatus) throw new Error('手の衛生チェックを選択してください');
         const checker = checkerType === 'その他' ? customChecker : checkerType;
         if (!checker.trim()) throw new Error('確認者を入力してください');
+
+        // 確認者とお名前の重複・一致チェック（名字だけとフルネームの違いも検出）
+        const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
+        const cleanChecker = checker.replace(/[\s ]+/g, '').trim();
+        if (
+          cleanStaff === cleanChecker ||
+          cleanStaff.startsWith(cleanChecker) ||
+          cleanChecker.startsWith(cleanStaff) ||
+          cleanStaff.includes(cleanChecker)
+        ) {
+          throw new Error('「あなたのお名前」と「確認者」に同一人物（ご自身）は指定できません。必ず別の確認者を選んでください。');
+        }
+
         if (alcoholVal === '') throw new Error('アルコール測定値を入力してください');
 
         const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
@@ -734,7 +746,6 @@ function ChecksheetForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setDialogError(err.message || 'Supabase接続エラー');
-      // エラー発生時に画面最上部の警告まで自動スクロール
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
@@ -747,16 +758,16 @@ function ChecksheetForm() {
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
-      {/* タブナビゲーション */}
+      {/* タブナビゲーション：基本チェック、運転日報、生魚加工、退勤前温度、保管庫温度、荷物受入 */}
       <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
         <div className="flex px-2 py-2 gap-1.5 min-w-max">
           {[
             { key: 'alcohol', label: '📋 基本チェック' },
-            { key: 'receiving', label: '📦 荷物受入' },
-            { key: 'temp', label: '🌡️ 保管庫温度' },
+            { key: 'drive', label: '🚗 運転日報' },
             { key: 'fish', label: '🐟 生魚加工' },
             { key: 'closing', label: '🌙 退勤前温度' },
-            { key: 'drive', label: '🚗 運転日報' },
+            { key: 'temp', label: '🌡️ 保管庫温度' },
+            { key: 'receiving', label: '📦 荷物受入' },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -833,7 +844,7 @@ function ChecksheetForm() {
 
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
 
-                {/* 体調チェック項目 */}
+                {/* 体調チェック項目（※但し書き拡大） */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -844,7 +855,7 @@ function ChecksheetForm() {
                     </span>
                   </div>
 
-                  <div className="text-sm font-black text-red-950 bg-amber-100 p-3 rounded-xl border border-amber-400 shadow-sm leading-snug">
+                  <div className="text-base sm:text-lg font-black text-red-950 bg-amber-100 p-3.5 rounded-xl border border-amber-400 shadow-sm leading-snug">
                     ※本人、同居者に発熱、下痢、嘔吐がない
                   </div>
 
@@ -874,7 +885,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 手の衛生チェック項目 */}
+                {/* 手の衛生チェック項目（※但し書き拡大＆文言修正「点検」） */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -885,8 +896,8 @@ function ChecksheetForm() {
                     </span>
                   </div>
 
-                  <div className="text-xs sm:text-sm font-black text-slate-800 bg-blue-50 p-2.5 rounded-xl border border-blue-200 leading-snug">
-                    ※爪の長さ・手荒れ・傷・手指消毒の実施
+                  <div className="text-base sm:text-lg font-black text-slate-900 bg-blue-50 p-3 rounded-xl border border-blue-200 leading-snug">
+                    ※爪の長さ・手荒れ・傷・手指消毒の点検
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-0.5">
@@ -990,7 +1001,6 @@ function ChecksheetForm() {
                       min="0"
                       inputMode="decimal"
                       required
-                      placeholder="0.00"
                       value={alcoholVal}
                       onChange={(e) => setAlcoholVal(e.target.value)}
                       className="w-full text-3xl sm:text-4xl font-black min-h-[64px] py-1 px-3 border-2 border-slate-400 rounded-xl text-center bg-white shadow-inner"
@@ -1047,7 +1057,540 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 2. 荷物受入チェック（便名の個別削除バッジを反映） */}
+          {/* 2. 運転日報 */}
+          {activeTab === 'drive' && (
+            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+              <h2 className="font-black text-xl text-slate-900 border-l-8 border-amber-600 pl-3">
+                運転日報
+              </h2>
+
+              <div className="grid grid-cols-2 gap-2 bg-slate-200 p-1.5 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setDriveMode('start')}
+                  className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                    driveMode === 'start' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-slate-800'
+                  }`}
+                >
+                  ① 出発時（乗車）
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDriveMode('finish');
+                    fetchActiveDrives();
+                  }}
+                  className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                    driveMode === 'finish' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-slate-800'
+                  }`}
+                >
+                  ② 帰社時（降車）
+                </button>
+              </div>
+
+              {driveMode === 'start' ? (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
+                      使用車両 <span className="text-red-600">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      <select
+                        value={vehicle}
+                        onChange={(e) => setVehicle(e.target.value)}
+                        className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white"
+                      >
+                        {VEHICLE_OPTIONS.map((v) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                        <option value="その他">その他（手入力）</option>
+                      </select>
+                      {vehicle === 'その他' && (
+                        <input
+                          type="text"
+                          placeholder="車両名を入力"
+                          value={customVehicle}
+                          onChange={(e) => setCustomVehicle(e.target.value)}
+                          className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-lg font-bold"
+                          required
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
+                      行先 <span className="text-red-600">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      <select
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                        className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white"
+                      >
+                        {DESTINATION_OPTIONS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                        <option value="その他">その他（手入力）</option>
+                      </select>
+                      {destination === 'その他' && (
+                        <input
+                          type="text"
+                          placeholder="行先を入力"
+                          value={customDestination}
+                          onChange={(e) => setCustomDestination(e.target.value)}
+                          className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-lg font-bold"
+                          required
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">同乗者（ある場合記入）</label>
+                    <input
+                      type="text"
+                      value={passenger}
+                      onChange={(e) => setPassenger(e.target.value)}
+                      className="w-full min-h-[50px] py-2 px-3 border-2 border-slate-400 rounded-xl text-base font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <BigDateDisplay value={driveStart} onChange={setDriveStart} />
+
+                    <div className="flex justify-between items-baseline mb-1.5 mt-3">
+                      <label className="text-lg font-black text-slate-900 leading-snug">
+                        乗車時メーター (km) <span className="text-red-600">*</span>
+                      </label>
+                      <span className="text-xs font-bold text-slate-500">車のメーター値</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.1"
+                      inputMode="decimal"
+                      required
+                      value={startMeter}
+                      onChange={(e) => setStartMeter(e.target.value)}
+                      className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
+                        isStartMeterDecreased || isStartMeterDigitError
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-slate-400'
+                      }`}
+                    />
+                  </div>
+
+                  {fetchingLastMeter ? (
+                    <div className="text-xs text-slate-400 italic">車両の過去メーターを参照中...</div>
+                  ) : lastRecordedMeter !== null ? (
+                    <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl text-sm flex justify-between items-center">
+                      <span className="font-bold text-slate-700">前回最終記録:</span>
+                      <span className="font-mono font-black text-lg text-slate-950">{lastRecordedMeter.toLocaleString()} km</span>
+                    </div>
+                  ) : null}
+
+                  {isStartMeterDecreased && (
+                    <div className="p-3 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-xs sm:text-sm font-black animate-pulse leading-snug">
+                      🚨 メーター逆行エラー：前回の最終記録（{lastRecordedMeter} km）より小さくなっています。
+                    </div>
+                  )}
+
+                  {isStartMeterDigitError && !isStartMeterDecreased && (
+                    <div className="p-3 bg-amber-100 border-2 border-amber-500 text-amber-950 rounded-xl text-xs sm:text-sm font-black leading-snug">
+                      ⚠️ 桁数違いの疑い：前回の記録（{lastRecordedMeter} km）と桁数が大きく異なります。
+                    </div>
+                  )}
+                </div>
+              ) : (
+                (() => {
+                  const currentDrive = activeDrives.find((d) => d.id === selectedDriveId);
+                  const currentStartMeter = currentDrive ? Number(currentDrive.start_meter) : null;
+                  const currentEndMeter = endMeter !== '' ? parseFloat(endMeter) : null;
+                  const isMeterInvalid = currentStartMeter !== null && currentEndMeter !== null && currentEndMeter < currentStartMeter;
+                  const calculatedDistance =
+                    currentStartMeter !== null && currentEndMeter !== null && !isMeterInvalid
+                      ? (currentEndMeter - currentStartMeter).toFixed(1)
+                      : null;
+
+                  return (
+                    <div className="space-y-4 pt-1">
+                      <div>
+                        <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
+                          完了する運行を選択 <span className="text-red-600">*</span>
+                        </label>
+                        {activeDrives.length === 0 ? (
+                          <div className="p-4 bg-slate-50 border-2 border-slate-200 text-base font-bold text-slate-500 text-center rounded-xl">
+                            現在運行中のデータはありません
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedDriveId}
+                            onChange={(e) => setSelectedDriveId(e.target.value)}
+                            className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-base sm:text-lg font-black"
+                          >
+                            {activeDrives.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.vehicle_name} ({d.staff_name}さん / 乗車: {d.start_meter} km)
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div>
+                        <BigDateDisplay value={driveEnd} onChange={setDriveEnd} />
+
+                        <div className="flex justify-between items-baseline mb-1.5 mt-3">
+                          <label className="text-lg font-black text-slate-900 leading-snug">
+                            降車時メーター (km) <span className="text-red-600">*</span>
+                          </label>
+                          {currentStartMeter !== null && (
+                            <span className="text-xs font-bold text-slate-600">乗車時: {currentStartMeter} km</span>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          step="0.1"
+                          inputMode="decimal"
+                          required
+                          value={endMeter}
+                          onChange={(e) => setEndMeter(e.target.value)}
+                          className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
+                            isMeterInvalid
+                              ? 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-slate-400'
+                          }`}
+                        />
+                      </div>
+
+                      {isMeterInvalid && (
+                        <div className="p-3 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-xs sm:text-sm font-black animate-pulse leading-snug">
+                          🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
+                        </div>
+                      )}
+
+                      {calculatedDistance !== null && (
+                        <div className="p-4 bg-emerald-50 border-2 border-emerald-400 text-emerald-950 rounded-xl text-base font-black flex justify-between items-center shadow-sm">
+                          <span>走行距離（自動計算）:</span>
+                          <span className="text-2xl font-mono text-emerald-900">{calculatedDistance} km</span>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">給油（ある場合記入・ℓ）</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          inputMode="decimal"
+                          value={refuelLiters}
+                          onChange={(e) => setRefuelLiters(e.target.value)}
+                          className="w-full min-h-[52px] py-2 px-3 text-xl font-bold border-2 border-slate-400 rounded-xl"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                        <textarea
+                          rows={2}
+                          value={driveNotes}
+                          onChange={(e) => setDriveNotes(e.target.value)}
+                          placeholder="異常や連絡事項があれば記入"
+                          className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+          )}
+
+          {/* 3. 生魚加工衛生管理 */}
+          {activeTab === 'fish' && (
+            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+              <h2 className="font-black text-xl text-slate-900 border-l-8 border-emerald-600 pl-3">
+                生魚加工衛生管理
+              </h2>
+
+              <BigDateDisplay value={fishDate} onChange={setFishDate} />
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                  健康状態 <span className="text-red-600">*</span>
+                </div>
+                <div className="text-xs text-slate-600 font-bold mb-2">発熱・下痢・嘔吐等の症状なし</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '○ 良（異常なし）', val: '良' as const },
+                    { label: '○ 否（要報告）', val: '否' as const },
+                  ].map((btn) => (
+                    <button
+                      key={btn.val}
+                      type="button"
+                      onClick={() => setHealthStatus(btn.val)}
+                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        healthStatus === btn.val
+                          ? btn.val === '良'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                  手洗い実施 <span className="text-red-600">*</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {[
+                    { label: '○ 実施済み', val: '実施済み' as const },
+                    { label: '○ 未実施', val: '未実施' as const },
+                  ].map((btn) => (
+                    <button
+                      key={btn.val}
+                      type="button"
+                      onClick={() => setHandWashing(btn.val)}
+                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        handWashing === btn.val
+                          ? btn.val === '実施済み'
+                            ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
+                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {[
+                { label: '商品確認', sub: '鮮度、品温、産地情報・複数ある場合もそれぞれ確認', val: productCheck, setter: setProductCheck, badSub: '上席に報告' },
+                { label: '魚体洗浄', sub: '必ず真水で洗浄する事', val: fishWashing, setter: setFishWashing, badSub: '特記に説明' },
+                { label: '作業温度', sub: '25℃以下での作業を', val: workTemp, setter: setWorkTemp, badSub: '特記に説明' },
+                { label: '施設の衛生', sub: '手洗い設備・天井・壁・床・照明・整理整頓', val: facilityHygiene, setter: setFacilityHygiene, badSub: '特記に説明' },
+                { label: '用具・備品の衛生', sub: '作業台・床・計量器・包丁・ノコギリ・ラップ等', val: toolsHygiene, setter: setToolsHygiene, badSub: '特記に説明' },
+              ].map((item, idx) => (
+                <div key={idx} className="border-t-2 border-slate-200 pt-4">
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    {item.label} <span className="text-red-600">*</span>
+                  </div>
+                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">{item.sub}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: '○ よい', val: 'よい' as const },
+                      { label: `○ わるい (${item.badSub})`, val: 'わるい' as const },
+                    ].map((btn) => (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => item.setter(btn.val)}
+                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                          item.val === btn.val
+                            ? btn.val === 'よい'
+                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                            : 'bg-slate-50 text-slate-800 border-slate-300'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                <textarea
+                  rows={2}
+                  value={fishNotes}
+                  onChange={(e) => setFishNotes(e.target.value)}
+                  placeholder="悪い・否の場合は内容と指示内容を記入"
+                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 4. 退勤前温度管理 */}
+          {activeTab === 'closing' && (
+            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+              <h2 className="font-black text-xl text-slate-900 border-l-8 border-indigo-600 pl-3">
+                退勤前温度管理
+              </h2>
+
+              <BigDateDisplay value={closingDate} onChange={setClosingDate} />
+
+              <TempInputRow
+                label="本庫温度"
+                target="マイナス20℃目安"
+                value={closingMainTemp}
+                onChange={setClosingMainTemp}
+                base={-20}
+                min={-40}
+                max={0}
+              />
+
+              <TempInputRow
+                label="2号室温度"
+                target="マイナス20℃目安"
+                value={closingRoom2Temp}
+                onChange={setClosingRoom2Temp}
+                base={-20}
+                min={-40}
+                max={0}
+              />
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                <textarea
+                  rows={2}
+                  value={closingNotes}
+                  onChange={(e) => setClosingNotes(e.target.value)}
+                  placeholder="特記事項があれば記入"
+                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 5. 保管庫温度管理 */}
+          {activeTab === 'temp' && (
+            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+              <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
+                保管庫温度管理
+              </h2>
+              <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
+                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
+              </div>
+
+              <BigDateDisplay value={tempDate} onChange={setTempDate} />
+
+              <TempInputRow
+                label="本庫温度"
+                target="マイナス20℃目安"
+                value={mainFreezerTemp}
+                onChange={setMainFreezerTemp}
+                base={-20}
+                min={-40}
+                max={0}
+              />
+
+              <TempInputRow
+                label="2号室温度"
+                target="マイナス20℃目安"
+                value={room2Temp}
+                onChange={setRoom2Temp}
+                base={-20}
+                min={-40}
+                max={0}
+              />
+
+              <TempInputRow
+                label="鮮魚庫温度"
+                target="マイナス1℃目安"
+                value={fishStorageTemp}
+                onChange={setFishStorageTemp}
+                base={-1}
+                min={-15}
+                max={15}
+              />
+
+              <TempInputRow
+                label="定温売場温度"
+                target="9℃以下目安"
+                value={constantFloorTemp}
+                onChange={setConstantFloorTemp}
+                base={8}
+                min={-5}
+                max={45}
+              />
+
+              <TempInputRow
+                label="売場温度（場内実測）"
+                target="場内実測"
+                value={floorTemp}
+                onChange={setFloorTemp}
+                base={18}
+                min={-5}
+                max={45}
+              />
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                  太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-600">*</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {[
+                    { label: '○ よい', val: 'よい' as const },
+                    { label: '○ わるい (特記に説明)', val: 'わるい' as const },
+                  ].map((btn) => (
+                    <button
+                      key={btn.val}
+                      type="button"
+                      onClick={() => setProcessingZoneStatus(btn.val)}
+                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        processingZoneStatus === btn.val
+                          ? btn.val === 'よい'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                  害獣の痕跡 <span className="text-red-600">*</span>
+                </div>
+                <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">ネズミ、鳥類他による汚れや商品破損</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '○ 気になる所見なし', val: '気になる所見なし' as const },
+                    { label: '○ 問題発生 (特記に説明)', val: '問題発生' as const },
+                  ].map((btn) => (
+                    <button
+                      key={btn.val}
+                      type="button"
+                      onClick={() => setPestEvidence(btn.val)}
+                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        pestEvidence === btn.val
+                          ? btn.val === '気になる所見なし'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                <textarea
+                  rows={2}
+                  value={tempNotes}
+                  onChange={(e) => setTempNotes(e.target.value)}
+                  placeholder="悪い・問題発生の際は内容を説明"
+                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 6. 荷物受入チェック */}
           {activeTab === 'receiving' && (
             <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
               <h2 className="font-black text-xl text-slate-900 border-l-8 border-teal-600 pl-3">
@@ -1195,543 +1738,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 3. 生魚加工衛生管理 */}
-          {activeTab === 'fish' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-emerald-600 pl-3">
-                生魚加工衛生管理
-              </h2>
-
-              <BigDateDisplay value={fishDate} onChange={setFishDate} />
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  健康状態 <span className="text-red-600">*</span>
-                </div>
-                <div className="text-xs text-slate-600 font-bold mb-2">発熱・下痢・嘔吐等の症状なし</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: '○ 良（異常なし）', val: '良' as const },
-                    { label: '○ 否（要報告）', val: '否' as const },
-                  ].map((btn) => (
-                    <button
-                      key={btn.val}
-                      type="button"
-                      onClick={() => setHealthStatus(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        healthStatus === btn.val
-                          ? btn.val === '良'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  手洗い実施 <span className="text-red-600">*</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {[
-                    { label: '○ 実施済み', val: '実施済み' as const },
-                    { label: '○ 未実施', val: '未実施' as const },
-                  ].map((btn) => (
-                    <button
-                      key={btn.val}
-                      type="button"
-                      onClick={() => setHandWashing(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        handWashing === btn.val
-                          ? btn.val === '実施済み'
-                            ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {[
-                { label: '商品確認', sub: '鮮度、品温、産地情報・複数ある場合もそれぞれ確認', val: productCheck, setter: setProductCheck, badSub: '上席に報告' },
-                { label: '魚体洗浄', sub: '必ず真水で洗浄する事', val: fishWashing, setter: setFishWashing, badSub: '特記に説明' },
-                { label: '作業温度', sub: '25℃以下での作業を', val: workTemp, setter: setWorkTemp, badSub: '特記に説明' },
-                { label: '施設の衛生', sub: '手洗い設備・天井・壁・床・照明・整理整頓', val: facilityHygiene, setter: setFacilityHygiene, badSub: '特記に説明' },
-                { label: '用具・備品の衛生', sub: '作業台・床・計量器・包丁・ノコギリ・ラップ等', val: toolsHygiene, setter: setToolsHygiene, badSub: '特記に説明' },
-              ].map((item, idx) => (
-                <div key={idx} className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    {item.label} <span className="text-red-600">*</span>
-                  </div>
-                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">{item.sub}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: '○ よい', val: 'よい' as const },
-                      { label: `○ わるい (${item.badSub})`, val: 'わるい' as const },
-                    ].map((btn) => (
-                      <button
-                        key={btn.val}
-                        type="button"
-                        onClick={() => item.setter(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                          item.val === btn.val
-                            ? btn.val === 'よい'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-slate-50 text-slate-800 border-slate-300'
-                        }`}
-                      >
-                        {btn.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
-                <textarea
-                  rows={2}
-                  value={fishNotes}
-                  onChange={(e) => setFishNotes(e.target.value)}
-                  placeholder="悪い・否の場合は内容と指示内容を記入"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 4. 保管庫温度管理 */}
-          {activeTab === 'temp' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
-                保管庫温度管理
-              </h2>
-              <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
-                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
-              </div>
-
-              <BigDateDisplay value={tempDate} onChange={setTempDate} />
-
-              <TempInputRow
-                label="本庫温度"
-                target="マイナス20℃目安"
-                value={mainFreezerTemp}
-                onChange={setMainFreezerTemp}
-                base={-20}
-                min={-40}
-                max={0}
-              />
-
-              <TempInputRow
-                label="2号室温度"
-                target="マイナス20℃目安"
-                value={room2Temp}
-                onChange={setRoom2Temp}
-                base={-20}
-                min={-40}
-                max={0}
-              />
-
-              <TempInputRow
-                label="鮮魚庫温度"
-                target="マイナス1℃目安"
-                value={fishStorageTemp}
-                onChange={setFishStorageTemp}
-                base={-1}
-                min={-15}
-                max={15}
-              />
-
-              <TempInputRow
-                label="定温売場温度"
-                target="9℃以下目安"
-                value={constantFloorTemp}
-                onChange={setConstantFloorTemp}
-                base={8}
-                min={-5}
-                max={45}
-              />
-
-              <TempInputRow
-                label="売場温度（場内実測）"
-                target="場内実測"
-                value={floorTemp}
-                onChange={setFloorTemp}
-                base={18}
-                min={-5}
-                max={45}
-              />
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-600">*</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {[
-                    { label: '○ よい', val: 'よい' as const },
-                    { label: '○ わるい (特記に説明)', val: 'わるい' as const },
-                  ].map((btn) => (
-                    <button
-                      key={btn.val}
-                      type="button"
-                      onClick={() => setProcessingZoneStatus(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        processingZoneStatus === btn.val
-                          ? btn.val === 'よい'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  害獣の痕跡 <span className="text-red-600">*</span>
-                </div>
-                <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">ネズミ、鳥類他による汚れや商品破損</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: '○ 気になる所見なし', val: '気になる所見なし' as const },
-                    { label: '○ 問題発生 (特記に説明)', val: '問題発生' as const },
-                  ].map((btn) => (
-                    <button
-                      key={btn.val}
-                      type="button"
-                      onClick={() => setPestEvidence(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        pestEvidence === btn.val
-                          ? btn.val === '気になる所見なし'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
-                <textarea
-                  rows={2}
-                  value={tempNotes}
-                  onChange={(e) => setTempNotes(e.target.value)}
-                  placeholder="悪い・問題発生の際は内容を説明"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 5. 退勤前温度管理 */}
-          {activeTab === 'closing' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-indigo-600 pl-3">
-                退勤前温度管理
-              </h2>
-
-              <BigDateDisplay value={closingDate} onChange={setClosingDate} />
-
-              <TempInputRow
-                label="本庫温度"
-                target="マイナス20℃目安"
-                value={closingMainTemp}
-                onChange={setClosingMainTemp}
-                base={-20}
-                min={-40}
-                max={0}
-              />
-
-              <TempInputRow
-                label="2号室温度"
-                target="マイナス20℃目安"
-                value={closingRoom2Temp}
-                onChange={setClosingRoom2Temp}
-                base={-20}
-                min={-40}
-                max={0}
-              />
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
-                <textarea
-                  rows={2}
-                  value={closingNotes}
-                  onChange={(e) => setClosingNotes(e.target.value)}
-                  placeholder="特記事項があれば記入"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 6. 運転日報 */}
-          {activeTab === 'drive' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-amber-600 pl-3">
-                運転日報
-              </h2>
-
-              <div className="grid grid-cols-2 gap-2 bg-slate-200 p-1.5 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => setDriveMode('start')}
-                  className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
-                    driveMode === 'start' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-slate-800'
-                  }`}
-                >
-                  ① 出発時（乗車）
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDriveMode('finish');
-                    fetchActiveDrives();
-                  }}
-                  className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
-                    driveMode === 'finish' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-slate-800'
-                  }`}
-                >
-                  ② 帰社時（降車）
-                </button>
-              </div>
-
-              {driveMode === 'start' ? (
-                <div className="space-y-4 pt-1">
-                  <div>
-                    <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
-                      使用車両 <span className="text-red-600">*</span>
-                    </label>
-                    <div className="space-y-2">
-                      <select
-                        value={vehicle}
-                        onChange={(e) => setVehicle(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white"
-                      >
-                        {VEHICLE_OPTIONS.map((v) => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                        <option value="その他">その他（手入力）</option>
-                      </select>
-                      {vehicle === 'その他' && (
-                        <input
-                          type="text"
-                          placeholder="車両名を入力"
-                          value={customVehicle}
-                          onChange={(e) => setCustomVehicle(e.target.value)}
-                          className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-lg font-bold"
-                          required
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
-                      行先 <span className="text-red-600">*</span>
-                    </label>
-                    <div className="space-y-2">
-                      <select
-                        value={destination}
-                        onChange={(e) => setDestination(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white"
-                      >
-                        {DESTINATION_OPTIONS.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                        <option value="その他">その他（手入力）</option>
-                      </select>
-                      {destination === 'その他' && (
-                        <input
-                          type="text"
-                          placeholder="行先を入力"
-                          value={customDestination}
-                          onChange={(e) => setCustomDestination(e.target.value)}
-                          className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-lg font-bold"
-                          required
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">同乗者（ある場合記入）</label>
-                    <input
-                      type="text"
-                      value={passenger}
-                      onChange={(e) => setPassenger(e.target.value)}
-                      className="w-full min-h-[50px] py-2 px-3 border-2 border-slate-400 rounded-xl text-base font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <BigDateDisplay value={driveStart} onChange={setDriveStart} />
-
-                    <div className="flex justify-between items-baseline mb-1.5 mt-3">
-                      <label className="text-lg font-black text-slate-900 leading-snug">
-                        乗車時メーター (km) <span className="text-red-600">*</span>
-                      </label>
-                      <span className="text-xs font-bold text-slate-500">車のメーター値</span>
-                    </div>
-                    <input
-                      type="number"
-                      step="0.1"
-                      inputMode="decimal"
-                      required
-                      // placeholder="例: 12500.5"
-                      value={startMeter}
-                      onChange={(e) => setStartMeter(e.target.value)}
-                      className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
-                        isStartMeterDecreased || isStartMeterDigitError
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-slate-400'
-                      }`}
-                    />
-                  </div>
-
-                  {fetchingLastMeter ? (
-                    <div className="text-xs text-slate-400 italic">車両の過去メーターを参照中...</div>
-                  ) : lastRecordedMeter !== null ? (
-                    <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl text-sm flex justify-between items-center">
-                      <span className="font-bold text-slate-700">前回最終記録:</span>
-                      <span className="font-mono font-black text-lg text-slate-950">{lastRecordedMeter.toLocaleString()} km</span>
-                    </div>
-                  ) : null}
-
-                  {isStartMeterDecreased && (
-                    <div className="p-3 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-xs sm:text-sm font-black animate-pulse leading-snug">
-                      🚨 メーター逆行エラー：前回の最終記録（{lastRecordedMeter} km）より小さくなっています。
-                    </div>
-                  )}
-
-                  {isStartMeterDigitError && !isStartMeterDecreased && (
-                    <div className="p-3 bg-amber-100 border-2 border-amber-500 text-amber-950 rounded-xl text-xs sm:text-sm font-black leading-snug">
-                      ⚠️ 桁数違いの疑い：前回の記録（{lastRecordedMeter} km）と桁数が大きく異なります。
-                    </div>
-                  )}
-                </div>
-              ) : (
-                (() => {
-                  const currentDrive = activeDrives.find((d) => d.id === selectedDriveId);
-                  const currentStartMeter = currentDrive ? Number(currentDrive.start_meter) : null;
-                  const currentEndMeter = endMeter !== '' ? parseFloat(endMeter) : null;
-                  const isMeterInvalid = currentStartMeter !== null && currentEndMeter !== null && currentEndMeter < currentStartMeter;
-                  const calculatedDistance =
-                    currentStartMeter !== null && currentEndMeter !== null && !isMeterInvalid
-                      ? (currentEndMeter - currentStartMeter).toFixed(1)
-                      : null;
-
-                  return (
-                    <div className="space-y-4 pt-1">
-                      <div>
-                        <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
-                          完了する運行を選択 <span className="text-red-600">*</span>
-                        </label>
-                        {activeDrives.length === 0 ? (
-                          <div className="p-4 bg-slate-50 border-2 border-slate-200 text-base font-bold text-slate-500 text-center rounded-xl">
-                            現在運行中のデータはありません
-                          </div>
-                        ) : (
-                          <select
-                            value={selectedDriveId}
-                            onChange={(e) => setSelectedDriveId(e.target.value)}
-                            className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-base sm:text-lg font-black"
-                          >
-                            {activeDrives.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.vehicle_name} ({d.staff_name}さん / 乗車: {d.start_meter} km)
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-
-                      <div>
-                        <BigDateDisplay value={driveEnd} onChange={setDriveEnd} />
-
-                        <div className="flex justify-between items-baseline mb-1.5 mt-3">
-                          <label className="text-lg font-black text-slate-900 leading-snug">
-                            降車時メーター (km) <span className="text-red-600">*</span>
-                          </label>
-                          {currentStartMeter !== null && (
-                            <span className="text-xs font-bold text-slate-600">乗車時: {currentStartMeter} km</span>
-                          )}
-                        </div>
-                        <input
-                          type="number"
-                          step="0.1"
-                          inputMode="decimal"
-                          required
-                          // placeholder="例: 12550.0"
-                          value={endMeter}
-                          onChange={(e) => setEndMeter(e.target.value)}
-                          className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
-                            isMeterInvalid
-                              ? 'border-red-500 bg-red-50 text-red-700'
-                              : 'border-slate-400'
-                          }`}
-                        />
-                      </div>
-
-                      {isMeterInvalid && (
-                        <div className="p-3 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-xs sm:text-sm font-black animate-pulse leading-snug">
-                          🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
-                        </div>
-                      )}
-
-                      {calculatedDistance !== null && (
-                        <div className="p-4 bg-emerald-50 border-2 border-emerald-400 text-emerald-950 rounded-xl text-base font-black flex justify-between items-center shadow-sm">
-                          <span>走行距離（自動計算）:</span>
-                          <span className="text-2xl font-mono text-emerald-900">{calculatedDistance} km</span>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">給油（ある場合記入・ℓ）</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          inputMode="decimal"
-                          // placeholder="例: 35.0"
-                          value={refuelLiters}
-                          onChange={(e) => setRefuelLiters(e.target.value)}
-                          className="w-full min-h-[52px] py-2 px-3 text-xl font-bold border-2 border-slate-400 rounded-xl"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
-                        <textarea
-                          rows={2}
-                          value={driveNotes}
-                          onChange={(e) => setDriveNotes(e.target.value)}
-                          placeholder="異常や連絡事項があれば記入"
-                          className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
-                        />
-                      </div>
-                    </div>
-                  );
-                })()
-              )}
-            </div>
-          )}
-
-          {/* 送信ボタン手前の直近エラー表示（スクロールしなくても手元でエラーが即座に分かる） */}
+          {/* 送信ボタン手前の直近エラー表示 */}
           {dialogError && (
             <div className="p-3.5 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-sm font-bold flex items-center gap-2">
               <span className="text-lg">⚠️</span>
