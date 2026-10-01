@@ -840,7 +840,7 @@ function ChecksheetForm() {
                       体調チェック <span className="text-red-600">*</span>
                     </label>
                     <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-                      出勤時
+                      点検項目
                     </span>
                   </div>
 
