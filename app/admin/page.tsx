@@ -703,6 +703,15 @@ export default function AdminDashboard() {
                         const isStart = timing === 'start';
                         const isFinish = timing === 'finish';
 
+                        // 問題・異常の判定（アルコール検出、または特記に要報告・問題などの文言がある場合）
+                        const notesText = row.notes || '';
+                        const hasProblem =
+                          v > 0 ||
+                          notesText.includes('要報告') ||
+                          notesText.includes('要確認') ||
+                          notesText.includes('問題') ||
+                          notesText.includes('超過');
+
                         return (
                           <tr
                             key={row.id}
@@ -751,8 +760,15 @@ export default function AdminDashboard() {
                                 <span className="text-amber-700">微量検出</span>
                               )}
                             </td>
-                            <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
-                              {row.notes || '-'}
+                            {/* 問題がある場合のみ赤太文字、通常時は標準文字 */}
+                            <td
+                              className={`border border-slate-300 p-1.5 text-left ${
+                                hasProblem
+                                  ? 'text-red-600 font-black bg-red-50/50'
+                                  : 'text-slate-600'
+                              }`}
+                            >
+                              {notesText || '-'}
                             </td>
                             <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
                               <button
