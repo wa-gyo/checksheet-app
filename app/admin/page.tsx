@@ -39,6 +39,36 @@ const getTodayJST = () => {
   return now.toISOString().slice(0, 10);
 };
 
+// 西暦なしの日時フォーマット（M/D HH:mm）
+const formatShortDateTime = (isoString: string) => {
+  if (!isoString) return '-';
+  const d = new Date(isoString);
+  const month = d.getMonth() + 1;
+  const date = d.getDate();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${month}/${date} ${hours}:${minutes}`;
+};
+
+// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出
+const getBusinessPeriod = (dateStr: string) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // 当日 16:00 JST
+  const endD = new Date(year, month - 1, day, 16, 0, 0);
+  // 前日 16:00 JST
+  const startD = new Date(year, month - 1, day - 1, 16, 0, 0);
+
+  const prevMonth = startD.getMonth() + 1;
+  const prevDay = startD.getDate();
+  const prevDateStr = `${startD.getFullYear()}-${String(prevMonth).padStart(2, '0')}-${String(prevDay).padStart(2, '0')}`;
+
+  const startIso = `${prevDateStr}T16:00:00+09:00`;
+  const endIso = `${dateStr}T16:00:00+09:00`;
+  const label = `${prevMonth}/${prevDay} 16:00 ～ ${month}/${day} 16:00`;
+
+  return { startIso, endIso, label };
+};
+
 export default function AdminDashboard() {
   const [targetDate, setTargetDate] = useState(getTodayJST);
   const [loading, setLoading] = useState(false);
@@ -125,21 +155,20 @@ export default function AdminDashboard() {
     }
   };
 
-  // 業務データ取得
+  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）
   const fetchData = async (dateStr: string) => {
     if (!isAuthenticated) return;
     setLoading(true);
-    const start = `${dateStr}T00:00:00+09:00`;
-    const end = `${dateStr}T23:59:59+09:00`;
+    const { startIso, endIso } = getBusinessPeriod(dateStr);
 
     try {
       const [rAlc, rFish, rTemp, rClose, rRec, rDrive] = await Promise.all([
-        supabase.from('check_alcohol').select('*').gte('checked_at', start).lte('checked_at', end).order('checked_at', { ascending: true }),
-        supabase.from('check_fish_processing').select('*').gte('checked_at', start).lte('checked_at', end).order('checked_at', { ascending: true }),
-        supabase.from('check_temp_hygiene').select('*').gte('checked_at', start).lte('checked_at', end).order('checked_at', { ascending: true }),
-        supabase.from('check_temp_closing').select('*').gte('checked_at', start).lte('checked_at', end).order('checked_at', { ascending: true }),
-        supabase.from('check_receiving').select('*').gte('checked_at', start).lte('checked_at', end).order('checked_at', { ascending: true }),
-        supabase.from('check_driving_report').select('*').gte('start_at', start).lte('start_at', end).order('start_at', { ascending: true }),
+        supabase.from('check_alcohol').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
+        supabase.from('check_fish_processing').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
+        supabase.from('check_temp_hygiene').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
+        supabase.from('check_temp_closing').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
+        supabase.from('check_receiving').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
+        supabase.from('check_driving_report').select('*').gte('start_at', startIso).lte('start_at', endIso).order('start_at', { ascending: true }),
       ]);
 
       setAlcohols(rAlc.data || []);
@@ -216,6 +245,8 @@ export default function AdminDashboard() {
     window.print();
   };
 
+  const currentPeriod = getBusinessPeriod(targetDate);
+
   // -------------------------------------------------------------
   // ログイン画面（未認証時）
   // -------------------------------------------------------------
@@ -283,7 +314,7 @@ export default function AdminDashboard() {
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
-              <label className="text-xs font-bold text-slate-600">日付:</label>
+              <label className="text-xs font-bold text-slate-600">営業日:</label>
               <input
                 type="date"
                 value={targetDate}
@@ -351,7 +382,7 @@ export default function AdminDashboard() {
 
       {/* メイン表示エリア */}
       <div className="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
-        {/* 帳票ヘッダー（対象日＋公設地方卸売市場地点の確定気象情報） */}
+        {/* 帳票ヘッダー（対象日＋営業範囲＋確定気象情報） */}
         <div className="border-b-2 border-slate-800 pb-2 mb-4 flex flex-wrap justify-between items-end gap-2">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
@@ -363,7 +394,10 @@ export default function AdminDashboard() {
             </h2>
             <div className="flex flex-wrap items-center gap-3 mt-1.5">
               <div className="text-xs font-bold text-slate-700">
-                対象日: <span className="text-sm text-blue-900 underline font-mono font-black">{targetDate}</span>
+                営業日: <span className="text-sm text-blue-900 underline font-mono font-black">{targetDate}</span>
+                <span className="ml-2 text-xs font-bold text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                  （{currentPeriod.label}）
+                </span>
               </div>
 
               {/* 公設市場の確定気象情報バッジ */}
@@ -416,7 +450,8 @@ export default function AdminDashboard() {
                           <div className="flex justify-between items-center text-slate-500 font-mono">
                             <span>記入者: <b>{row.staff_name}</b></span>
                             <div className="flex items-center gap-1.5">
-                              <span>{new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {/* 西暦なしの日付＋時刻（M/D HH:mm） */}
+                              <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
                               <button
                                 onClick={() => openEditModal({ table: 'check_temp_hygiene', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
                                 className="print:hidden text-[10px] text-blue-600 hover:underline px-1"
@@ -441,7 +476,11 @@ export default function AdminDashboard() {
                           <div className="text-[11px] text-slate-600 space-y-0.5">
                             <div>太物売場衛生: <b>{row.processing_zone_status}</b></div>
                             <div>害獣痕跡: <b>{row.pest_evidence}</b></div>
-                            {row.notes && <div className="text-amber-800">特記: {row.notes}</div>}
+                            {row.notes && (
+                              <div className="text-red-600 font-black bg-red-50 p-1 rounded border border-red-200">
+                                特記: {row.notes}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))
@@ -459,7 +498,8 @@ export default function AdminDashboard() {
                           <div className="flex justify-between items-center text-slate-500 font-mono">
                             <span>記入者: <b>{row.staff_name}</b></span>
                             <div className="flex items-center gap-1.5">
-                              <span>{new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {/* 西暦なしの日付＋時刻（M/D HH:mm） */}
+                              <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
                               <button
                                 onClick={() => openEditModal({ table: 'check_temp_closing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
                                 className="print:hidden text-[10px] text-blue-600 hover:underline px-1"
@@ -478,7 +518,11 @@ export default function AdminDashboard() {
                             <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
                             <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
                           </div>
-                          {row.notes && <div className="text-[11px] text-amber-800">特記: {row.notes}</div>}
+                          {row.notes && (
+                            <div className="text-red-600 font-black bg-red-50 p-1 rounded border border-red-200 mt-1">
+                              特記: {row.notes}
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -497,7 +541,7 @@ export default function AdminDashboard() {
                     <table className="w-full border-collapse border border-slate-300">
                       <thead>
                         <tr className="bg-slate-50 text-center">
-                          <th className="border border-slate-300 p-1">受入時刻</th>
+                          <th className="border border-slate-300 p-1">受入日時</th>
                           <th className="border border-slate-300 p-1">受入担当</th>
                           <th className="border border-slate-300 p-1 bg-teal-50">便名</th>
                           <th className="border border-slate-300 p-1">外観・包装</th>
@@ -513,7 +557,7 @@ export default function AdminDashboard() {
                           return (
                             <tr key={row.id} className="text-center">
                               <td className="border border-slate-300 p-1 font-mono">
-                                {new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {formatShortDateTime(row.checked_at)}
                               </td>
                               <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
                               <td className="border border-slate-300 p-1 font-black text-teal-800 bg-teal-50/50">
@@ -528,7 +572,7 @@ export default function AdminDashboard() {
                               <td className={`border border-slate-300 p-1 ${row.transit_temp_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
                                 {row.transit_temp_status}
                               </td>
-                              <td className={`border border-slate-300 p-1 text-left ${hasBad ? 'text-red-700 font-bold' : ''}`}>
+                              <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
                                 {row.notes || '-'}
                               </td>
                               <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
@@ -569,7 +613,7 @@ export default function AdminDashboard() {
                   <table className="w-full border-collapse border border-slate-300">
                     <thead>
                       <tr className="bg-slate-50 text-center">
-                        <th className="border border-slate-300 p-1.5">時刻</th>
+                        <th className="border border-slate-300 p-1.5">日時</th>
                         <th className="border border-slate-300 p-1.5">点検者</th>
                         <th className="border border-slate-300 p-1.5">健康状態</th>
                         <th className="border border-slate-300 p-1.5">手洗い</th>
@@ -586,7 +630,7 @@ export default function AdminDashboard() {
                       {fishes.map((row) => (
                         <tr key={row.id} className="text-center">
                           <td className="border border-slate-300 p-1.5 font-mono">
-                            {new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatShortDateTime(row.checked_at)}
                           </td>
                           <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
                           <td className={`border border-slate-300 p-1.5 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>
@@ -602,7 +646,9 @@ export default function AdminDashboard() {
                           <td className="border border-slate-300 p-1.5">{row.work_temp}</td>
                           <td className="border border-slate-300 p-1.5">{row.facility_hygiene}</td>
                           <td className="border border-slate-300 p-1.5">{row.tools_hygiene}</td>
-                          <td className="border border-slate-300 p-1.5 text-left">{row.notes || '-'}</td>
+                          <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
+                            {row.notes || '-'}
+                          </td>
                           <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
                             <button
                               onClick={() => openEditModal({ table: 'check_fish_processing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
@@ -640,7 +686,7 @@ export default function AdminDashboard() {
                     <thead>
                       <tr className="bg-slate-50 text-center">
                         <th className="border border-slate-300 p-1.5 w-28">点呼区分</th>
-                        <th className="border border-slate-300 p-1.5">時刻</th>
+                        <th className="border border-slate-300 p-1.5">日時</th>
                         <th className="border border-slate-300 p-1.5">担当者名</th>
                         <th className="border border-slate-300 p-1.5">確認者名</th>
                         <th className="border border-slate-300 p-1.5">測定値 (mg/L)</th>
@@ -687,7 +733,7 @@ export default function AdminDashboard() {
                             </td>
 
                             <td className="border border-slate-300 p-1.5 font-mono">
-                              {new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {formatShortDateTime(row.checked_at)}
                             </td>
                             <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
                             <td className="border border-slate-300 p-1.5">{row.checker_name}</td>
@@ -705,7 +751,9 @@ export default function AdminDashboard() {
                                 <span className="text-amber-700">微量検出</span>
                               )}
                             </td>
-                            <td className="border border-slate-300 p-1.5 text-left">{row.notes || '-'}</td>
+                            <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
+                              {row.notes || '-'}
+                            </td>
                             <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
                               <button
                                 onClick={() => openEditModal({ table: 'check_alcohol', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
@@ -768,14 +816,14 @@ export default function AdminDashboard() {
                             <td className="border border-slate-300 p-1.5">{row.destination}</td>
                             <td className="border border-slate-300 p-1.5">{row.passenger || '-'}</td>
                             <td className="border border-slate-300 p-1.5 font-mono">
-                              {new Date(row.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {formatShortDateTime(row.start_at)}
                               <br />
                               <span className="text-slate-500 font-bold">{row.start_meter} km</span>
                             </td>
                             <td className="border border-slate-300 p-1.5 font-mono">
                               {row.end_at ? (
                                 <>
-                                  {new Date(row.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {formatShortDateTime(row.end_at)}
                                   <br />
                                   <span className="text-slate-500 font-bold">{row.end_meter} km</span>
                                 </>
@@ -789,7 +837,9 @@ export default function AdminDashboard() {
                             <td className="border border-slate-300 p-1.5 font-mono">
                               {row.refuel_liters ? `${row.refuel_liters} L` : '-'}
                             </td>
-                            <td className="border border-slate-300 p-1.5 text-left">{row.notes || '-'}</td>
+                            <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
+                              {row.notes || '-'}
+                            </td>
                             <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
                               <button
                                 onClick={() => openEditModal({ table: 'check_driving_report', id: row.id, name: row.staff_name, currentIso: row.start_at, notes: row.notes, timeField: 'start_at' })}
