@@ -284,8 +284,18 @@ function ChecksheetForm() {
   const initialParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(initialParam));
   const [submitting, setSubmitting] = useState(false);
+  const [isCooldown, setIsCooldown] = useState(false); // 連打・二重送信防止用クールダウンフラグ
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
+
+  // 送信完了後の全画面リマインダーモーダル用ステート
+  const [fullscreenAlert, setFullscreenAlert] = useState<{
+    type: 'drive_start' | 'alcohol_start';
+    title: string;
+    sub: string;
+    actionText?: string;
+    targetVehicle?: string;
+  } | null>(null);
 
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
@@ -469,7 +479,6 @@ function ChecksheetForm() {
     }
   };
 
-  // 画面初期表示時、タブ切り替え時、名前変更時に運行状況をフェッチ
   useEffect(() => {
     fetchActiveDrives();
   }, [activeTab, staffName]);
@@ -486,7 +495,7 @@ function ChecksheetForm() {
     }
   };
 
-  // 現在のユーザーが未完了の運行を持っているか判定（重複対策：最も新しいものを抽出）
+  // 現在のユーザーが未完了の運行を持っているか判定
   const myPendingDrives = activeDrives.filter((d) => isNameMatch(d.staff_name, staffName));
   const myLatestPendingDrive = myPendingDrives.length > 0 ? myPendingDrives[0] : null;
 
@@ -506,7 +515,8 @@ function ChecksheetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return; // 連打・二重送信の完全ブロック
+    // 送信中、または直前送信後のクールダウン（3秒間）は受け付けない
+    if (submitting || isCooldown) return;
 
     if (!staffName.trim()) {
       setDialogError('あなたのお名前を入力してください');
@@ -525,7 +535,6 @@ function ChecksheetForm() {
         const checker = checkerType === 'その他' ? customChecker : checkerType;
         if (!checker.trim()) throw new Error('確認者を入力してください');
 
-        // 確認者とお名前の重複・一致チェック
         const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
         const cleanChecker = checker.replace(/[\s ]+/g, '').trim();
         if (
@@ -557,6 +566,15 @@ function ChecksheetForm() {
         setAlcoholNotes('');
         setBasicHealthStatus('');
         setHandHygieneStatus('');
+
+        // 出勤時の場合、全画面アラートで退勤時チェックの失念を防止
+        if (alcoholMode === 'start') {
+          setFullscreenAlert({
+            type: 'alcohol_start',
+            title: '出勤時の基本チェックを記録しました！',
+            sub: '【重要】退勤（業務終了）時にも、必ずもう一度「基本チェック（対面確認）」を行ってください。',
+          });
+        }
       } else if (activeTab === 'receiving') {
         let flightNameToSave = selectedFlight;
         if (selectedFlight === 'その他') {
@@ -727,7 +745,14 @@ function ChecksheetForm() {
           setStartMeter('');
           setPassenger('');
           await fetchActiveDrives();
-          setSuccessMsg('出発を記録しました。戻ったら「帰社・終了」から降車時メーターを記録してください。');
+
+          // 出発記録完了後の全画面アラート（帰社時の記録忘れ防止）
+          setFullscreenAlert({
+            type: 'drive_start',
+            title: '出発を記録しました！',
+            targetVehicle: v,
+            sub: '【最重要】配達・運行を終えて市場に戻ったら、必ず「帰社時メーター」を記録してください。',
+          });
           return;
         } else {
           if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
@@ -743,7 +768,6 @@ function ChecksheetForm() {
             );
           }
 
-          // 1. 対象の運行データを完了に更新
           const { error } = await supabase
             .from('check_driving_report')
             .update({
@@ -756,7 +780,7 @@ function ChecksheetForm() {
 
           if (error) throw error;
 
-          // 2. もし出発時に連打等で生じた「同一人物・同一車両のダブり放置レコード」があれば自動清算
+          // ダブりレコードの自動清算
           if (selectedDrive) {
             const duplicatePendingIds = activeDrives
               .filter(
@@ -794,6 +818,11 @@ function ChecksheetForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
+      // 送信後3秒間のクールダウン（二重送信防止）
+      setIsCooldown(true);
+      setTimeout(() => {
+        setIsCooldown(false);
+      }, 3000);
     }
   };
 
@@ -882,7 +911,6 @@ function ChecksheetForm() {
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-5">
-              {/* 退勤時モードかつ運行中データがある場合の警告バナー */}
               {alcoholMode === 'finish' && myLatestPendingDrive && (
                 <div className="p-4 bg-amber-50 border-3 border-amber-500 text-amber-950 rounded-2xl shadow-md space-y-2.5 animate-pulse">
                   <div className="flex items-center gap-2 font-black text-base sm:text-lg">
@@ -1701,7 +1729,6 @@ function ChecksheetForm() {
                     <option value="その他">その他（直接文字入力）</option>
                   </select>
 
-                  {/* 手動追加された便名を1件ずつ削除できるチップ一覧 */}
                   {flightOptions.some((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f)) && (
                     <div className="pt-1">
                       <span className="text-[11px] font-bold text-slate-500 block mb-1">
@@ -1832,6 +1859,7 @@ function ChecksheetForm() {
               type="submit"
               disabled={
                 submitting ||
+                isCooldown ||
                 (activeTab === 'drive' && driveMode === 'finish' && activeDrives.length === 0) ||
                 (activeTab === 'drive' && driveMode === 'start' && (isStartMeterDecreased || isStartMeterDigitError))
               }
@@ -1839,6 +1867,8 @@ function ChecksheetForm() {
             >
               {submitting
                 ? '送信中...'
+                : isCooldown
+                ? '受付済（再送信防止中）'
                 : activeTab === 'drive'
                 ? driveMode === 'start'
                   ? '① 出発を記録する'
@@ -1854,6 +1884,47 @@ function ChecksheetForm() {
           </div>
         </form>
       </div>
+
+      {/* ========================================================
+          全画面リマインダーモーダル（出発後の帰社＆出勤後の退勤忘れ防止）
+         ======================================================== */}
+      {fullscreenAlert && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-500 text-center space-y-5">
+            <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-300">
+              {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black text-slate-900 leading-tight">
+                {fullscreenAlert.title}
+              </h3>
+              {fullscreenAlert.targetVehicle && (
+                <div className="inline-block bg-slate-100 text-slate-800 px-3 py-1 rounded-lg text-sm font-black border border-slate-300 font-mono">
+                  使用車両: {fullscreenAlert.targetVehicle}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-left">
+              <p className="text-sm sm:text-base font-black text-amber-950 leading-relaxed">
+                {fullscreenAlert.sub}
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setFullscreenAlert(null)}
+                className="w-full min-h-[58px] bg-slate-900 hover:bg-black active:scale-[0.99] text-white font-black text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2"
+              >
+                <span>了解しました（閉じる）</span>
+                <span>✓</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
