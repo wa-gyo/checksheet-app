@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-type ViewMode = 'all' | 'temp' | 'fish' | 'alcohol' | 'drive';
+type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
 // 管理者パスコード（必要に応じて自由に変更してください）
 const ADMIN_PASSCODE = 'gyorui370220';
@@ -88,6 +88,7 @@ export default function AdminDashboard() {
   // 各種データ
   const [alcohols, setAlcohols] = useState<any[]>([]);
   const [fishes, setFishes] = useState<any[]>([]);
+  const [kowaris, setKowaris] = useState<any[]>([]); // 小割加工ステート
   const [temps, setTemps] = useState<any[]>([]);
   const [closings, setClosings] = useState<any[]>([]);
   const [receivings, setReceivings] = useState<any[]>([]);
@@ -162,9 +163,10 @@ export default function AdminDashboard() {
     const { startIso, endIso } = getBusinessPeriod(dateStr);
 
     try {
-      const [rAlc, rFish, rTemp, rClose, rRec, rDrive] = await Promise.all([
+      const [rAlc, rFish, rKowari, rTemp, rClose, rRec, rDrive] = await Promise.all([
         supabase.from('check_alcohol').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
         supabase.from('check_fish_processing').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
+        supabase.from('check_kowari_processing').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
         supabase.from('check_temp_hygiene').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
         supabase.from('check_temp_closing').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
         supabase.from('check_receiving').select('*').gte('checked_at', startIso).lte('checked_at', endIso).order('checked_at', { ascending: true }),
@@ -173,6 +175,7 @@ export default function AdminDashboard() {
 
       setAlcohols(rAlc.data || []);
       setFishes(rFish.data || []);
+      setKowaris(rKowari.data || []);
       setTemps(rTemp.data || []);
       setClosings(rClose.data || []);
       setReceivings(rRec.data || []);
@@ -362,6 +365,7 @@ export default function AdminDashboard() {
             { key: 'all', label: '📋 日報まとめ（一括・印刷用）' },
             { key: 'temp', label: `🌡️ 温度・受入管理 (${temps.length + closings.length + receivings.length})` },
             { key: 'fish', label: `🐟 生魚加工 (${fishes.length})` },
+            { key: 'kowari', label: `🔪 小割加工 (${kowaris.length})` },
             { key: 'alcohol', label: `📋 基本・点呼 (${alcohols.length})` },
             { key: 'drive', label: `🚗 運転日報 (${drives.length})` },
           ].map((tab) => (
@@ -389,6 +393,7 @@ export default function AdminDashboard() {
               {viewMode === 'all' && '業務点検日報（日次取りまとめ）'}
               {viewMode === 'temp' && '温度衛生管理・荷物受入 点検記録簿'}
               {viewMode === 'fish' && '生魚加工 衛生管理点検記録簿'}
+              {viewMode === 'kowari' && '小割加工 衛生管理点検記録簿'}
               {viewMode === 'alcohol' && '基本チェック・点呼記録簿（対面確認）'}
               {viewMode === 'drive' && '運転日報 運行記録簿'}
             </h2>
@@ -450,7 +455,6 @@ export default function AdminDashboard() {
                           <div className="flex justify-between items-center text-slate-500 font-mono">
                             <span>記入者: <b>{row.staff_name}</b></span>
                             <div className="flex items-center gap-1.5">
-                              {/* 西暦なしの日付＋時刻（M/D HH:mm） */}
                               <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
                               <button
                                 onClick={() => openEditModal({ table: 'check_temp_hygiene', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
@@ -498,7 +502,6 @@ export default function AdminDashboard() {
                           <div className="flex justify-between items-center text-slate-500 font-mono">
                             <span>記入者: <b>{row.staff_name}</b></span>
                             <div className="flex items-center gap-1.5">
-                              {/* 西暦なしの日付＋時刻（M/D HH:mm） */}
                               <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
                               <button
                                 onClick={() => openEditModal({ table: 'check_temp_closing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
@@ -643,9 +646,15 @@ export default function AdminDashboard() {
                             {row.product_check}
                           </td>
                           <td className="border border-slate-300 p-1.5">{row.fish_washing}</td>
-                          <td className="border border-slate-300 p-1.5">{row.work_temp}</td>
-                          <td className="border border-slate-300 p-1.5">{row.facility_hygiene}</td>
-                          <td className="border border-slate-300 p-1.5">{row.tools_hygiene}</td>
+                          <td className={`border border-slate-300 p-1.5 ${row.work_temp === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.work_temp}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 ${row.facility_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.facility_hygiene}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 ${row.tools_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.tools_hygiene}
+                          </td>
                           <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
                             {row.notes || '-'}
                           </td>
@@ -672,12 +681,88 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. 基本チェック・アルコール点呼記録簿（対面確認）
+                3. 小割加工 衛生管理点検（新規追加）
+               ======================================================== */}
+            {(viewMode === 'all' || viewMode === 'kowari') && (
+              <section className="break-inside-avoid">
+                <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-purple-600 mb-2">
+                  3. 小割加工 衛生管理点検
+                </h3>
+                {kowaris.length === 0 ? (
+                  <div className="text-slate-400 italic p-2">記録なし</div>
+                ) : (
+                  <table className="w-full border-collapse border border-slate-300">
+                    <thead>
+                      <tr className="bg-slate-50 text-center">
+                        <th className="border border-slate-300 p-1.5">日時</th>
+                        <th className="border border-slate-300 p-1.5">点検者</th>
+                        <th className="border border-slate-300 p-1.5">健康状態</th>
+                        <th className="border border-slate-300 p-1.5">手の衛生</th>
+                        <th className="border border-slate-300 p-1.5">作業温度</th>
+                        <th className="border border-slate-300 p-1.5">施設衛生</th>
+                        <th className="border border-slate-300 p-1.5">用具衛生</th>
+                        <th className="border border-slate-300 p-1.5">ラベル貼付</th>
+                        <th className="border border-slate-300 p-1.5">特記事項</th>
+                        <th className="border border-slate-300 p-1.5 print:hidden w-16">管理</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kowaris.map((row) => (
+                        <tr key={row.id} className="text-center">
+                          <td className="border border-slate-300 p-1.5 font-mono">
+                            {formatShortDateTime(row.checked_at)}
+                          </td>
+                          <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
+                          <td className={`border border-slate-300 p-1.5 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>
+                            {row.health_status}
+                          </td>
+                          <td className="border border-slate-300 p-1.5">
+                            {row.hand_hygiene === '実施済み' ? '済' : <span className="text-red-600 font-bold">未</span>}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 ${row.work_temp === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.work_temp}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 ${row.facility_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.facility_hygiene}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 ${row.tools_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.tools_hygiene}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 ${row.label_check === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                            {row.label_check}
+                          </td>
+                          <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
+                            {row.notes || '-'}
+                          </td>
+                          <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
+                            <button
+                              onClick={() => openEditModal({ table: 'check_kowari_processing', id: row.id, name: `${row.staff_name} (小割)`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
+                              className="text-[10px] text-blue-600 hover:underline mr-1"
+                            >
+                              ✏️時刻
+                            </button>
+                            <button
+                              onClick={() => handleDelete('check_kowari_processing', row.id, `${row.staff_name}さんの小割加工記録`)}
+                              className="text-[10px] text-red-600 hover:underline"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </section>
+            )}
+
+            {/* ========================================================
+                4. 基本チェック・アルコール点呼記録簿（対面確認）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-blue-600 mb-2">
-                  3. 基本チェック・アルコール点呼記録簿（対面確認）
+                  4. 基本チェック・アルコール点呼記録簿（対面確認）
                 </h3>
                 {alcohols.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
@@ -703,7 +788,6 @@ export default function AdminDashboard() {
                         const isStart = timing === 'start';
                         const isFinish = timing === 'finish';
 
-                        // 問題・異常の判定（アルコール検出、または特記に要報告・問題などの文言がある場合）
                         const notesText = row.notes || '';
                         const hasProblem =
                           v > 0 ||
@@ -760,7 +844,6 @@ export default function AdminDashboard() {
                                 <span className="text-amber-700">微量検出</span>
                               )}
                             </td>
-                            {/* 問題がある場合のみ赤太文字、通常時は標準文字 */}
                             <td
                               className={`border border-slate-300 p-1.5 text-left ${
                                 hasProblem
@@ -794,12 +877,12 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                4. 運転日報
+                5. 運転日報
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'drive') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-amber-600 mb-2">
-                  4. 運転日報
+                  5. 運転日報
                 </h3>
                 {drives.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>

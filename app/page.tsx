@@ -289,9 +289,16 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
+  // 送信完了後の特大・全画面リマインダーモーダル用ステート
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
     targetVehicle?: string;
+  } | null>(null);
+
+  // 「わるい」選択時の特記事項未記入警告（全画面）用ステート
+  const [notesRequiredAlert, setNotesRequiredAlert] = useState<{
+    sectionName: string;
+    badItemsText: string;
   } | null>(null);
 
   const [staffName, setStaffName] = useState('');
@@ -318,7 +325,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工（新規追加）
+  // 3. 小割加工
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariHealthStatus, setKowariHealthStatus] = useState<'良' | '否' | ''>('');
   const [kowariHandHygiene, setKowariHandHygiene] = useState<'実施済み' | '未実施' | ''>('');
@@ -530,6 +537,46 @@ function ChecksheetForm() {
       return;
     }
 
+    // -------------------------------------------------------------
+    // 「わるい」選択時の特記事項未記入チェック（全画面アラート）
+    // -------------------------------------------------------------
+    if (activeTab === 'fish') {
+      const badItems: string[] = [];
+      if (healthStatus === '否') badItems.push('健康状態（否）');
+      if (handWashing === '未実施') badItems.push('手洗い（未実施）');
+      if (productCheck === 'わるい') badItems.push('商品確認（わるい）');
+      if (fishWashing === 'わるい') badItems.push('魚体洗浄（わるい）');
+      if (workTemp === 'わるい') badItems.push('作業温度（わるい）');
+      if (facilityHygiene === 'わるい') badItems.push('施設の衛生（わるい）');
+      if (toolsHygiene === 'わるい') badItems.push('用具・備品の衛生（わるい）');
+
+      if (badItems.length > 0 && !fishNotes.trim()) {
+        setNotesRequiredAlert({
+          sectionName: '生魚加工衛生管理',
+          badItemsText: badItems.join('、'),
+        });
+        return;
+      }
+    }
+
+    if (activeTab === 'kowari') {
+      const badItems: string[] = [];
+      if (kowariHealthStatus === '否') badItems.push('健康状態（否）');
+      if (kowariHandHygiene === '未実施') badItems.push('手の衛生実施（未実施）');
+      if (kowariWorkTemp === 'わるい') badItems.push('作業温度（わるい）');
+      if (kowariFacilityHygiene === 'わるい') badItems.push('施設の衛生（わるい）');
+      if (kowariToolsHygiene === 'わるい') badItems.push('用具・備品の衛生（わるい）');
+      if (kowariLabelCheck === 'わるい') badItems.push('食品表示ラベル貼付（わるい）');
+
+      if (badItems.length > 0 && !kowariNotes.trim()) {
+        setNotesRequiredAlert({
+          sectionName: '小割加工衛生管理',
+          badItemsText: badItems.join('、'),
+        });
+        return;
+      }
+    }
+
     setSubmitting(true);
     setSuccessMsg('');
     saveStaffNameHistory(staffName);
@@ -656,7 +703,6 @@ function ChecksheetForm() {
         setToolsHygiene('');
         setFishNotes('');
       } else if (activeTab === 'kowari') {
-        // 小割加工 送信処理
         if (!kowariHealthStatus) throw new Error('健康状態を選択してください');
         if (!kowariHandHygiene) throw new Error('手の衛生実施を選択してください');
         if (!kowariWorkTemp) throw new Error('作業温度を選択してください');
@@ -943,7 +989,7 @@ function ChecksheetForm() {
               {alcoholMode === 'finish' && myLatestPendingDrive && (
                 <div className="p-4 bg-amber-50 border-3 border-amber-500 text-amber-950 rounded-2xl shadow-md space-y-2.5 animate-pulse">
                   <div className="flex items-center gap-2 font-black text-base sm:text-lg">
-                    <span className="text-2xl">🚗⚠️</span>
+                    <span className="text-2xl">🚗⚠️️</span>
                     <span>運転日報が【運行中】のままです！</span>
                   </div>
                   <p className="text-xs sm:text-sm font-bold leading-snug text-slate-800">
@@ -1542,19 +1588,31 @@ function ChecksheetForm() {
               ))}
 
               <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                <div className="flex justify-between items-baseline mb-1">
+                  <label className="block text-sm font-bold text-slate-700">特記事項・連絡事項</label>
+                  {(healthStatus === '否' || handWashing === '未実施' || productCheck === 'わるい' || fishWashing === 'わるい' || workTemp === 'わるい' || facilityHygiene === 'わるい' || toolsHygiene === 'わるい') && (
+                    <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300 animate-pulse">
+                      ※「わるい/否」があるため記入必須
+                    </span>
+                  )}
+                </div>
                 <textarea
+                  id="fishNotesField"
                   rows={2}
                   value={fishNotes}
                   onChange={(e) => setFishNotes(e.target.value)}
-                  placeholder="悪い・否の場合は内容と指示内容を記入"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                  placeholder="悪い・否の場合は内容と指示内容を必ず記入"
+                  className={`w-full p-3 text-base border-2 rounded-xl ${
+                    (healthStatus === '否' || handWashing === '未実施' || productCheck === 'わるい' || fishWashing === 'わるい' || workTemp === 'わるい' || facilityHygiene === 'わるい' || toolsHygiene === 'わるい') && !fishNotes.trim()
+                      ? 'border-red-500 bg-red-50/50'
+                      : 'border-slate-400'
+                  }`}
                 />
               </div>
             </div>
           )}
 
-          {/* 4. 小割加工衛生管理（新規追加） */}
+          {/* 4. 小割加工衛生管理 */}
           {activeTab === 'kowari' && (
             <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
               <h2 className="font-black text-xl text-slate-900 border-l-8 border-purple-600 pl-3">
@@ -1621,12 +1679,12 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル */}
+              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル（文言修正反映） */}
               {[
                 { label: '作業温度', sub: '25℃以下での作業を', val: kowariWorkTemp, setter: setKowariWorkTemp, badSub: '特記に説明' },
                 { label: '施設の衛生', sub: '手洗い設備、天井、壁、照明', val: kowariFacilityHygiene, setter: setKowariFacilityHygiene, badSub: '特記に説明' },
                 { label: '用具・備品の衛生', sub: '作業台、計量器、パック、ラップ、ポリ袋等', val: kowariToolsHygiene, setter: setKowariToolsHygiene, badSub: '特記に説明' },
-                { label: '食品表示ラベル貼付', sub: 'アレルゲン表示を含む適正確認', val: kowariLabelCheck, setter: setKowariLabelCheck, badSub: '上席に報告' },
+                { label: '食品表示ラベル貼付', sub: 'アレルゲン表示を含む適正確認', val: kowariLabelCheck, setter: setKowariLabelCheck, badSub: '特記事項に説明' },
               ].map((item, idx) => (
                 <div key={idx} className="border-t-2 border-slate-200 pt-4">
                   <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
@@ -1658,13 +1716,25 @@ function ChecksheetForm() {
               ))}
 
               <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                <div className="flex justify-between items-baseline mb-1">
+                  <label className="block text-sm font-bold text-slate-700">特記事項・連絡事項</label>
+                  {(kowariHealthStatus === '否' || kowariHandHygiene === '未実施' || kowariWorkTemp === 'わるい' || kowariFacilityHygiene === 'わるい' || kowariToolsHygiene === 'わるい' || kowariLabelCheck === 'わるい') && (
+                    <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300 animate-pulse">
+                      ※「わるい/否」があるため記入必須
+                    </span>
+                  )}
+                </div>
                 <textarea
+                  id="kowariNotesField"
                   rows={2}
                   value={kowariNotes}
                   onChange={(e) => setKowariNotes(e.target.value)}
-                  placeholder="悪い・否の場合は内容と指示内容を記入"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                  placeholder="悪い・否の場合は内容と指示内容を必ず記入"
+                  className={`w-full p-3 text-base border-2 rounded-xl ${
+                    (kowariHealthStatus === '否' || kowariHandHygiene === '未実施' || kowariWorkTemp === 'わるい' || kowariFacilityHygiene === 'わるい' || kowariToolsHygiene === 'わるい' || kowariLabelCheck === 'わるい') && !kowariNotes.trim()
+                      ? 'border-red-500 bg-red-50/50'
+                      : 'border-slate-400'
+                  }`}
                 />
               </div>
             </div>
@@ -2105,6 +2175,69 @@ function ChecksheetForm() {
                 >
                   <span>了解しました（確認）</span>
                   <span className="text-2xl">✓</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          特記事項 未入力時の全画面ブロックモーダル
+         ======================================================== */}
+      {notesRequiredAlert && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-600 text-center">
+            <div className="bg-red-600 text-white py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2">
+              <span className="text-xl">🚨</span>
+              <span>特記事項の記入が必要です！</span>
+              <span className="text-xl">🚨</span>
+            </div>
+
+            <div className="p-6 sm:p-8 space-y-5">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-300">
+                ✍️
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-black text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
+                  {notesRequiredAlert.sectionName}
+                </span>
+
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                  「わるい / 否」の<br />
+                  <span className="text-red-600 underline decoration-4 underline-offset-4">
+                    具体的な状況
+                  </span>
+                  を記入してください
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-3.5 rounded-2xl border-2 border-amber-300 text-left font-bold text-amber-950 text-xs sm:text-sm leading-relaxed space-y-1">
+                <div><b>対象項目:</b> {notesRequiredAlert.badItemsText}</div>
+                <div className="text-[11px] text-slate-600 pt-1 border-t border-amber-200">
+                  ※原因・対応状況・指示内容などを特記事項欄に記録してから再度送信してください。
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetId = activeTab === 'fish' ? 'fishNotesField' : 'kowariNotesField';
+                    setNotesRequiredAlert(null);
+                    setTimeout(() => {
+                      const el = document.getElementById(targetId);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.focus();
+                      }
+                    }, 100);
+                  }}
+                  className="w-full min-h-[64px] bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide"
+                >
+                  <span>特記事項を入力する</span>
+                  <span>👉</span>
                 </button>
               </div>
             </div>
