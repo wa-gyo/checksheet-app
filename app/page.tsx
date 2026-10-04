@@ -29,12 +29,13 @@ const formatDisplayJST = (isoString: string) => {
   return `${month}/${date}(${day}) ${hours}:${minutes}`;
 };
 
-type TabType = 'alcohol' | 'fish' | 'temp' | 'receiving' | 'closing' | 'drive';
+type TabType = 'alcohol' | 'fish' | 'kowari' | 'temp' | 'receiving' | 'closing' | 'drive';
 
 const normalizeTab = (raw: string | null): TabType => {
   if (!raw) return 'alcohol';
   if (raw === 'temp_hygiene' || raw === 'temp') return 'temp';
   if (raw === 'fish_processing' || raw === 'fish') return 'fish';
+  if (raw === 'kowari_processing' || raw === 'kowari') return 'kowari';
   if (raw === 'alcohol' || raw === 'basic') return 'alcohol';
   if (raw === 'receiving') return 'receiving';
   if (raw === 'driving_report' || raw === 'drive') return 'drive';
@@ -284,11 +285,10 @@ function ChecksheetForm() {
   const initialParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(initialParam));
   const [submitting, setSubmitting] = useState(false);
-  const [isCooldown, setIsCooldown] = useState(false); // 連打・二重送信防止用クールダウンフラグ
+  const [isCooldown, setIsCooldown] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // 送信完了後の特大・全画面リマインダーモーダル用ステート
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
     targetVehicle?: string;
@@ -318,7 +318,17 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 荷物受入
+  // 3. 小割加工（新規追加）
+  const [kowariDate, setKowariDate] = useState(getNowJST());
+  const [kowariHealthStatus, setKowariHealthStatus] = useState<'良' | '否' | ''>('');
+  const [kowariHandHygiene, setKowariHandHygiene] = useState<'実施済み' | '未実施' | ''>('');
+  const [kowariWorkTemp, setKowariWorkTemp] = useState<'よい' | 'わるい' | ''>('');
+  const [kowariFacilityHygiene, setKowariFacilityHygiene] = useState<'よい' | 'わるい' | ''>('');
+  const [kowariToolsHygiene, setKowariToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
+  const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
+  const [kowariNotes, setKowariNotes] = useState('');
+
+  // 4. 荷物受入
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -328,7 +338,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 4. 保管庫温度
+  // 5. 保管庫温度
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -339,13 +349,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 5. 退勤前温度
+  // 6. 退勤前温度
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 6. 運転日報
+  // 7. 運転日報
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -379,6 +389,8 @@ function ChecksheetForm() {
       setReceivingDate(now);
     } else if (activeTab === 'fish') {
       setFishDate(now);
+    } else if (activeTab === 'kowari') {
+      setKowariDate(now);
     } else if (activeTab === 'temp') {
       setTempDate(now);
     } else if (activeTab === 'closing') {
@@ -460,7 +472,6 @@ function ChecksheetForm() {
       const driveList = data || [];
       setActiveDrives(driveList);
 
-      // 自分の名前に合致する「最も新しい運行レコード」を優先選択
       if (driveList.length > 0) {
         const myActive = driveList.find((d) => isNameMatch(d.staff_name, staffName));
         if (myActive) {
@@ -492,7 +503,6 @@ function ChecksheetForm() {
     }
   };
 
-  // 現在のユーザーが未完了の運行を持っているか判定
   const myPendingDrives = activeDrives.filter((d) => isNameMatch(d.staff_name, staffName));
   const myLatestPendingDrive = myPendingDrives.length > 0 ? myPendingDrives[0] : null;
 
@@ -512,7 +522,6 @@ function ChecksheetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 送信中、または直前送信後のクールダウン（3秒間）は受け付けない
     if (submitting || isCooldown) return;
 
     if (!staffName.trim()) {
@@ -564,7 +573,6 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
-        // 出勤時の場合、全画面特大アラートで退勤時チェックの失念を防止
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
@@ -647,6 +655,36 @@ function ChecksheetForm() {
         setFacilityHygiene('');
         setToolsHygiene('');
         setFishNotes('');
+      } else if (activeTab === 'kowari') {
+        // 小割加工 送信処理
+        if (!kowariHealthStatus) throw new Error('健康状態を選択してください');
+        if (!kowariHandHygiene) throw new Error('手の衛生実施を選択してください');
+        if (!kowariWorkTemp) throw new Error('作業温度を選択してください');
+        if (!kowariFacilityHygiene) throw new Error('施設の衛生を選択してください');
+        if (!kowariToolsHygiene) throw new Error('用具・備品の衛生を選択してください');
+        if (!kowariLabelCheck) throw new Error('食品表示ラベル貼付を選択してください');
+
+        const { error } = await supabase.from('check_kowari_processing').insert([
+          {
+            checked_at: new Date(kowariDate).toISOString(),
+            staff_name: staffName,
+            health_status: kowariHealthStatus,
+            hand_hygiene: kowariHandHygiene,
+            work_temp: kowariWorkTemp,
+            facility_hygiene: kowariFacilityHygiene,
+            tools_hygiene: kowariToolsHygiene,
+            label_check: kowariLabelCheck,
+            notes: kowariNotes,
+          },
+        ]);
+        if (error) throw error;
+        setKowariHealthStatus('');
+        setKowariHandHygiene('');
+        setKowariWorkTemp('');
+        setKowariFacilityHygiene('');
+        setKowariToolsHygiene('');
+        setKowariLabelCheck('');
+        setKowariNotes('');
       } else if (activeTab === 'temp') {
         if (mainFreezerTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(mainFreezerTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
@@ -741,7 +779,6 @@ function ChecksheetForm() {
           setPassenger('');
           await fetchActiveDrives();
 
-          // 出発記録完了後の特大・全画面アラート（帰社時の記録忘れ防止）
           setFullscreenAlert({
             type: 'drive_start',
             targetVehicle: v,
@@ -773,7 +810,6 @@ function ChecksheetForm() {
 
           if (error) throw error;
 
-          // ダブりレコードの自動清算
           if (selectedDrive) {
             const duplicatePendingIds = activeDrives
               .filter(
@@ -811,7 +847,6 @@ function ChecksheetForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
-      // 送信後3秒間のクールダウン（二重送信防止）
       setIsCooldown(true);
       setTimeout(() => {
         setIsCooldown(false);
@@ -825,13 +860,14 @@ function ChecksheetForm() {
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
-      {/* タブナビゲーション */}
+      {/* タブナビゲーション：基本、運転、生魚、小割、退勤前温度、保管庫温度、荷物受入 */}
       <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
         <div className="flex px-2 py-2 gap-1.5 min-w-max">
           {[
             { key: 'alcohol', label: '📋 基本チェック' },
             { key: 'drive', label: '🚗 運転日報' },
             { key: 'fish', label: '🐟 生魚加工' },
+            { key: 'kowari', label: '🔪 小割加工' },
             { key: 'closing', label: '🌙 退勤前温度' },
             { key: 'temp', label: '🌡️ 保管庫温度' },
             { key: 'receiving', label: '📦 荷物受入' },
@@ -935,7 +971,6 @@ function ChecksheetForm() {
 
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
 
-                {/* 体調チェック項目 */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -976,7 +1011,6 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 手の衛生チェック項目 */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -1520,7 +1554,123 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 4. 退勤前温度管理 */}
+          {/* 4. 小割加工衛生管理（新規追加） */}
+          {activeTab === 'kowari' && (
+            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+              <h2 className="font-black text-xl text-slate-900 border-l-8 border-purple-600 pl-3">
+                小割加工衛生管理
+              </h2>
+
+              <BigDateDisplay value={kowariDate} onChange={setKowariDate} />
+
+              {/* 健康状態 */}
+              <div className="border-t-2 border-slate-200 pt-4">
+                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                  健康状態 <span className="text-red-600">*</span>
+                </div>
+                <div className="text-xs text-slate-600 font-bold mb-2">発熱、下痢、嘔吐等の症状なし</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '○ 良（異常なし）', val: '良' as const },
+                    { label: '○ 否（要報告）', val: '否' as const },
+                  ].map((btn) => (
+                    <button
+                      key={btn.val}
+                      type="button"
+                      onClick={() => setKowariHealthStatus(btn.val)}
+                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        kowariHealthStatus === btn.val
+                          ? btn.val === '良'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 手の衛生実施 */}
+              <div className="border-t-2 border-slate-200 pt-4">
+                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                  手の衛生実施 <span className="text-red-600">*</span>
+                </div>
+                <div className="text-xs text-slate-600 font-bold mb-2">アルコール、手洗い</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '○ 実施済み', val: '実施済み' as const },
+                    { label: '○ 未実施', val: '未実施' as const },
+                  ].map((btn) => (
+                    <button
+                      key={btn.val}
+                      type="button"
+                      onClick={() => setKowariHandHygiene(btn.val)}
+                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        kowariHandHygiene === btn.val
+                          ? btn.val === '実施済み'
+                            ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
+                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル */}
+              {[
+                { label: '作業温度', sub: '25℃以下での作業を', val: kowariWorkTemp, setter: setKowariWorkTemp, badSub: '特記に説明' },
+                { label: '施設の衛生', sub: '手洗い設備、天井、壁、照明', val: kowariFacilityHygiene, setter: setKowariFacilityHygiene, badSub: '特記に説明' },
+                { label: '用具・備品の衛生', sub: '作業台、計量器、パック、ラップ、ポリ袋等', val: kowariToolsHygiene, setter: setKowariToolsHygiene, badSub: '特記に説明' },
+                { label: '食品表示ラベル貼付', sub: 'アレルゲン表示を含む適正確認', val: kowariLabelCheck, setter: setKowariLabelCheck, badSub: '上席に報告' },
+              ].map((item, idx) => (
+                <div key={idx} className="border-t-2 border-slate-200 pt-4">
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    {item.label} <span className="text-red-600">*</span>
+                  </div>
+                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">{item.sub}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: '○ よい', val: 'よい' as const },
+                      { label: `○ わるい (${item.badSub})`, val: 'わるい' as const },
+                    ].map((btn) => (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => item.setter(btn.val)}
+                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                          item.val === btn.val
+                            ? btn.val === 'よい'
+                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                            : 'bg-slate-50 text-slate-800 border-slate-300'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="border-t-2 border-slate-200 pt-4">
+                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                <textarea
+                  rows={2}
+                  value={kowariNotes}
+                  onChange={(e) => setKowariNotes(e.target.value)}
+                  placeholder="悪い・否の場合は内容と指示内容を記入"
+                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 5. 退勤前温度管理 */}
           {activeTab === 'closing' && (
             <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
               <h2 className="font-black text-xl text-slate-900 border-l-8 border-indigo-600 pl-3">
@@ -1562,7 +1712,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 5. 保管庫温度管理 */}
+          {/* 6. 保管庫温度管理 */}
           {activeTab === 'temp' && (
             <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
               <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
@@ -1692,7 +1842,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 6. 荷物受入チェック */}
+          {/* 7. 荷物受入チェック */}
           {activeTab === 'receiving' && (
             <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
               <h2 className="font-black text-xl text-slate-900 border-l-8 border-teal-600 pl-3">
@@ -1870,6 +2020,10 @@ function ChecksheetForm() {
                 ? alcoholMode === 'start'
                   ? '① 出勤時 基本チェックを送信'
                   : '② 退勤時 基本チェックを送信'
+                : activeTab === 'kowari'
+                ? '小割加工チェックを送信'
+                : activeTab === 'fish'
+                ? '生魚加工チェックを送信'
                 : activeTab === 'receiving'
                 ? '荷物受入チェックを送信'
                 : '送信する'}
@@ -1884,7 +2038,6 @@ function ChecksheetForm() {
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-slate-900 text-center">
-            {/* 警告ヘッダー */}
             <div className="bg-amber-400 text-slate-950 py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2 border-b-4 border-slate-900">
               <span className="text-xl">⚠️</span>
               <span>【重要】つぎの作業予定をお忘れなく！</span>
@@ -1892,12 +2045,10 @@ function ChecksheetForm() {
             </div>
 
             <div className="p-6 sm:p-8 space-y-6">
-              {/* アイコン */}
               <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-5xl shadow-inner border-4 border-slate-900">
                 {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
               </div>
 
-              {/* 次の目的をドーンと提示 */}
               <div className="space-y-3">
                 <span className="text-xs font-black text-slate-500 bg-slate-200 px-3 py-1 rounded-full border border-slate-300">
                   つぎにやること
@@ -1924,7 +2075,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 補足枠 */}
               <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 text-left font-bold text-slate-700 text-xs sm:text-sm leading-relaxed space-y-1">
                 {fullscreenAlert.type === 'drive_start' ? (
                   <>
@@ -1947,7 +2097,6 @@ function ChecksheetForm() {
                 )}
               </div>
 
-              {/* 特大確認ボタン */}
               <div className="pt-2">
                 <button
                   type="button"
