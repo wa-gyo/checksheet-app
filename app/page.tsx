@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 const CHECKER_OPTIONS = ['石川', '武藤', '長谷川', '五十嵐'];
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
-const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '新長沼店','猪苗代方面', '只見方面'];
+const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '新長沼店', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 
 // 日本時間の現在日時を取得（内部送信用 ISO 文字列）
@@ -56,6 +56,14 @@ const isTempValid = (valStr: string, min: number, max: number): boolean => {
   return !isNaN(n) && n >= min && n <= max;
 };
 
+// 名前の一致・表記揺れ判定ヘルパー（名字だけや空白違いを考慮）
+const isNameMatch = (nameA: string, nameB: string): boolean => {
+  if (!nameA || !nameB) return false;
+  const a = nameA.replace(/[\s ]+/g, '').trim();
+  const b = nameB.replace(/[\s ]+/g, '').trim();
+  return a === b || a.includes(b) || b.includes(a);
+};
+
 // 日時表示コンポーネント（記録日時のフォントサイズを1ptアップ）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -84,14 +92,12 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
 
   return (
     <>
-      {/* 通常表示エリア：日時を大きく、タップしやすく配置 */}
       <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-3.5 flex flex-wrap justify-between items-center gap-2">
         <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2.5">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-black text-slate-500">記録日時</span>
             <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">自動</span>
           </div>
-          {/* 日時テキストを 1pt アップ（text-[22px] sm:text-[26px]） */}
           <span className="text-[22px] sm:text-[26px] font-black text-slate-900 tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
@@ -106,7 +112,6 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
         </button>
       </div>
 
-      {/* 修正用モーダル（画面高さを超えてもスクロール可能） */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border-4 border-blue-600 space-y-4 max-h-[92vh] overflow-y-auto">
@@ -174,7 +179,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント（可変高さ＆文字拡大耐性）
+// 直感的な温度入力・微調整コンポーネント
 function TempInputRow({
   label,
   target,
@@ -205,7 +210,6 @@ function TempInputRow({
         </span>
       </div>
 
-      {/* 目安ボタン ＆ 1℃単位の矢印微調整ボタン */}
       <div className="grid grid-cols-4 gap-2 mb-2.5">
         <button
           type="button"
@@ -235,7 +239,6 @@ function TempInputRow({
         </button>
       </div>
 
-      {/* 入力欄 */}
       <div className="relative">
         <input
           type="number"
@@ -436,6 +439,7 @@ function ChecksheetForm() {
     }
   }, [vehicle, customVehicle, activeTab, driveMode]);
 
+  // 運行中データの取得 ＆ 「名前一致の最新レコード」自動選択
   const fetchActiveDrives = async () => {
     try {
       const { data, error } = await supabase
@@ -443,22 +447,32 @@ function ChecksheetForm() {
         .select('*')
         .is('end_meter', null)
         .order('start_at', { ascending: false })
-        .limit(10);
+        .limit(20);
       if (error) throw error;
-      setActiveDrives(data || []);
-      if (data && data.length > 0) {
-        setSelectedDriveId(data[0].id);
+
+      const driveList = data || [];
+      setActiveDrives(driveList);
+
+      // 自分の名前に合致する「最も新しい運行レコード」を優先選択
+      if (driveList.length > 0) {
+        const myActive = driveList.find((d) => isNameMatch(d.staff_name, staffName));
+        if (myActive) {
+          setSelectedDriveId(myActive.id);
+        } else {
+          setSelectedDriveId(driveList[0].id);
+        }
+      } else {
+        setSelectedDriveId('');
       }
     } catch (e) {
       console.error(e);
     }
   };
 
+  // 画面初期表示時、タブ切り替え時、名前変更時に運行状況をフェッチ
   useEffect(() => {
-    if (activeTab === 'drive') {
-      fetchActiveDrives();
-    }
-  }, [activeTab]);
+    fetchActiveDrives();
+  }, [activeTab, staffName]);
 
   const saveStaffNameHistory = (name: string) => {
     if (!name.trim()) return;
@@ -471,6 +485,10 @@ function ChecksheetForm() {
       console.error(e);
     }
   };
+
+  // 現在のユーザーが未完了の運行を持っているか判定（重複対策：最も新しいものを抽出）
+  const myPendingDrives = activeDrives.filter((d) => isNameMatch(d.staff_name, staffName));
+  const myLatestPendingDrive = myPendingDrives.length > 0 ? myPendingDrives[0] : null;
 
   const alcNum = parseFloat(alcoholVal);
   const isAlcoholWarning = !isNaN(alcNum) && alcNum > 0 && alcNum < 0.15;
@@ -488,6 +506,8 @@ function ChecksheetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return; // 連打・二重送信の完全ブロック
+
     if (!staffName.trim()) {
       setDialogError('あなたのお名前を入力してください');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -505,7 +525,7 @@ function ChecksheetForm() {
         const checker = checkerType === 'その他' ? customChecker : checkerType;
         if (!checker.trim()) throw new Error('確認者を入力してください');
 
-        // 確認者とお名前の重複・一致チェック（名字だけとフルネームの違いも検出）
+        // 確認者とお名前の重複・一致チェック
         const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
         const cleanChecker = checker.replace(/[\s ]+/g, '').trim();
         if (
@@ -723,6 +743,7 @@ function ChecksheetForm() {
             );
           }
 
+          // 1. 対象の運行データを完了に更新
           const { error } = await supabase
             .from('check_driving_report')
             .update({
@@ -734,6 +755,30 @@ function ChecksheetForm() {
             .eq('id', selectedDriveId);
 
           if (error) throw error;
+
+          // 2. もし出発時に連打等で生じた「同一人物・同一車両のダブり放置レコード」があれば自動清算
+          if (selectedDrive) {
+            const duplicatePendingIds = activeDrives
+              .filter(
+                (d) =>
+                  d.id !== selectedDriveId &&
+                  isNameMatch(d.staff_name, selectedDrive.staff_name) &&
+                  d.vehicle_name === selectedDrive.vehicle_name
+              )
+              .map((d) => d.id);
+
+            if (duplicatePendingIds.length > 0) {
+              await supabase
+                .from('check_driving_report')
+                .update({
+                  end_at: new Date(driveEnd).toISOString(),
+                  end_meter: endM,
+                  notes: '[出発時重複により自動同期完了]',
+                })
+                .in('id', duplicatePendingIds);
+            }
+          }
+
           setEndMeter('');
           setRefuelLiters('');
           setDriveNotes('');
@@ -758,7 +803,7 @@ function ChecksheetForm() {
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
-      {/* タブナビゲーション：基本チェック、運転日報、生魚加工、退勤前温度、保管庫温度、荷物受入 */}
+      {/* タブナビゲーション */}
       <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
         <div className="flex px-2 py-2 gap-1.5 min-w-max">
           {[
@@ -837,6 +882,31 @@ function ChecksheetForm() {
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-5">
+              {/* 退勤時モードかつ運行中データがある場合の警告バナー */}
+              {alcoholMode === 'finish' && myLatestPendingDrive && (
+                <div className="p-4 bg-amber-50 border-3 border-amber-500 text-amber-950 rounded-2xl shadow-md space-y-2.5 animate-pulse">
+                  <div className="flex items-center gap-2 font-black text-base sm:text-lg">
+                    <span className="text-2xl">🚗⚠️</span>
+                    <span>運転日報が【運行中】のままです！</span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold leading-snug text-slate-800">
+                    <b>{myLatestPendingDrive.vehicle_name}</b> の帰社（降車メーター）記録が完了していません。退勤前に運転日報を送信してください。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('drive');
+                      setDriveMode('finish');
+                      setSelectedDriveId(myLatestPendingDrive.id);
+                    }}
+                    className="w-full min-h-[46px] py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-black text-sm rounded-xl shadow flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <span>👉</span>
+                    <span>このまま帰社（降車メーター）を入力する</span>
+                  </button>
+                </div>
+              )}
+
               <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-4">
                 <h2 className="font-black text-xl text-slate-900 border-l-8 border-blue-600 pl-3">
                   基本チェック
@@ -844,7 +914,7 @@ function ChecksheetForm() {
 
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
 
-                {/* 体調チェック項目（※但し書き拡大） */}
+                {/* 体調チェック項目 */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -885,7 +955,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 手の衛生チェック項目（※但し書き拡大＆文言修正「点検」） */}
+                {/* 手の衛生チェック項目 */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -1215,9 +1285,17 @@ function ChecksheetForm() {
                   return (
                     <div className="space-y-4 pt-1">
                       <div>
-                        <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
-                          完了する運行を選択 <span className="text-red-600">*</span>
-                        </label>
+                        <div className="flex justify-between items-baseline mb-1.5 gap-1">
+                          <label className="text-lg font-black text-slate-900 leading-snug">
+                            完了する運行を選択 <span className="text-red-600">*</span>
+                          </label>
+                          {currentDrive && isNameMatch(currentDrive.staff_name, staffName) && (
+                            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                              ✓ あなたの運行を自動選択中
+                            </span>
+                          )}
+                        </div>
+
                         {activeDrives.length === 0 ? (
                           <div className="p-4 bg-slate-50 border-2 border-slate-200 text-base font-bold text-slate-500 text-center rounded-xl">
                             現在運行中のデータはありません
@@ -1226,13 +1304,16 @@ function ChecksheetForm() {
                           <select
                             value={selectedDriveId}
                             onChange={(e) => setSelectedDriveId(e.target.value)}
-                            className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-base sm:text-lg font-black"
+                            className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-base sm:text-lg font-black shadow-sm"
                           >
-                            {activeDrives.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.vehicle_name} ({d.staff_name}さん / 乗車: {d.start_meter} km)
-                              </option>
-                            ))}
+                            {activeDrives.map((d) => {
+                              const isMine = isNameMatch(d.staff_name, staffName);
+                              return (
+                                <option key={d.id} value={d.id}>
+                                  {isMine ? '★ ' : ''}{d.vehicle_name} ({d.staff_name}さん / 乗車: {d.start_meter} km)
+                                </option>
+                              );
+                            })}
                           </select>
                         )}
                       </div>
