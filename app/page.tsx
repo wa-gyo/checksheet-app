@@ -288,12 +288,9 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // 送信完了後の全画面リマインダーモーダル用ステート
+  // 送信完了後の特大・全画面リマインダーモーダル用ステート
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
-    title: string;
-    sub: string;
-    actionText?: string;
     targetVehicle?: string;
   } | null>(null);
 
@@ -567,12 +564,10 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
-        // 出勤時の場合、全画面アラートで退勤時チェックの失念を防止
+        // 出勤時の場合、全画面特大アラートで退勤時チェックの失念を防止
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
-            title: '出勤時の基本チェックを記録しました！',
-            sub: '【重要】退勤（業務終了）時にも、必ずもう一度「基本チェック（対面確認）」を行ってください。',
           });
         }
       } else if (activeTab === 'receiving') {
@@ -746,12 +741,10 @@ function ChecksheetForm() {
           setPassenger('');
           await fetchActiveDrives();
 
-          // 出発記録完了後の全画面アラート（帰社時の記録忘れ防止）
+          // 出発記録完了後の特大・全画面アラート（帰社時の記録忘れ防止）
           setFullscreenAlert({
             type: 'drive_start',
-            title: '出発を記録しました！',
             targetVehicle: v,
-            sub: '【最重要】配達・運行を終えて市場に戻ったら、必ず「帰社時メーター」を記録してください。',
           });
           return;
         } else {
@@ -1886,41 +1879,85 @@ function ChecksheetForm() {
       </div>
 
       {/* ========================================================
-          全画面リマインダーモーダル（出発後の帰社＆出勤後の退勤忘れ防止）
+          全画面リマインダーモーダル（次の目的をドーンと示す特大警告版）
          ======================================================== */}
       {fullscreenAlert && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-500 text-center space-y-5">
-            <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-300">
-              {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-slate-900 text-center">
+            {/* 警告ヘッダー */}
+            <div className="bg-amber-400 text-slate-950 py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2 border-b-4 border-slate-900">
+              <span className="text-xl">⚠️</span>
+              <span>【重要】つぎの作業予定をお忘れなく！</span>
+              <span className="text-xl">⚠️</span>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-slate-900 leading-tight">
-                {fullscreenAlert.title}
-              </h3>
-              {fullscreenAlert.targetVehicle && (
-                <div className="inline-block bg-slate-100 text-slate-800 px-3 py-1 rounded-lg text-sm font-black border border-slate-300 font-mono">
-                  使用車両: {fullscreenAlert.targetVehicle}
+            <div className="p-6 sm:p-8 space-y-6">
+              {/* アイコン */}
+              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-5xl shadow-inner border-4 border-slate-900">
+                {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
+              </div>
+
+              {/* 次の目的をドーンと提示 */}
+              <div className="space-y-3">
+                <span className="text-xs font-black text-slate-500 bg-slate-200 px-3 py-1 rounded-full border border-slate-300">
+                  つぎにやること
+                </span>
+
+                <div className="text-3xl sm:text-4xl font-black text-red-600 tracking-tight leading-snug">
+                  {fullscreenAlert.type === 'drive_start' ? (
+                    <>
+                      戻ったら必ず<br />
+                      <span className="underline decoration-4 underline-offset-4 text-slate-950 bg-amber-300 px-2 rounded">
+                        「帰社メーター」
+                      </span>
+                      を記録！
+                    </>
+                  ) : (
+                    <>
+                      仕事終わりは必ず<br />
+                      <span className="underline decoration-4 underline-offset-4 text-slate-950 bg-amber-300 px-2 rounded">
+                        「退勤時の点呼」
+                      </span>
+                      を記録！
+                    </>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-left">
-              <p className="text-sm sm:text-base font-black text-amber-950 leading-relaxed">
-                {fullscreenAlert.sub}
-              </p>
-            </div>
+              {/* 補足枠 */}
+              <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 text-left font-bold text-slate-700 text-xs sm:text-sm leading-relaxed space-y-1">
+                {fullscreenAlert.type === 'drive_start' ? (
+                  <>
+                    <div className="text-slate-900 font-black">
+                      車両: {fullscreenAlert.targetVehicle || '選択車両'}
+                    </div>
+                    <div>
+                      ※市場に戻ったら、エンジン停止後にオドメーターの数値を「帰社時」タブから入力してください。
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-slate-900 font-black">
+                      対面点呼（アルコールチェック）
+                    </div>
+                    <div>
+                      ※業務終了時にも必ず確認者と対面で測定・記録を行ってから退勤してください。
+                    </div>
+                  </>
+                )}
+              </div>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setFullscreenAlert(null)}
-                className="w-full min-h-[58px] bg-slate-900 hover:bg-black active:scale-[0.99] text-white font-black text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2"
-              >
-                <span>了解しました（閉じる）</span>
-                <span>✓</span>
-              </button>
+              {/* 特大確認ボタン */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setFullscreenAlert(null)}
+                  className="w-full min-h-[68px] bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 font-black text-xl sm:text-2xl rounded-2xl shadow-xl border-3 border-slate-900 transition-all flex items-center justify-center gap-2 tracking-wide"
+                >
+                  <span>了解しました（確認）</span>
+                  <span className="text-2xl">✓</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
