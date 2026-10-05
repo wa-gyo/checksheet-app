@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -10,6 +10,9 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
+// タブの順序定義（フリック切り替え用）
+const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
+
 // 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 8]
 const getNowJST = () => {
   const now = new Date();
@@ -17,11 +20,10 @@ const getNowJST = () => {
   return now.toISOString().slice(0, 16);
 };
 
-// 営業日範囲（前日16:00 〜 当日16:00 JST）の算出ヘルパー
+// 営業日範囲（前日16:00 〜 当日16:00 JST）の算出ヘルパー[cite: 8]
 const getBusinessRangeJST = () => {
   const now = new Date();
   const jstHours = now.getHours();
-  // 16時以降なら翌営業日扱い、16時前なら当日営業日
   const baseDate = new Date(now);
   if (jstHours < 16) {
     baseDate.setDate(baseDate.getDate() - 1);
@@ -314,6 +316,10 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
+  // スワイプ（フリック）計測用 Ref
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
   // 送信完了後の特大・全画面リマインダーモーダル用ステート[cite: 8]
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
@@ -326,7 +332,7 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止アラート用ステート
+  // 基本チェック 重複送信防止アラート用ステート[cite: 8]
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     modeText: string;
     existingTime: string;
@@ -413,6 +419,53 @@ function ChecksheetForm() {
   const [endMeter, setEndMeter] = useState('');
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
+
+  // タブ切り替えと上部タブボタンへのスムーズスクロール
+  const changeTab = (tab: TabType) => {
+    setActiveTab(tab);
+    setSuccessMsg('');
+    setDialogError('');
+    // 切り替え先のタブボタンを画面内に自動スクロール
+    const btn = document.getElementById(`tab-btn-${tab}`);
+    if (btn) {
+      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  };
+
+  // 左右スワイプ（フリック）ハンドラー
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // 編集モーダル等の表示中はスワイプ無効
+    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert) return;
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const touch = e.changedTouches[0];
+    const diffX = touch.clientX - touchStartX.current;
+    const diffY = touch.clientY - touchStartY.current;
+
+    // 横方向の移動が60px以上 かつ 縦スクロールよりも横移動が大きい場合に判定
+    if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
+      const currentIndex = TAB_ORDER.indexOf(activeTab);
+      if (diffX < 0) {
+        // 左フリック（次へ）
+        if (currentIndex < TAB_ORDER.length - 1) {
+          changeTab(TAB_ORDER[currentIndex + 1]);
+        }
+      } else {
+        // 右フリック（前へ）
+        if (currentIndex > 0) {
+          changeTab(TAB_ORDER[currentIndex - 1]);
+        }
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   useEffect(() => {
     const rawParam = searchParams.get('tab') || new URLSearchParams(window.location.search).get('tab');
@@ -569,7 +622,6 @@ function ChecksheetForm() {
       return;
     }
 
-    // 「わるい」選択時の特記事項未記入チェック（全画面アラート）[cite: 8]
     if (activeTab === 'fish') {
       const badItems: string[] = [];
       if (healthStatus === '否') badItems.push('健康状態（否）');
@@ -633,9 +685,6 @@ function ChecksheetForm() {
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
 
-        // -------------------------------------------------------------
-        // 基本チェック：業務前／業務後の重複投稿防止バリデーション
-        // -------------------------------------------------------------
         const { startIso, endIso } = getBusinessRangeJST();
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
@@ -974,12 +1023,16 @@ function ChecksheetForm() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans">
+    <main
+      className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <header className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-30">
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
-      {/* タブナビゲーション：基本、運転、生魚、小割、退勤前温度、保管庫温度、荷物受入[cite: 8] */}
+      {/* タブナビゲーション */}
       <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
         <div className="flex px-2 py-2 gap-1.5 min-w-max">
           {[
@@ -993,12 +1046,9 @@ function ChecksheetForm() {
           ].map((tab) => (
             <button
               key={tab.key}
+              id={`tab-btn-${tab.key}`}
               type="button"
-              onClick={() => {
-                setActiveTab(tab.key as TabType);
-                setSuccessMsg('');
-                setDialogError('');
-              }}
+              onClick={() => changeTab(tab.key as TabType)}
               className={`min-h-[46px] px-3.5 py-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center ${
                 activeTab === tab.key
                   ? 'bg-blue-700 text-white shadow ring-2 ring-blue-300'
@@ -1062,7 +1112,7 @@ function ChecksheetForm() {
               {alcoholMode === 'finish' && myLatestPendingDrive && (
                 <div className="p-4 bg-amber-50 border-3 border-amber-500 text-amber-950 rounded-2xl shadow-md space-y-2.5 animate-pulse">
                   <div className="flex items-center gap-2 font-black text-base sm:text-lg">
-                    <span className="text-2xl">🚗⚠</span>
+                    <span className="text-2xl">🚗⚠️</span>
                     <span>運転日報が【運行中】のままです！</span>
                   </div>
                   <p className="text-xs sm:text-sm font-bold leading-snug text-slate-800">
@@ -1071,7 +1121,7 @@ function ChecksheetForm() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveTab('drive');
+                      changeTab('drive');
                       setDriveMode('finish');
                       setSelectedDriveId(myLatestPendingDrive.id);
                     }}
@@ -1131,7 +1181,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 手の衛生チェック（※部分を体調チェックと同色に統一） */}
+                {/* 手の衛生チェック */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -1791,7 +1841,7 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル（文言を「特記に説明」に修正） */}
+              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル */}
               {[
                 { label: '作業温度', sub: '25℃以下での作業を', val: kowariWorkTemp, setter: setKowariWorkTemp, badSub: '特記に説明' },
                 { label: '施設の衛生', sub: '手洗い設備、天井、壁、照明', val: kowariFacilityHygiene, setter: setKowariFacilityHygiene, badSub: '特記に説明' },
@@ -1901,7 +1951,7 @@ function ChecksheetForm() {
                 保管庫温度管理
               </h2>
               <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
-                ⚠ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
+                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
               </div>
 
               <BigDateDisplay value={tempDate} onChange={setTempDate} />
@@ -1974,7 +2024,7 @@ function ChecksheetForm() {
                           ? btn.val === 'よい'
                             ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
                             : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       {btn.label}
@@ -2002,7 +2052,7 @@ function ChecksheetForm() {
                           ? btn.val === '気になる所見なし'
                             ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
                             : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       {btn.label}
