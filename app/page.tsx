@@ -8,15 +8,16 @@ const CHECKER_OPTIONS = ['石川', '武藤', '長谷川', '五十嵐'];
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '新長沼店', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
+const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）
+// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 8]
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット
+// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 8]
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -43,21 +44,21 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー（1℃単位の整数増減）
+// 温度微調整ヘルパー（1℃単位の整数増減）[cite: 8]
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseInt(current, 10) : defaultBase;
   if (isNaN(base)) return String(defaultBase);
   return String(base + delta);
 };
 
-// 温度の範囲チェックヘルパー（整数ベース）
+// 温度の範囲チェックヘルパー（整数ベース）[cite: 8]
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
   if (valStr === '') return true;
   const n = parseInt(valStr, 10);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 名前の一致・表記揺れ判定ヘルパー（名字だけや空白違いを考慮）
+// 名前の一致・表記揺れ判定ヘルパー（名字だけや空白違いを考慮）[cite: 8]
 const isNameMatch = (nameA: string, nameB: string): boolean => {
   if (!nameA || !nameB) return false;
   const a = nameA.replace(/[\s ]+/g, '').trim();
@@ -65,7 +66,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（記録日時のフォントサイズを1ptアップ）
+// 日時表示コンポーネント（記録日時のフォントサイズを1ptアップ）[cite: 8]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -180,7 +181,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント
+// 直感的な温度入力・微調整コンポーネント[cite: 8]
 function TempInputRow({
   label,
   target,
@@ -289,13 +290,13 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // 送信完了後の特大・全画面リマインダーモーダル用ステート
+  // 送信完了後の特大・全画面リマインダーモーダル用ステート[cite: 8]
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
     targetVehicle?: string;
   } | null>(null);
 
-  // 「わるい」選択時の特記事項未記入警告（全画面）用ステート
+  // 「わるい」選択時の特記事項未記入警告（全画面）用ステート[cite: 8]
   const [notesRequiredAlert, setNotesRequiredAlert] = useState<{
     sectionName: string;
     badItemsText: string;
@@ -304,7 +305,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック
+  // 1. 基本チェック[cite: 8]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -314,7 +315,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工
+  // 2. 生魚加工[cite: 8]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -325,8 +326,10 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工
+  // 3. 小割加工（「何をしますか？」項目追加）
   const [kowariDate, setKowariDate] = useState(getNowJST());
+  const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
+  const [customKowariItem, setCustomKowariItem] = useState('');
   const [kowariHealthStatus, setKowariHealthStatus] = useState<'良' | '否' | ''>('');
   const [kowariHandHygiene, setKowariHandHygiene] = useState<'実施済み' | '未実施' | ''>('');
   const [kowariWorkTemp, setKowariWorkTemp] = useState<'よい' | 'わるい' | ''>('');
@@ -335,7 +338,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入
+  // 4. 荷物受入[cite: 8]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -345,7 +348,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫温度
+  // 5. 保管庫温度[cite: 8]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -356,13 +359,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度
+  // 6. 退勤前温度[cite: 8]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報
+  // 7. 運転日報[cite: 8]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -465,7 +468,6 @@ function ChecksheetForm() {
     }
   }, [vehicle, customVehicle, activeTab, driveMode]);
 
-  // 運行中データの取得 ＆ 「名前一致の最新レコード」自動選択
   const fetchActiveDrives = async () => {
     try {
       const { data, error } = await supabase
@@ -537,9 +539,7 @@ function ChecksheetForm() {
       return;
     }
 
-    // -------------------------------------------------------------
-    // 「わるい」選択時の特記事項未記入チェック（全画面アラート）
-    // -------------------------------------------------------------
+    // 「わるい」選択時の特記事項未記入チェック（全画面アラート）[cite: 8]
     if (activeTab === 'fish') {
       const badItems: string[] = [];
       if (healthStatus === '否') badItems.push('健康状態（否）');
@@ -703,6 +703,9 @@ function ChecksheetForm() {
         setToolsHygiene('');
         setFishNotes('');
       } else if (activeTab === 'kowari') {
+        const itemNameToSave = kowariItemType === 'その他' ? customKowariItem.trim() : kowariItemType;
+        if (!itemNameToSave) throw new Error('「何をしますか？」の項目を入力してください');
+
         if (!kowariHealthStatus) throw new Error('健康状態を選択してください');
         if (!kowariHandHygiene) throw new Error('手の衛生実施を選択してください');
         if (!kowariWorkTemp) throw new Error('作業温度を選択してください');
@@ -714,6 +717,7 @@ function ChecksheetForm() {
           {
             checked_at: new Date(kowariDate).toISOString(),
             staff_name: staffName,
+            item_type: itemNameToSave,
             health_status: kowariHealthStatus,
             hand_hygiene: kowariHandHygiene,
             work_temp: kowariWorkTemp,
@@ -724,6 +728,8 @@ function ChecksheetForm() {
           },
         ]);
         if (error) throw error;
+        setKowariItemType(KOWARI_ITEM_OPTIONS[0]);
+        setCustomKowariItem('');
         setKowariHealthStatus('');
         setKowariHandHygiene('');
         setKowariWorkTemp('');
@@ -906,7 +912,7 @@ function ChecksheetForm() {
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
-      {/* タブナビゲーション：基本、運転、生魚、小割、退勤前温度、保管庫温度、荷物受入 */}
+      {/* タブナビゲーション：基本、運転、生魚、小割、退勤前温度、保管庫温度、荷物受入[cite: 8] */}
       <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
         <div className="flex px-2 py-2 gap-1.5 min-w-max">
           {[
@@ -989,7 +995,7 @@ function ChecksheetForm() {
               {alcoholMode === 'finish' && myLatestPendingDrive && (
                 <div className="p-4 bg-amber-50 border-3 border-amber-500 text-amber-950 rounded-2xl shadow-md space-y-2.5 animate-pulse">
                   <div className="flex items-center gap-2 font-black text-base sm:text-lg">
-                    <span className="text-2xl">🚗⚠️️</span>
+                    <span className="text-2xl">🚗⚠</span>
                     <span>運転日報が【運行中】のままです！</span>
                   </div>
                   <p className="text-xs sm:text-sm font-bold leading-snug text-slate-800">
@@ -1089,7 +1095,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handHygieneStatus === '否'
                           ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-white text-slate-800 border-slate-300'
+                          : 'bg-slate-800 text-slate-300'
                       }`}
                     >
                       ○ 否（要報告）
@@ -1621,6 +1627,43 @@ function ChecksheetForm() {
 
               <BigDateDisplay value={kowariDate} onChange={setKowariDate} />
 
+              {/* 何をしますか？（作業品目選択） */}
+              <div className="bg-slate-50 border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
+                <div className="flex justify-between items-baseline gap-1">
+                  <label className="text-lg font-black text-slate-900 leading-snug">
+                    何をしますか？ <span className="text-red-600">*</span>
+                  </label>
+                  <span className="text-xs font-bold text-slate-500">
+                    作業品目を選択
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <select
+                    value={kowariItemType}
+                    onChange={(e) => setKowariItemType(e.target.value)}
+                    className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white outline-none focus:border-purple-600 shadow-sm"
+                  >
+                    {KOWARI_ITEM_OPTIONS.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                    <option value="その他">その他（入力）</option>
+                  </select>
+
+                  {kowariItemType === 'その他' && (
+                    <div className="pt-1">
+                      <input
+                        type="text"
+                        placeholder="品名・作業内容を入力（例：ホタテ、いくら 等）"
+                        value={customKowariItem}
+                        onChange={(e) => setCustomKowariItem(e.target.value)}
+                        className="w-full min-h-[52px] py-2 px-3 border-2 border-purple-500 bg-purple-50/40 rounded-xl text-lg font-bold outline-none"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* 健康状態 */}
               <div className="border-t-2 border-slate-200 pt-4">
                 <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
@@ -1679,7 +1722,7 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル（文言修正反映） */}
+              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル */}
               {[
                 { label: '作業温度', sub: '25℃以下での作業を', val: kowariWorkTemp, setter: setKowariWorkTemp, badSub: '特記に説明' },
                 { label: '施設の衛生', sub: '手洗い設備、天井、壁、照明', val: kowariFacilityHygiene, setter: setKowariFacilityHygiene, badSub: '特記に説明' },
@@ -2059,7 +2102,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン手前の直近エラー表示 */}
+          {/* 送信ボタン手前の直近エラー表示[cite: 8] */}
           {dialogError && (
             <div className="p-3.5 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-sm font-bold flex items-center gap-2">
               <span className="text-lg">⚠️</span>
@@ -2103,7 +2146,7 @@ function ChecksheetForm() {
       </div>
 
       {/* ========================================================
-          全画面リマインダーモーダル（次の目的をドーンと示す特大警告版）
+          全画面リマインダーモーダル（次の目的をドーンと示す特大警告版）[cite: 8]
          ======================================================== */}
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
@@ -2183,7 +2226,7 @@ function ChecksheetForm() {
       )}
 
       {/* ========================================================
-          特記事項 未入力時の全画面ブロックモーダル
+          特記事項 未入力時の全画面ブロックモーダル[cite: 8]
          ======================================================== */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
