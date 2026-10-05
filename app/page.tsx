@@ -10,7 +10,7 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブ順序定義
+// タブ順序定義[cite: 11]
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
 const getNowJST = () => {
@@ -308,9 +308,7 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // -------------------------------------------------------------
-  // 糸を引くようなモーションスワイプ（ドラッグ追従・ラバーバンド）用 State / Ref
-  // -------------------------------------------------------------
+  // モーションスワイプ用 State / Ref[cite: 11]
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -335,7 +333,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック
+  // 1. 基本チェック[cite: 11]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -345,7 +343,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工
+  // 2. 生魚加工[cite: 11]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -356,7 +354,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工
+  // 3. 小割加工[cite: 11]
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -368,7 +366,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入
+  // 4. 荷物受入[cite: 11]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -378,24 +376,27 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫温度
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
   const [fishStorageTemp, setFishStorageTemp] = useState('');
   const [constantFloorTemp, setConstantFloorTemp] = useState('');
   const [floorTemp, setFloorTemp] = useState('');
-  const [processingZoneStatus, setProcessingZoneStatus] = useState<'よい' | 'わるい' | ''>('');
-  const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
+  // 衛生管理 4項目
+  const [storageHygieneStatus, setStorageHygieneStatus] = useState<'よい' | 'わるい' | ''>(''); // 保管庫 衛生・整頓
+  const [processingZoneStatus, setProcessingZoneStatus] = useState<'よい' | 'わるい' | ''>(''); // 太物売場 衛生・整頓
+  const [floorHygieneStatus, setFloorHygieneStatus] = useState<'よい' | 'わるい' | ''>(''); // 売場 衛生・整頓
+  const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>(''); // 害獣の痕跡
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度
+  // 6. 退勤前温度[cite: 11]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報
+  // 7. 運転日報[cite: 11]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -426,9 +427,6 @@ function ChecksheetForm() {
     }
   };
 
-  // -------------------------------------------------------------
-  // モーションスワイプ タッチイベント処理
-  // -------------------------------------------------------------
   const handleTouchStart = (e: React.TouchEvent) => {
     if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert) return;
     const touch = e.touches[0];
@@ -444,7 +442,6 @@ function ChecksheetForm() {
     const diffX = touch.clientX - touchStartX.current;
     const diffY = touch.clientY - touchStartY.current;
 
-    // 縦スクロールか横スワイプかの初速判定
     if (isHorizontalSwipe.current === null) {
       if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
         isHorizontalSwipe.current = Math.abs(diffX) > Math.abs(diffY);
@@ -457,12 +454,11 @@ function ChecksheetForm() {
     const isAtFirst = currentIndex === 0 && diffX > 0;
     const isAtLast = currentIndex === TAB_ORDER.length - 1 && diffX < 0;
 
-    // 端のタブでは抵抗係数（0.3）をかけて糸が引っ張られるようなラバーバンド効果
     let offset = diffX;
     if (isAtFirst || isAtLast) {
       offset = diffX * 0.3;
     } else {
-      offset = diffX * 0.85; // 吸い付き追従
+      offset = diffX * 0.85;
     }
     setDragOffset(offset);
   };
@@ -472,14 +468,13 @@ function ChecksheetForm() {
     setIsDragging(false);
 
     const currentIndex = TAB_ORDER.indexOf(activeTab);
-    const threshold = 65; // 切り替え判定のしきい値(px)
+    const threshold = 65;
 
     if (dragOffset < -threshold && currentIndex < TAB_ORDER.length - 1) {
       changeTab(TAB_ORDER[currentIndex + 1]);
     } else if (dragOffset > threshold && currentIndex > 0) {
       changeTab(TAB_ORDER[currentIndex - 1]);
     } else {
-      // 閾値未満ならバネのように元の位置へ跳ね戻る
       setDragOffset(0);
     }
 
@@ -674,6 +669,23 @@ function ChecksheetForm() {
       if (badItems.length > 0 && !kowariNotes.trim()) {
         setNotesRequiredAlert({
           sectionName: '小割加工衛生管理',
+          badItemsText: badItems.join('、'),
+        });
+        return;
+      }
+    }
+
+    // 保管庫,売場管理（衛生管理項目で「わるい / 問題発生」時の特記未記入チェック）
+    if (activeTab === 'temp') {
+      const badItems: string[] = [];
+      if (storageHygieneStatus === 'わるい') badItems.push('保管庫 衛生・整頓状況（わるい）');
+      if (processingZoneStatus === 'わるい') badItems.push('太物売場 衛生・整頓状況（わるい）');
+      if (floorHygieneStatus === 'わるい') badItems.push('売場 衛生・整頓状況（わるい）');
+      if (pestEvidence === '問題発生') badItems.push('害獣の痕跡（問題発生）');
+
+      if (badItems.length > 0 && !tempNotes.trim()) {
+        setNotesRequiredAlert({
+          sectionName: '保管庫・売場 衛生管理',
           badItemsText: badItems.join('、'),
         });
         return;
@@ -885,11 +897,13 @@ function ChecksheetForm() {
         if (constantFloorTemp === '') throw new Error('「定温売場温度」を入力してください');
         if (!isTempValid(constantFloorTemp, -5, 45)) throw new Error('定温売場温度の数値が異常です（許容範囲: -5℃ 〜 45℃）');
 
-        if (floorTemp === '') throw new Error('「売場温度（場内温度）」を入力してください');
+        if (floorTemp === '') throw new Error('「売場温度（場内実測）」を入力してください');
         if (!isTempValid(floorTemp, -5, 45)) throw new Error('売場温度の数値が異常です（許容範囲: -5℃ 〜 45℃）');
 
-        if (!processingZoneStatus) throw new Error('太物売場の衛生状況を選択してください');
-        if (!pestEvidence) throw new Error('害獣の痕跡を選択してください');
+        if (!storageHygieneStatus) throw new Error('「保管庫 衛生・整頓状況」を選択してください');
+        if (!processingZoneStatus) throw new Error('「太物売場 衛生・整頓状況」を選択してください');
+        if (!floorHygieneStatus) throw new Error('「売場 衛生・整頓状況」を選択してください');
+        if (!pestEvidence) throw new Error('「害獣の痕跡」を選択してください');
 
         const { error } = await supabase.from('check_temp_hygiene').insert([
           {
@@ -900,7 +914,9 @@ function ChecksheetForm() {
             fish_storage_temp: parseInt(fishStorageTemp, 10),
             constant_floor_temp: parseInt(constantFloorTemp, 10),
             floor_temp: parseInt(floorTemp, 10),
+            storage_hygiene_status: storageHygieneStatus,
             processing_zone_status: processingZoneStatus,
+            floor_hygiene_status: floorHygieneStatus,
             pest_evidence: pestEvidence,
             notes: tempNotes,
           },
@@ -911,7 +927,9 @@ function ChecksheetForm() {
         setFishStorageTemp('');
         setConstantFloorTemp('');
         setFloorTemp('');
+        setStorageHygieneStatus('');
         setProcessingZoneStatus('');
+        setFloorHygieneStatus('');
         setPestEvidence('');
         setTempNotes('');
       } else if (activeTab === 'closing') {
@@ -1044,12 +1062,17 @@ function ChecksheetForm() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans overflow-x-hidden">
+    <main
+      className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans overflow-x-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <header className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-30">
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
 
-      {/* タブナビゲーション */}
+      {/* タブナビゲーション：保管庫温度 -> 保管庫,売場管理 に改称 */}
       <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
         <div className="flex px-2 py-2 gap-1.5 min-w-max">
           {[
@@ -1058,7 +1081,7 @@ function ChecksheetForm() {
             { key: 'fish', label: '🐟 生魚加工' },
             { key: 'kowari', label: '🔪 小割加工' },
             { key: 'closing', label: '🌙 退勤前温度' },
-            { key: 'temp', label: '🌡️ 保管庫温度' },
+            { key: 'temp', label: '🌡️ 保管庫,売場管理' },
             { key: 'receiving', label: '📦 荷物受入' },
           ].map((tab) => (
             <button
@@ -1078,11 +1101,6 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      {/* 
-        ============================================================
-        糸を引くようなモーションスワイプ（ラバーバンド追従ボディ）
-        ============================================================
-      */}
       <div
         className="max-w-xl mx-auto p-3.5 space-y-5 select-none"
         style={{
@@ -1778,7 +1796,6 @@ function ChecksheetForm() {
 
               <BigDateDisplay value={kowariDate} onChange={setKowariDate} />
 
-              {/* 何をしますか？（作業品目選択） */}
               <div className="bg-slate-50 border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-baseline gap-1">
                   <label className="text-lg font-black text-slate-900 leading-snug">
@@ -1815,7 +1832,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 健康状態 */}
               <div className="border-t-2 border-slate-200 pt-4">
                 <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
                   健康状態 <span className="text-red-600">*</span>
@@ -1844,7 +1860,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 手の衛生実施 */}
               <div className="border-t-2 border-slate-200 pt-4">
                 <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
                   手の衛生実施 <span className="text-red-600">*</span>
@@ -1873,7 +1888,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル */}
               {[
                 { label: '作業温度', sub: '25℃以下での作業を', val: kowariWorkTemp, setter: setKowariWorkTemp, badSub: '特記に説明' },
                 { label: '施設の衛生', sub: '手洗い設備、天井、壁、照明', val: kowariFacilityHygiene, setter: setKowariFacilityHygiene, badSub: '特記に説明' },
@@ -1976,132 +1990,213 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 6. 保管庫温度管理 */}
+          {/* 6. 保管庫,売場管理（温度管理 ＆ 衛生管理） */}
           {activeTab === 'temp' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
-                保管庫温度管理
-              </h2>
-              <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
-                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
-              </div>
-
-              <BigDateDisplay value={tempDate} onChange={setTempDate} />
-
-              <TempInputRow
-                label="本庫温度"
-                target="マイナス20℃目安"
-                value={mainFreezerTemp}
-                onChange={setMainFreezerTemp}
-                base={-20}
-                min={-40}
-                max={0}
-              />
-
-              <TempInputRow
-                label="2号室温度"
-                target="マイナス20℃目安"
-                value={room2Temp}
-                onChange={setRoom2Temp}
-                base={-20}
-                min={-40}
-                max={0}
-              />
-
-              <TempInputRow
-                label="鮮魚庫温度"
-                target="マイナス1℃目安"
-                value={fishStorageTemp}
-                onChange={setFishStorageTemp}
-                base={-1}
-                min={-15}
-                max={15}
-              />
-
-              <TempInputRow
-                label="定温売場温度"
-                target="9℃以下目安"
-                value={constantFloorTemp}
-                onChange={setConstantFloorTemp}
-                base={8}
-                min={-5}
-                max={45}
-              />
-
-              <TempInputRow
-                label="売場温度（場内実測）"
-                target="場内実測"
-                value={floorTemp}
-                onChange={setFloorTemp}
-                base={18}
-                min={-5}
-                max={45}
-              />
-
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-600">*</span>
+            <div className="space-y-5">
+              {/* 保管庫・売場 温度管理カード */}
+              <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+                <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
+                  保管庫温度管理
+                </h2>
+                <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
+                  ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {[
-                    { label: '○ よい', val: 'よい' as const },
-                    { label: '○ わるい (特記に説明)', val: 'わるい' as const },
-                  ].map((btn) => (
-                    <button
-                      key={btn.val}
-                      type="button"
-                      onClick={() => setProcessingZoneStatus(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        processingZoneStatus === btn.val
-                          ? btn.val === 'よい'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  害獣の痕跡 <span className="text-red-600">*</span>
-                </div>
-                <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">ネズミ、鳥類他による汚れや商品破損</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: '○ 気になる所見なし', val: '気になる所見なし' as const },
-                    { label: '○ 問題発生 (特記に説明)', val: '問題発生' as const },
-                  ].map((btn) => (
-                    <button
-                      key={btn.val}
-                      type="button"
-                      onClick={() => setPestEvidence(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        pestEvidence === btn.val
-                          ? btn.val === '気になる所見なし'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <BigDateDisplay value={tempDate} onChange={setTempDate} />
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
-                <textarea
-                  rows={2}
-                  value={tempNotes}
-                  onChange={(e) => setTempNotes(e.target.value)}
-                  placeholder="悪い・問題発生の際は内容を説明"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                <TempInputRow
+                  label="本庫温度"
+                  target="マイナス20℃目安"
+                  value={mainFreezerTemp}
+                  onChange={setMainFreezerTemp}
+                  base={-20}
+                  min={-40}
+                  max={0}
                 />
+
+                <TempInputRow
+                  label="2号室温度"
+                  target="マイナス20℃目安"
+                  value={room2Temp}
+                  onChange={setRoom2Temp}
+                  base={-20}
+                  min={-40}
+                  max={0}
+                />
+
+                <TempInputRow
+                  label="鮮魚庫温度"
+                  target="マイナス1℃目安"
+                  value={fishStorageTemp}
+                  onChange={setFishStorageTemp}
+                  base={-1}
+                  min={-15}
+                  max={15}
+                />
+
+                <TempInputRow
+                  label="定温売場温度"
+                  target="9℃以下目安"
+                  value={constantFloorTemp}
+                  onChange={setConstantFloorTemp}
+                  base={8}
+                  min={-5}
+                  max={45}
+                />
+
+                <TempInputRow
+                  label="売場温度（場内実測）"
+                  target="場内実測"
+                  value={floorTemp}
+                  onChange={setFloorTemp}
+                  base={18}
+                  min={-5}
+                  max={45}
+                />
+              </div>
+
+              {/* 保管庫・売場 衛生管理カード（新設） */}
+              <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
+                <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
+                  保管庫・売場 衛生管理
+                </h2>
+
+                {/* 1. 保管庫 衛生・整頓状況 */}
+                <div className="border-t-2 border-slate-200 pt-4">
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    保管庫 衛生・整頓状況 <span className="text-red-600">*</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {[
+                      { label: '○ よい', val: 'よい' as const },
+                      { label: '○ わるい (特記に説明)', val: 'わるい' as const },
+                    ].map((btn) => (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => setStorageHygieneStatus(btn.val)}
+                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                          storageHygieneStatus === btn.val
+                            ? btn.val === 'よい'
+                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. 太物売場（生魚加工ゾーン）衛生・整頓状況（現存項目） */}
+                <div className="border-t-2 border-slate-200 pt-4">
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-600">*</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {[
+                      { label: '○ よい', val: 'よい' as const },
+                      { label: '○ わるい (特記に説明)', val: 'わるい' as const },
+                    ].map((btn) => (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => setProcessingZoneStatus(btn.val)}
+                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                          processingZoneStatus === btn.val
+                            ? btn.val === 'よい'
+                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. 売場 衛生・整頓状況 */}
+                <div className="border-t-2 border-slate-200 pt-4">
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    売場 衛生・整頓状況 <span className="text-red-600">*</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {[
+                      { label: '○ よい', val: 'よい' as const },
+                      { label: '○ わるい (特記に説明)', val: 'わるい' as const },
+                    ].map((btn) => (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => setFloorHygieneStatus(btn.val)}
+                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                          floorHygieneStatus === btn.val
+                            ? btn.val === 'よい'
+                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. 害獣の痕跡（現存項目） */}
+                <div className="border-t-2 border-slate-200 pt-4">
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    害獣の痕跡 <span className="text-red-600">*</span>
+                  </div>
+                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">ネズミ、鳥類他による汚れや商品破損</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: '○ 気になる所見なし', val: '気になる所見なし' as const },
+                      { label: '○ 問題発生 (特記に説明)', val: '問題発生' as const },
+                    ].map((btn) => (
+                      <button
+                        key={btn.val}
+                        type="button"
+                        onClick={() => setPestEvidence(btn.val)}
+                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                          pestEvidence === btn.val
+                            ? btn.val === '気になる所見なし'
+                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
+                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
+                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 特記事項・連絡事項 */}
+                <div className="border-t-2 border-slate-200 pt-4">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <label className="block text-sm font-bold text-slate-700">特記事項・連絡事項</label>
+                    {(storageHygieneStatus === 'わるい' || processingZoneStatus === 'わるい' || floorHygieneStatus === 'わるい' || pestEvidence === '問題発生') && (
+                      <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300 animate-pulse">
+                        ※「わるい/問題発生」があるため記入必須
+                      </span>
+                    )}
+                  </div>
+                  <textarea
+                    id="tempNotesField"
+                    rows={2}
+                    value={tempNotes}
+                    onChange={(e) => setTempNotes(e.target.value)}
+                    placeholder="悪い・問題発生の際は内容を説明"
+                    className={`w-full p-3 text-base border-2 rounded-xl ${
+                      (storageHygieneStatus === 'わるい' || processingZoneStatus === 'わるい' || floorHygieneStatus === 'わるい' || pestEvidence === '問題発生') && !tempNotes.trim()
+                        ? 'border-red-500 bg-red-50/50'
+                        : 'border-slate-400'
+                    }`}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -2253,7 +2348,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン手前の直近エラー表示[cite: 8] */}
+          {/* 送信ボタン手前の直近エラー表示[cite: 11] */}
           {dialogError && (
             <div className="p-3.5 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-sm font-bold flex items-center gap-2">
               <span className="text-lg">⚠️</span>
@@ -2288,6 +2383,8 @@ function ChecksheetForm() {
                 ? '小割加工チェックを送信'
                 : activeTab === 'fish'
                 ? '生魚加工チェックを送信'
+                : activeTab === 'temp'
+                ? '保管庫・売場管理チェックを送信'
                 : activeTab === 'receiving'
                 ? '荷物受入チェックを送信'
                 : '送信する'}
@@ -2296,9 +2393,7 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* ========================================================
-          基本チェック 重複送信防止モーダル
-         ======================================================== */}
+      {/* 基本チェック 重複送信防止モーダル[cite: 11] */}
       {duplicateAlcoholAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-500 text-center">
@@ -2350,9 +2445,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          全画面リマインダーモーダル（次の目的をドーンと示す特大警告版）[cite: 8]
-         ======================================================== */}
+      {/* 全画面リマインダーモーダル[cite: 11] */}
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-slate-900 text-center">
@@ -2430,9 +2523,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          特記事項 未入力時の全画面ブロックモーダル[cite: 8]
-         ======================================================== */}
+      {/* 特記事項 未入力時の全画面ブロックモーダル */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-600 text-center">
@@ -2453,7 +2544,7 @@ function ChecksheetForm() {
                 </span>
 
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
-                  「わるい / 否」の<br />
+                  「わるい / 問題発生」の<br />
                   <span className="text-red-600 underline decoration-4 underline-offset-4">
                     具体的な状況
                   </span>
@@ -2472,7 +2563,10 @@ function ChecksheetForm() {
                 <button
                   type="button"
                   onClick={() => {
-                    const targetId = activeTab === 'fish' ? 'fishNotesField' : 'kowariNotesField';
+                    let targetId = 'tempNotesField';
+                    if (activeTab === 'fish') targetId = 'fishNotesField';
+                    if (activeTab === 'kowari') targetId = 'kowariNotesField';
+
                     setNotesRequiredAlert(null);
                     setTimeout(() => {
                       const el = document.getElementById(targetId);

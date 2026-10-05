@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
-// 管理者パスコード（必要に応じて自由に変更してください）[cite: 7]
+// 管理者パスコード（必要に応じて自由に変更してください）[cite: 10]
 const ADMIN_PASSCODE = 'gyorui370220';
 
 interface EditTarget {
@@ -24,7 +24,7 @@ interface WeatherInfo {
   humidity: number | null;
 }
 
-// 出勤・退勤の判定ヘルパー[cite: 7]
+// 出勤・退勤の判定ヘルパー[cite: 10]
 const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown' => {
   if (!notes) return 'unknown';
   if (notes.includes('出勤時') || notes.includes('業務前')) return 'start';
@@ -32,14 +32,14 @@ const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown
   return 'unknown';
 };
 
-// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得[cite: 7]
+// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得[cite: 10]
 const getTodayJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 10);
 };
 
-// 西暦なしの日時フォーマット（M/D HH:mm）[cite: 7]
+// 西暦なしの日時フォーマット（M/D HH:mm）[cite: 10]
 const formatShortDateTime = (isoString: string) => {
   if (!isoString) return '-';
   const d = new Date(isoString);
@@ -50,12 +50,12 @@ const formatShortDateTime = (isoString: string) => {
   return `${month}/${date} ${hours}:${minutes}`;
 };
 
-// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出[cite: 7]
+// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出[cite: 10]
 const getBusinessPeriod = (dateStr: string) => {
   const [year, month, day] = dateStr.split('-').map(Number);
-  // 当日 16:00 JST
+  // 当日 16:00 JST[cite: 10]
   const endD = new Date(year, month - 1, day, 16, 0, 0);
-  // 前日 16:00 JST
+  // 前日 16:00 JST[cite: 10]
   const startD = new Date(year, month - 1, day - 1, 16, 0, 0);
 
   const prevMonth = startD.getMonth() + 1;
@@ -74,31 +74,31 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
 
-  // 認証ステート[cite: 7]
+  // 認証ステート[cite: 10]
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [inputPass, setInputPass] = useState('');
   const [passError, setPassError] = useState('');
 
-  // 編集モーダルステート[cite: 7]
+  // 編集モーダルステート[cite: 10]
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editTimeValue, setEditTimeValue] = useState('');
   const [editNotesValue, setEditNotesValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // 各種データ[cite: 7]
+  // 各種データ[cite: 10]
   const [alcohols, setAlcohols] = useState<any[]>([]);
   const [fishes, setFishes] = useState<any[]>([]);
-  const [kowaris, setKowaris] = useState<any[]>([]); // 小割加工ステート[cite: 7]
+  const [kowaris, setKowaris] = useState<any[]>([]); // 小割加工ステート[cite: 10]
   const [temps, setTemps] = useState<any[]>([]);
   const [closings, setClosings] = useState<any[]>([]);
   const [receivings, setReceivings] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
 
-  // Supabase (daily_weather_logs) から読み込む気象データステート[cite: 7]
+  // Supabase (daily_weather_logs) から読み込む気象データステート[cite: 10]
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
-  // 認証チェック[cite: 7]
+  // 認証チェック[cite: 10]
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_authenticated');
     if (authStatus === 'true') {
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
     setInputPass('');
   };
 
-  // daily_weather_logs テーブルから確定気象データを取得[cite: 7]
+  // daily_weather_logs テーブルから確定気象データを取得[cite: 10]
   const fetchWeather = async (dateStr: string) => {
     setWeatherLoading(true);
     try {
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）[cite: 7]
+  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）[cite: 10]
   const fetchData = async (dateStr: string) => {
     if (!isAuthenticated) return;
     setLoading(true);
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
     }
   }, [targetDate, isAuthenticated]);
 
-  // レコード削除[cite: 7]
+  // レコード削除[cite: 10]
   const handleDelete = async (table: string, id: string, label: string) => {
     if (!confirm(`【警告】この記録（${label}）を完全に削除しますか？\n誤入力やテストデータ以外は削除しないでください。`)) {
       return;
@@ -209,7 +209,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // 編集モーダルを開く[cite: 7]
+  // 編集モーダルを開く[cite: 10]
   const openEditModal = (target: EditTarget) => {
     setEditTarget(target);
     const d = new Date(target.currentIso);
@@ -218,7 +218,7 @@ export default function AdminDashboard() {
     setEditNotesValue(target.notes || '');
   };
 
-  // 編集の保存[cite: 7]
+  // 編集の保存[cite: 10]
   const handleSaveEdit = async () => {
     if (!editTarget || !editTimeValue) return;
     setSavingEdit(true);
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
   const currentPeriod = getBusinessPeriod(targetDate);
 
   // -------------------------------------------------------------
-  // ログイン画面（未認証時）[cite: 7]
+  // ログイン画面（未認証時）[cite: 10]
   // -------------------------------------------------------------
   if (!isAuthenticated) {
     return (
@@ -298,11 +298,11 @@ export default function AdminDashboard() {
   }
 
   // -------------------------------------------------------------
-  // 管理者メイン画面（認証完了時）[cite: 7]
+  // 管理者メイン画面（認証完了時）[cite: 10]
   // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 print:p-0 print:bg-white font-sans">
-      {/* 画面操作コントロールバー（印刷時は非表示）[cite: 7] */}
+      {/* 画面操作コントロールバー（印刷時は非表示）[cite: 10] */}
       <div className="max-w-5xl mx-auto mb-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -359,11 +359,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 単体リスト切り替えタブ[cite: 7] */}
+        {/* 単体リスト切り替えタブ */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex gap-1.5 overflow-x-auto">
           {[
             { key: 'all', label: '📋 日報まとめ（一括・印刷用）' },
-            { key: 'temp', label: `🌡️ 温度・受入管理 (${temps.length + closings.length + receivings.length})` },
+            { key: 'temp', label: `🌡️ 保管庫,売場・受入管理 (${temps.length + closings.length + receivings.length})` },
             { key: 'fish', label: `🐟 生魚加工 (${fishes.length})` },
             { key: 'kowari', label: `🔪 小割加工 (${kowaris.length})` },
             { key: 'alcohol', label: `📋 基本・点呼 (${alcohols.length})` },
@@ -384,14 +384,14 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* メイン表示エリア[cite: 7] */}
+      {/* メイン表示エリア[cite: 10] */}
       <div className="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
-        {/* 帳票ヘッダー（対象日＋営業範囲＋確定気象情報）[cite: 7] */}
+        {/* 帳票ヘッダー（対象日＋営業範囲＋確定気象情報）[cite: 10] */}
         <div className="border-b-2 border-slate-800 pb-2 mb-4 flex flex-wrap justify-between items-end gap-2">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
               {viewMode === 'all' && '業務点検日報（日次取りまとめ）'}
-              {viewMode === 'temp' && '温度衛生管理・荷物受入 点検記録簿'}
+              {viewMode === 'temp' && '保管庫・売場管理（温度 & 衛生） 点検記録簿'}
               {viewMode === 'fish' && '生魚加工 衛生管理点検記録簿'}
               {viewMode === 'kowari' && '小割加工 衛生管理点検記録簿'}
               {viewMode === 'alcohol' && '基本チェック・点呼記録簿（対面確認）'}
@@ -405,7 +405,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
 
-              {/* 公設市場の確定気象情報バッジ[cite: 7] */}
+              {/* 公設市場の確定気象情報バッジ[cite: 10] */}
               <div className="text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded px-2.5 py-0.5 flex items-center gap-2 print:border-slate-400">
                 <span className="text-slate-500 font-normal">気象(08:00):</span>
                 {weatherLoading ? (
@@ -434,64 +434,88 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-6 print:space-y-4 text-xs">
             {/* ========================================================
-                1. 温度衛生管理（出勤時 & 退勤前 & 荷物受入）
+                1. 保管庫・売場管理（日常温度 & 衛生管理 & 退勤前温度 & 荷物受入）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'temp') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-cyan-600 mb-2">
-                  1. 温度衛生管理（日常・出勤時 & 退勤前 & 荷物受入）
+                  1. 保管庫・売場管理（日常温度 & 衛生管理 & 退勤前温度 & 荷物受入）
                 </h3>
 
-                {/* 温度管理グリッド（出勤時・退勤前）[cite: 7] */}
+                {/* 温度管理グリッド（日常・出勤時 & 退勤前） */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 mb-3">
-                  {/* 出勤時 */}
+                  {/* 日常・出勤時（温度 ＋ 衛生管理4項目） */}
                   <div className="border border-slate-300 rounded p-2.5">
-                    <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 日常・出勤時 点検</div>
+                    <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 日常・出勤時 点検（温度 & 衛生管理）</div>
                     {temps.length === 0 ? (
                       <div className="text-slate-400 italic p-1">記録なし</div>
                     ) : (
-                      temps.map((row) => (
-                        <div key={row.id} className="space-y-1.5 mb-2 last:mb-0 border-b last:border-b-0 pb-2 last:pb-0">
-                          <div className="flex justify-between items-center text-slate-500 font-mono">
-                            <span>記入者: <b>{row.staff_name}</b></span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
-                              <button
-                                onClick={() => openEditModal({ table: 'check_temp_hygiene', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                                className="print:hidden text-[10px] text-blue-600 hover:underline px-1"
-                              >
-                                ✏️時刻
-                              </button>
-                              <button
-                                onClick={() => handleDelete('check_temp_hygiene', row.id, `${row.staff_name}さんの出勤時温度`)}
-                                className="print:hidden text-[10px] text-red-600 hover:underline px-1"
-                              >
-                                🗑️削除
-                              </button>
+                      temps.map((row) => {
+                        const hasStorageBad = row.storage_hygiene_status === 'わるい';
+                        const hasProcessingBad = row.processing_zone_status === 'わるい';
+                        const hasFloorBad = row.floor_hygiene_status === 'わるい';
+                        const hasPestProblem = row.pest_evidence === '問題発生';
+
+                        return (
+                          <div key={row.id} className="space-y-1.5 mb-2 last:mb-0 border-b last:border-b-0 pb-2 last:pb-0">
+                            <div className="flex justify-between items-center text-slate-500 font-mono">
+                              <span>記入者: <b>{row.staff_name}</b></span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
+                                <button
+                                  onClick={() => openEditModal({ table: 'check_temp_hygiene', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
+                                  className="print:hidden text-[10px] text-blue-600 hover:underline px-1"
+                                >
+                                  ✏️時刻
+                                </button>
+                                <button
+                                  onClick={() => handleDelete('check_temp_hygiene', row.id, `${row.staff_name}さんの出勤時温度・衛生`)}
+                                  className="print:hidden text-[10px] text-red-600 hover:underline px-1"
+                                >
+                                  🗑️削除
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* 各種温度実測値 */}
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 bg-slate-50 p-2 rounded font-mono">
+                              <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
+                              <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
+                              <div>鮮魚庫: <b>{row.fish_storage_temp !== null ? `${row.fish_storage_temp}℃` : '-'}</b></div>
+                              <div>定温売場: <b>{row.constant_floor_temp !== null ? `${row.constant_floor_temp}℃` : '-'}</b></div>
+                              <div>売場(場内): <b>{row.floor_temp !== null ? `${row.floor_temp}℃` : '-'}</b></div>
+                            </div>
+
+                            {/* 衛生管理 4項目 */}
+                            <div className="text-[11px] bg-slate-100/60 p-2 rounded space-y-0.5 border border-slate-200">
+                              <div className="text-[10px] font-black text-slate-500 mb-0.5">【衛生・整頓状況】</div>
+                              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                                <div>
+                                  保管庫衛生: <b className={hasStorageBad ? 'text-red-600 font-black' : ''}>{row.storage_hygiene_status || '-'}</b>
+                                </div>
+                                <div>
+                                  太物売場衛生: <b className={hasProcessingBad ? 'text-red-600 font-black' : ''}>{row.processing_zone_status || '-'}</b>
+                                </div>
+                                <div>
+                                  売場衛生: <b className={hasFloorBad ? 'text-red-600 font-black' : ''}>{row.floor_hygiene_status || '-'}</b>
+                                </div>
+                                <div>
+                                  害獣痕跡: <b className={hasPestProblem ? 'text-red-600 font-black' : ''}>{row.pest_evidence || '-'}</b>
+                                </div>
+                              </div>
+                              {row.notes && (
+                                <div className="text-red-600 font-black bg-red-50 p-1 rounded border border-red-200 mt-1">
+                                  特記: {row.notes}
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 bg-slate-50 p-2 rounded font-mono">
-                            <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
-                            <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
-                            <div>鮮魚庫: <b>{row.fish_storage_temp !== null ? `${row.fish_storage_temp}℃` : '-'}</b></div>
-                            <div>定温売場: <b>{row.constant_floor_temp !== null ? `${row.constant_floor_temp}℃` : '-'}</b></div>
-                            <div>売場(場内): <b>{row.floor_temp !== null ? `${row.floor_temp}℃` : '-'}</b></div>
-                          </div>
-                          <div className="text-[11px] text-slate-600 space-y-0.5">
-                            <div>太物売場衛生: <b>{row.processing_zone_status}</b></div>
-                            <div>害獣痕跡: <b>{row.pest_evidence}</b></div>
-                            {row.notes && (
-                              <div className="text-red-600 font-black bg-red-50 p-1 rounded border border-red-200">
-                                特記: {row.notes}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
 
-                  {/* 退勤前 */}
+                  {/* 退勤前温度 */}
                   <div className="border border-slate-300 rounded p-2.5">
                     <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 退勤前 点検</div>
                     {closings.length === 0 ? (
@@ -532,7 +556,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* 荷物受入 点検記録[cite: 7] */}
+                {/* 荷物受入 点検記録[cite: 10] */}
                 <div className="border border-slate-300 rounded p-2.5 bg-white">
                   <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
                     <span>■ 荷物受入 点検記録</span>
@@ -603,7 +627,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                2. 生魚加工 衛生管理点検[cite: 7]
+                2. 生魚加工 衛生管理点検[cite: 10]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'fish') && (
               <section className="break-inside-avoid">
@@ -681,7 +705,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. 小割加工 衛生管理点検（作業品目カラム追加）
+                3. 小割加工 衛生管理点検[cite: 10]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'kowari') && (
               <section className="break-inside-avoid">
@@ -761,7 +785,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                4. 基本チェック・アルコール点呼記録簿（対面確認）[cite: 7]
+                4. 基本チェック・アルコール点呼記録簿（対面確認）[cite: 10]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
@@ -881,7 +905,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                5. 運転日報[cite: 7]
+                5. 運転日報[cite: 10]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'drive') && (
               <section className="break-inside-avoid">
@@ -968,7 +992,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 帳票フッター（署名・承認欄）[cite: 7] */}
+        {/* 帳票フッター（署名・承認欄）[cite: 10] */}
         <div className="mt-8 pt-4 border-t border-slate-300 flex justify-end gap-6 text-center text-xs">
           <div className="w-24 border border-slate-400 p-1 h-20 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500">管理者確認印</span>
@@ -982,7 +1006,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================
-          時刻修正・特記編集モーダルダイアログ[cite: 7]
+          時刻修正・特記編集モーダルダイアログ[cite: 10]
          ======================================================== */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
