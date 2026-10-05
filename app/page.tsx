@@ -66,7 +66,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（記録日時のフォントサイズを1ptアップ）[cite: 8]
+// 日時表示コンポーネント（記録日時のフォントサイズを2ptアップ）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -100,7 +100,8 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
             <span className="text-xs font-black text-slate-500">記録日時</span>
             <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">自動</span>
           </div>
-          <span className="text-[22px] sm:text-[26px] font-black text-slate-900 tracking-tight font-mono leading-none">
+          {/* 日時テキストを 2pt アップ（text-[24px] sm:text-[28px]） */}
+          <span className="text-[24px] sm:text-[28px] font-black text-slate-900 tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
         </div>
@@ -326,7 +327,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工（「何をしますか？」項目追加）
+  // 3. 小割加工[cite: 8]
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -1023,6 +1024,7 @@ function ChecksheetForm() {
 
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
 
+                {/* 体調チェック */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -1044,7 +1046,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         basicHealthStatus === '良'
                           ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                          : 'bg-white text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       ○ よい（症状なし）
@@ -1055,7 +1057,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         basicHealthStatus === '否'
                           ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-white text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       ○ 否（要報告）
@@ -1063,6 +1065,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
+                {/* 手の衛生チェック（※部分を体調チェックと同色に統一） */}
                 <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
                   <div className="flex justify-between items-baseline gap-1">
                     <label className="text-lg font-black text-slate-900 leading-snug">
@@ -1073,7 +1076,7 @@ function ChecksheetForm() {
                     </span>
                   </div>
 
-                  <div className="text-base sm:text-lg font-black text-slate-900 bg-blue-50 p-3 rounded-xl border border-blue-200 leading-snug">
+                  <div className="text-base sm:text-lg font-black text-red-950 bg-amber-100 p-3.5 rounded-xl border border-amber-400 shadow-sm leading-snug">
                     ※爪の長さ・手荒れ・傷・手指消毒の点検
                   </div>
 
@@ -1084,7 +1087,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handHygieneStatus === '良'
                           ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                          : 'bg-white text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       ○ よい（異常なし）
@@ -1095,7 +1098,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handHygieneStatus === '否'
                           ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-800 text-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       ○ 否（要報告）
@@ -1521,7 +1524,7 @@ function ChecksheetForm() {
                           ? btn.val === '良'
                             ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
                             : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       {btn.label}
@@ -1548,7 +1551,7 @@ function ChecksheetForm() {
                           ? btn.val === '実施済み'
                             ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
                             : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       {btn.label}
@@ -1583,7 +1586,7 @@ function ChecksheetForm() {
                             ? btn.val === 'よい'
                               ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
                               : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-slate-50 text-slate-800 border-slate-300'
+                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                         }`}
                       >
                         {btn.label}
@@ -1684,7 +1687,7 @@ function ChecksheetForm() {
                           ? btn.val === '良'
                             ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
                             : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       {btn.label}
@@ -1713,7 +1716,7 @@ function ChecksheetForm() {
                           ? btn.val === '実施済み'
                             ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
                             : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       {btn.label}
@@ -1722,12 +1725,12 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル */}
+              {/* 作業温度、施設の衛生、用具・備品、食品表示ラベル（文言を「特記に説明」に修正） */}
               {[
                 { label: '作業温度', sub: '25℃以下での作業を', val: kowariWorkTemp, setter: setKowariWorkTemp, badSub: '特記に説明' },
                 { label: '施設の衛生', sub: '手洗い設備、天井、壁、照明', val: kowariFacilityHygiene, setter: setKowariFacilityHygiene, badSub: '特記に説明' },
                 { label: '用具・備品の衛生', sub: '作業台、計量器、パック、ラップ、ポリ袋等', val: kowariToolsHygiene, setter: setKowariToolsHygiene, badSub: '特記に説明' },
-                { label: '食品表示ラベル貼付', sub: 'アレルゲン表示を含む適正確認', val: kowariLabelCheck, setter: setKowariLabelCheck, badSub: '特記事項に説明' },
+                { label: '食品表示ラベル貼付', sub: 'アレルゲン表示を含む適正確認', val: kowariLabelCheck, setter: setKowariLabelCheck, badSub: '特記に説明' },
               ].map((item, idx) => (
                 <div key={idx} className="border-t-2 border-slate-200 pt-4">
                   <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
@@ -1748,7 +1751,7 @@ function ChecksheetForm() {
                             ? btn.val === 'よい'
                               ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
                               : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-slate-50 text-slate-800 border-slate-300'
+                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                         }`}
                       >
                         {btn.label}
@@ -1832,7 +1835,7 @@ function ChecksheetForm() {
                 保管庫温度管理
               </h2>
               <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
-                ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
+                ⚠️️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
               </div>
 
               <BigDateDisplay value={tempDate} onChange={setTempDate} />
@@ -2056,7 +2059,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         item.val === 'よい'
                           ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       ○ よい（異常なし）
@@ -2067,7 +2070,7 @@ function ChecksheetForm() {
                       className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         item.val === 'わるい'
                           ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
                       }`}
                     >
                       ○ わるい（要報告）
