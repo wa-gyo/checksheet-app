@@ -10,17 +10,15 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブの順序定義（フリック切り替え用）
+// タブ順序定義
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
-// 日本時間の現在日時を取得（内部送信用 ISO 文字列）[cite: 8]
 const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// 営業日範囲（前日16:00 〜 当日16:00 JST）の算出ヘルパー[cite: 8]
 const getBusinessRangeJST = () => {
   const now = new Date();
   const jstHours = now.getHours();
@@ -43,7 +41,6 @@ const getBusinessRangeJST = () => {
   return { startIso, endIso };
 };
 
-// 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 8]
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
   const d = new Date(isoString);
@@ -70,21 +67,18 @@ const normalizeTab = (raw: string | null): TabType => {
   return 'alcohol';
 };
 
-// 温度微調整ヘルパー（1℃単位の整数増減）[cite: 8]
 const adjustTempValue = (current: string, delta: number, defaultBase: number): string => {
   const base = current !== '' ? parseInt(current, 10) : defaultBase;
   if (isNaN(base)) return String(defaultBase);
   return String(base + delta);
 };
 
-// 温度の範囲チェックヘルパー（整数ベース）[cite: 8]
 const isTempValid = (valStr: string, min: number, max: number): boolean => {
   if (valStr === '') return true;
   const n = parseInt(valStr, 10);
   return !isNaN(n) && n >= min && n <= max;
 };
 
-// 名前の一致・表記揺れ判定ヘルパー（名字だけや空白違いを考慮）[cite: 8]
 const isNameMatch = (nameA: string, nameB: string): boolean => {
   if (!nameA || !nameB) return false;
   const a = nameA.replace(/[\s ]+/g, '').trim();
@@ -92,7 +86,6 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（記録日時のフォントサイズを2ptアップ）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -207,7 +200,6 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 直感的な温度入力・微調整コンポーネント[cite: 8]
 function TempInputRow({
   label,
   target,
@@ -316,23 +308,25 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // スワイプ（フリック）計測用 Ref
+  // -------------------------------------------------------------
+  // 糸を引くようなモーションスワイプ（ドラッグ追従・ラバーバンド）用 State / Ref
+  // -------------------------------------------------------------
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信完了後の特大・全画面リマインダーモーダル用ステート[cite: 8]
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
     targetVehicle?: string;
   } | null>(null);
 
-  // 「わるい」選択時の特記事項未記入警告（全画面）用ステート[cite: 8]
   const [notesRequiredAlert, setNotesRequiredAlert] = useState<{
     sectionName: string;
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止アラート用ステート[cite: 8]
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     modeText: string;
     existingTime: string;
@@ -341,7 +335,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 8]
+  // 1. 基本チェック
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -351,7 +345,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 8]
+  // 2. 生魚加工
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -362,7 +356,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 8]
+  // 3. 小割加工
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -374,7 +368,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 8]
+  // 4. 荷物受入
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -384,7 +378,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫温度[cite: 8]
+  // 5. 保管庫温度
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -395,13 +389,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 8]
+  // 6. 退勤前温度
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 8]
+  // 7. 運転日報
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -420,51 +414,78 @@ function ChecksheetForm() {
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
 
-  // タブ切り替えと上部タブボタンへのスムーズスクロール
   const changeTab = (tab: TabType) => {
     setActiveTab(tab);
     setSuccessMsg('');
     setDialogError('');
-    // 切り替え先のタブボタンを画面内に自動スクロール
+    setDragOffset(0);
+    setIsDragging(false);
     const btn = document.getElementById(`tab-btn-${tab}`);
     if (btn) {
       btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   };
 
-  // 左右スワイプ（フリック）ハンドラー
+  // -------------------------------------------------------------
+  // モーションスワイプ タッチイベント処理
+  // -------------------------------------------------------------
   const handleTouchStart = (e: React.TouchEvent) => {
-    // 編集モーダル等の表示中はスワイプ無効
     if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert) return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
+    isHorizontalSwipe.current = null;
+    setIsDragging(true);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
-    const touch = e.changedTouches[0];
+    const touch = e.touches[0];
     const diffX = touch.clientX - touchStartX.current;
     const diffY = touch.clientY - touchStartY.current;
 
-    // 横方向の移動が60px以上 かつ 縦スクロールよりも横移動が大きい場合に判定
-    if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
-      const currentIndex = TAB_ORDER.indexOf(activeTab);
-      if (diffX < 0) {
-        // 左フリック（次へ）
-        if (currentIndex < TAB_ORDER.length - 1) {
-          changeTab(TAB_ORDER[currentIndex + 1]);
-        }
-      } else {
-        // 右フリック（前へ）
-        if (currentIndex > 0) {
-          changeTab(TAB_ORDER[currentIndex - 1]);
-        }
+    // 縦スクロールか横スワイプかの初速判定
+    if (isHorizontalSwipe.current === null) {
+      if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+        isHorizontalSwipe.current = Math.abs(diffX) > Math.abs(diffY);
       }
+    }
+
+    if (!isHorizontalSwipe.current) return;
+
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    const isAtFirst = currentIndex === 0 && diffX > 0;
+    const isAtLast = currentIndex === TAB_ORDER.length - 1 && diffX < 0;
+
+    // 端のタブでは抵抗係数（0.3）をかけて糸が引っ張られるようなラバーバンド効果
+    let offset = diffX;
+    if (isAtFirst || isAtLast) {
+      offset = diffX * 0.3;
+    } else {
+      offset = diffX * 0.85; // 吸い付き追従
+    }
+    setDragOffset(offset);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    const threshold = 65; // 切り替え判定のしきい値(px)
+
+    if (dragOffset < -threshold && currentIndex < TAB_ORDER.length - 1) {
+      changeTab(TAB_ORDER[currentIndex + 1]);
+    } else if (dragOffset > threshold && currentIndex > 0) {
+      changeTab(TAB_ORDER[currentIndex - 1]);
+    } else {
+      // 閾値未満ならバネのように元の位置へ跳ね戻る
+      setDragOffset(0);
     }
 
     touchStartX.current = null;
     touchStartY.current = null;
+    isHorizontalSwipe.current = null;
   };
 
   useEffect(() => {
@@ -1023,11 +1044,7 @@ function ChecksheetForm() {
   };
 
   return (
-    <main
-      className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans touch-pan-y"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <main className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans overflow-x-hidden">
       <header className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-30">
         <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
       </header>
@@ -1061,7 +1078,22 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      <div className="max-w-xl mx-auto p-3.5 space-y-5">
+      {/* 
+        ============================================================
+        糸を引くようなモーションスワイプ（ラバーバンド追従ボディ）
+        ============================================================
+      */}
+      <div
+        className="max-w-xl mx-auto p-3.5 space-y-5 select-none"
+        style={{
+          transform: `translateX(${dragOffset}px)`,
+          transition: isDragging ? 'none' : 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)',
+          willChange: 'transform',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {successMsg && (
           <div className="p-4 bg-emerald-100 border-3 border-emerald-500 text-emerald-950 rounded-2xl text-base sm:text-lg text-center font-black shadow-md animate-bounce leading-snug">
             ✅ {successMsg}
