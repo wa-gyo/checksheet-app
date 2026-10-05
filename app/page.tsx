@@ -17,6 +17,30 @@ const getNowJST = () => {
   return now.toISOString().slice(0, 16);
 };
 
+// 営業日範囲（前日16:00 〜 当日16:00 JST）の算出ヘルパー
+const getBusinessRangeJST = () => {
+  const now = new Date();
+  const jstHours = now.getHours();
+  // 16時以降なら翌営業日扱い、16時前なら当日営業日
+  const baseDate = new Date(now);
+  if (jstHours < 16) {
+    baseDate.setDate(baseDate.getDate() - 1);
+  }
+  const year = baseDate.getFullYear();
+  const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+  const day = String(baseDate.getDate()).padStart(2, '0');
+  const startIso = `${year}-${month}-${day}T16:00:00+09:00`;
+
+  const endDate = new Date(baseDate);
+  endDate.setDate(endDate.getDate() + 1);
+  const endYear = endDate.getFullYear();
+  const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+  const endDay = String(endDate.getDate()).padStart(2, '0');
+  const endIso = `${endYear}-${endMonth}-${endDay}T16:00:00+09:00`;
+
+  return { startIso, endIso };
+};
+
 // 画面表示用：日付曜日と時刻の間を一文字分（全角スペース）広げたフォーマット[cite: 8]
 const formatDisplayJST = (isoString: string) => {
   if (!isoString) return '';
@@ -100,7 +124,6 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
             <span className="text-xs font-black text-slate-500">記録日時</span>
             <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">自動</span>
           </div>
-          {/* 日時テキストを 2pt アップ（text-[24px] sm:text-[28px]） */}
           <span className="text-[24px] sm:text-[28px] font-black text-slate-900 tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
@@ -301,6 +324,12 @@ function ChecksheetForm() {
   const [notesRequiredAlert, setNotesRequiredAlert] = useState<{
     sectionName: string;
     badItemsText: string;
+  } | null>(null);
+
+  // 基本チェック 重複送信防止アラート用ステート
+  const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
+    modeText: string;
+    existingTime: string;
   } | null>(null);
 
   const [staffName, setStaffName] = useState('');
@@ -580,7 +609,6 @@ function ChecksheetForm() {
 
     setSubmitting(true);
     setSuccessMsg('');
-    saveStaffNameHistory(staffName);
 
     try {
       if (activeTab === 'alcohol') {
@@ -602,7 +630,39 @@ function ChecksheetForm() {
 
         if (alcoholVal === '') throw new Error('アルコール測定値を入力してください');
 
+        const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
+
+        // -------------------------------------------------------------
+        // 基本チェック：業務前／業務後の重複投稿防止バリデーション
+        // -------------------------------------------------------------
+        const { startIso, endIso } = getBusinessRangeJST();
+        const { data: existingRecords, error: checkError } = await supabase
+          .from('check_alcohol')
+          .select('id, checked_at, notes, staff_name')
+          .gte('checked_at', startIso)
+          .lte('checked_at', endIso);
+
+        if (!checkError && existingRecords) {
+          const duplicate = existingRecords.find(
+            (r) =>
+              isNameMatch(r.staff_name, cleanStaff) &&
+              r.notes &&
+              r.notes.includes(timingKey)
+          );
+
+          if (duplicate) {
+            setDuplicateAlcoholAlert({
+              modeText: timingLabel,
+              existingTime: formatDisplayJST(duplicate.checked_at),
+            });
+            setSubmitting(false);
+            return;
+          }
+        }
+
+        saveStaffNameHistory(staffName);
+
         const healthNote = `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】`;
         const handNote = `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】`;
 
@@ -627,6 +687,7 @@ function ChecksheetForm() {
           });
         }
       } else if (activeTab === 'receiving') {
+        saveStaffNameHistory(staffName);
         let flightNameToSave = selectedFlight;
         if (selectedFlight === 'その他') {
           if (!customFlight.trim()) throw new Error('便名を入力してください');
@@ -672,6 +733,7 @@ function ChecksheetForm() {
         setTransitTempStatus('');
         setReceivingNotes('');
       } else if (activeTab === 'fish') {
+        saveStaffNameHistory(staffName);
         if (!healthStatus) throw new Error('健康状態を選択してください');
         if (!handWashing) throw new Error('手洗い実施を選択してください');
         if (!productCheck) throw new Error('商品確認を選択してください');
@@ -704,6 +766,7 @@ function ChecksheetForm() {
         setToolsHygiene('');
         setFishNotes('');
       } else if (activeTab === 'kowari') {
+        saveStaffNameHistory(staffName);
         const itemNameToSave = kowariItemType === 'その他' ? customKowariItem.trim() : kowariItemType;
         if (!itemNameToSave) throw new Error('「何をしますか？」の項目を入力してください');
 
@@ -739,6 +802,7 @@ function ChecksheetForm() {
         setKowariLabelCheck('');
         setKowariNotes('');
       } else if (activeTab === 'temp') {
+        saveStaffNameHistory(staffName);
         if (mainFreezerTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(mainFreezerTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
 
@@ -781,6 +845,7 @@ function ChecksheetForm() {
         setPestEvidence('');
         setTempNotes('');
       } else if (activeTab === 'closing') {
+        saveStaffNameHistory(staffName);
         if (closingMainTemp === '') throw new Error('「本庫温度」を入力してください');
         if (!isTempValid(closingMainTemp, -40, 0)) throw new Error('本庫温度の数値が異常です（許容範囲: -40℃ 〜 0℃）');
 
@@ -801,6 +866,7 @@ function ChecksheetForm() {
         setClosingRoom2Temp('');
         setClosingNotes('');
       } else if (activeTab === 'drive') {
+        saveStaffNameHistory(staffName);
         if (driveMode === 'start') {
           const v = vehicle === 'その他' ? customVehicle : vehicle;
           const d = destination === 'その他' ? customDestination : destination;
@@ -1835,7 +1901,7 @@ function ChecksheetForm() {
                 保管庫温度管理
               </h2>
               <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
-                ⚠️️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
+                ⚠ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
               </div>
 
               <BigDateDisplay value={tempDate} onChange={setTempDate} />
@@ -2147,6 +2213,60 @@ function ChecksheetForm() {
           </div>
         </form>
       </div>
+
+      {/* ========================================================
+          基本チェック 重複送信防止モーダル
+         ======================================================== */}
+      {duplicateAlcoholAlert && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-500 text-center">
+            <div className="bg-amber-500 text-slate-950 py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <span>すでに記録済みです！</span>
+              <span className="text-xl">⚠️</span>
+            </div>
+
+            <div className="p-6 sm:p-8 space-y-5">
+              <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-300">
+                📋
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-black text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full">
+                  二重送信ガード
+                </span>
+
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                  本日の【{duplicateAlcoholAlert.modeText}】は<br />
+                  <span className="text-blue-700 underline decoration-4 underline-offset-4">
+                    すでに記録完了
+                  </span>
+                  しています
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 text-left font-bold text-slate-700 text-xs sm:text-sm leading-relaxed space-y-1">
+                <div><b>対象者:</b> {staffName} さん</div>
+                <div><b>記録日時:</b> {duplicateAlcoholAlert.existingTime}</div>
+                <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
+                  ※修正が必要な場合は、管理者に伝えて管理画面から時刻や内容を修正してください。
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDuplicateAlcoholAlert(null)}
+                  className="w-full min-h-[64px] bg-slate-900 hover:bg-black text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide"
+                >
+                  <span>確認しました（閉じる）</span>
+                  <span>✓</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
           全画面リマインダーモーダル（次の目的をドーンと示す特大警告版）[cite: 8]

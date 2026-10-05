@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
-// 管理者パスコード（必要に応じて自由に変更してください）
+// 管理者パスコード（必要に応じて自由に変更してください）[cite: 7]
 const ADMIN_PASSCODE = 'gyorui370220';
 
 interface EditTarget {
@@ -24,7 +24,7 @@ interface WeatherInfo {
   humidity: number | null;
 }
 
-// 出勤・退勤の判定ヘルパー
+// 出勤・退勤の判定ヘルパー[cite: 7]
 const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown' => {
   if (!notes) return 'unknown';
   if (notes.includes('出勤時') || notes.includes('業務前')) return 'start';
@@ -32,14 +32,14 @@ const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown
   return 'unknown';
 };
 
-// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得
+// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得[cite: 7]
 const getTodayJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 10);
 };
 
-// 西暦なしの日時フォーマット（M/D HH:mm）
+// 西暦なしの日時フォーマット（M/D HH:mm）[cite: 7]
 const formatShortDateTime = (isoString: string) => {
   if (!isoString) return '-';
   const d = new Date(isoString);
@@ -50,7 +50,7 @@ const formatShortDateTime = (isoString: string) => {
   return `${month}/${date} ${hours}:${minutes}`;
 };
 
-// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出
+// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出[cite: 7]
 const getBusinessPeriod = (dateStr: string) => {
   const [year, month, day] = dateStr.split('-').map(Number);
   // 当日 16:00 JST
@@ -74,31 +74,31 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
 
-  // 認証ステート
+  // 認証ステート[cite: 7]
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [inputPass, setInputPass] = useState('');
   const [passError, setPassError] = useState('');
 
-  // 編集モーダルステート
+  // 編集モーダルステート[cite: 7]
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editTimeValue, setEditTimeValue] = useState('');
   const [editNotesValue, setEditNotesValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // 各種データ
+  // 各種データ[cite: 7]
   const [alcohols, setAlcohols] = useState<any[]>([]);
   const [fishes, setFishes] = useState<any[]>([]);
-  const [kowaris, setKowaris] = useState<any[]>([]); // 小割加工ステート
+  const [kowaris, setKowaris] = useState<any[]>([]); // 小割加工ステート[cite: 7]
   const [temps, setTemps] = useState<any[]>([]);
   const [closings, setClosings] = useState<any[]>([]);
   const [receivings, setReceivings] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
 
-  // Supabase (daily_weather_logs) から読み込む気象データステート
+  // Supabase (daily_weather_logs) から読み込む気象データステート[cite: 7]
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
-  // 認証チェック
+  // 認証チェック[cite: 7]
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_authenticated');
     if (authStatus === 'true') {
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
     setInputPass('');
   };
 
-  // daily_weather_logs テーブルから確定気象データを取得
+  // daily_weather_logs テーブルから確定気象データを取得[cite: 7]
   const fetchWeather = async (dateStr: string) => {
     setWeatherLoading(true);
     try {
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）
+  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）[cite: 7]
   const fetchData = async (dateStr: string) => {
     if (!isAuthenticated) return;
     setLoading(true);
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
     }
   }, [targetDate, isAuthenticated]);
 
-  // レコード削除
+  // レコード削除[cite: 7]
   const handleDelete = async (table: string, id: string, label: string) => {
     if (!confirm(`【警告】この記録（${label}）を完全に削除しますか？\n誤入力やテストデータ以外は削除しないでください。`)) {
       return;
@@ -209,7 +209,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // 編集モーダルを開く
+  // 編集モーダルを開く[cite: 7]
   const openEditModal = (target: EditTarget) => {
     setEditTarget(target);
     const d = new Date(target.currentIso);
@@ -218,7 +218,7 @@ export default function AdminDashboard() {
     setEditNotesValue(target.notes || '');
   };
 
-  // 編集の保存
+  // 編集の保存[cite: 7]
   const handleSaveEdit = async () => {
     if (!editTarget || !editTimeValue) return;
     setSavingEdit(true);
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
   const currentPeriod = getBusinessPeriod(targetDate);
 
   // -------------------------------------------------------------
-  // ログイン画面（未認証時）
+  // ログイン画面（未認証時）[cite: 7]
   // -------------------------------------------------------------
   if (!isAuthenticated) {
     return (
@@ -298,11 +298,11 @@ export default function AdminDashboard() {
   }
 
   // -------------------------------------------------------------
-  // 管理者メイン画面（認証完了時）
+  // 管理者メイン画面（認証完了時）[cite: 7]
   // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 print:p-0 print:bg-white font-sans">
-      {/* 画面操作コントロールバー（印刷時は非表示） */}
+      {/* 画面操作コントロールバー（印刷時は非表示）[cite: 7] */}
       <div className="max-w-5xl mx-auto mb-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -359,7 +359,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 単体リスト切り替えタブ */}
+        {/* 単体リスト切り替えタブ[cite: 7] */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex gap-1.5 overflow-x-auto">
           {[
             { key: 'all', label: '📋 日報まとめ（一括・印刷用）' },
@@ -384,9 +384,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* メイン表示エリア */}
+      {/* メイン表示エリア[cite: 7] */}
       <div className="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
-        {/* 帳票ヘッダー（対象日＋営業範囲＋確定気象情報） */}
+        {/* 帳票ヘッダー（対象日＋営業範囲＋確定気象情報）[cite: 7] */}
         <div className="border-b-2 border-slate-800 pb-2 mb-4 flex flex-wrap justify-between items-end gap-2">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
@@ -405,7 +405,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
 
-              {/* 公設市場の確定気象情報バッジ */}
+              {/* 公設市場の確定気象情報バッジ[cite: 7] */}
               <div className="text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded px-2.5 py-0.5 flex items-center gap-2 print:border-slate-400">
                 <span className="text-slate-500 font-normal">気象(08:00):</span>
                 {weatherLoading ? (
@@ -442,7 +442,7 @@ export default function AdminDashboard() {
                   1. 温度衛生管理（日常・出勤時 & 退勤前 & 荷物受入）
                 </h3>
 
-                {/* 温度管理グリッド（出勤時・退勤前） */}
+                {/* 温度管理グリッド（出勤時・退勤前）[cite: 7] */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 mb-3">
                   {/* 出勤時 */}
                   <div className="border border-slate-300 rounded p-2.5">
@@ -532,7 +532,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* 荷物受入 点検記録 */}
+                {/* 荷物受入 点検記録[cite: 7] */}
                 <div className="border border-slate-300 rounded p-2.5 bg-white">
                   <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
                     <span>■ 荷物受入 点検記録</span>
@@ -603,7 +603,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                2. 生魚加工 衛生管理点検
+                2. 生魚加工 衛生管理点検[cite: 7]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'fish') && (
               <section className="break-inside-avoid">
@@ -681,7 +681,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. 小割加工 衛生管理点検（新規追加）
+                3. 小割加工 衛生管理点検（作業品目カラム追加）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'kowari') && (
               <section className="break-inside-avoid">
@@ -696,6 +696,7 @@ export default function AdminDashboard() {
                       <tr className="bg-slate-50 text-center">
                         <th className="border border-slate-300 p-1.5">日時</th>
                         <th className="border border-slate-300 p-1.5">点検者</th>
+                        <th className="border border-slate-300 p-1.5 bg-purple-50">作業品目</th>
                         <th className="border border-slate-300 p-1.5">健康状態</th>
                         <th className="border border-slate-300 p-1.5">手の衛生</th>
                         <th className="border border-slate-300 p-1.5">作業温度</th>
@@ -713,6 +714,9 @@ export default function AdminDashboard() {
                             {formatShortDateTime(row.checked_at)}
                           </td>
                           <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
+                          <td className="border border-slate-300 p-1.5 font-black text-purple-900 bg-purple-50/50">
+                            {row.item_type || '-'}
+                          </td>
                           <td className={`border border-slate-300 p-1.5 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>
                             {row.health_status}
                           </td>
@@ -736,7 +740,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
                             <button
-                              onClick={() => openEditModal({ table: 'check_kowari_processing', id: row.id, name: `${row.staff_name} (小割)`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
+                              onClick={() => openEditModal({ table: 'check_kowari_processing', id: row.id, name: `${row.staff_name} (小割:${row.item_type || ''})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
                               className="text-[10px] text-blue-600 hover:underline mr-1"
                             >
                               ✏️時刻
@@ -757,7 +761,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                4. 基本チェック・アルコール点呼記録簿（対面確認）
+                4. 基本チェック・アルコール点呼記録簿（対面確認）[cite: 7]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
@@ -877,7 +881,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                5. 運転日報
+                5. 運転日報[cite: 7]
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'drive') && (
               <section className="break-inside-avoid">
@@ -964,7 +968,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 帳票フッター（署名・承認欄） */}
+        {/* 帳票フッター（署名・承認欄）[cite: 7] */}
         <div className="mt-8 pt-4 border-t border-slate-300 flex justify-end gap-6 text-center text-xs">
           <div className="w-24 border border-slate-400 p-1 h-20 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500">管理者確認印</span>
@@ -978,7 +982,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================
-          時刻修正・特記編集モーダルダイアログ
+          時刻修正・特記編集モーダルダイアログ[cite: 7]
          ======================================================== */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
