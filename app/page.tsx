@@ -10,7 +10,7 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブ順序定義[cite: 11]
+// タブ順序定義[cite: 8]
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
 const getNowJST = () => {
@@ -113,20 +113,20 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
 
   return (
     <>
-      <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-3.5 flex flex-wrap justify-between items-center gap-2">
+      <div className="bg-slate-900 border-2 border-slate-600 rounded-2xl p-3.5 flex flex-wrap justify-between items-center gap-2 shadow-inner">
         <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-black text-slate-500">記録日時</span>
-            <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">自動</span>
+            <span className="text-sm font-black text-slate-300">記録日時</span>
+            <span className="text-xs font-bold text-sky-200 bg-sky-950 px-2 py-0.5 rounded border border-sky-500">自動</span>
           </div>
-          <span className="text-[24px] sm:text-[28px] font-black text-slate-900 tracking-tight font-mono leading-none">
+          <span className="text-[26px] sm:text-[30px] font-black text-amber-300 tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
         </div>
         <button
           type="button"
           onClick={handleOpen}
-          className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-100 active:bg-slate-200 border-2 border-slate-300 rounded-xl text-xs sm:text-sm font-black text-blue-700 shadow-sm flex items-center gap-1 shrink-0"
+          className="min-h-[48px] px-4 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border-2 border-amber-400 rounded-xl text-sm sm:text-base font-black text-amber-300 shadow-md flex items-center gap-1.5 shrink-0"
         >
           <span>🕒</span>
           <span>変更</span>
@@ -134,24 +134,24 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border-4 border-blue-600 space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-2">
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 animate-fade-in backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-amber-400 space-y-4 max-h-[92vh] overflow-y-auto text-white">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🕒</span>
-                <h3 className="text-base font-black text-slate-900">記録日時の変更</h3>
+                <span className="text-2xl">🕒</span>
+                <h3 className="text-lg font-black text-amber-300">記録日時の変更</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold w-9 h-9 flex items-center justify-center"
+                className="text-slate-400 hover:text-white text-2xl font-black w-10 h-10 flex items-center justify-center"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-sm font-bold text-slate-200">
                 日付と時刻を選択してください
               </label>
 
@@ -159,19 +159,19 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
                 type="datetime-local"
                 value={tempValue}
                 onChange={(e) => setTempValue(e.target.value)}
-                className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-slate-50 text-slate-900 focus:bg-white focus:border-blue-600 outline-none text-center shadow-inner"
+                className="w-full min-h-[56px] py-2 px-3 border-2 border-slate-500 rounded-xl text-xl font-black bg-black text-amber-300 focus:border-amber-400 outline-none text-center shadow-inner"
               />
 
-              <p className="text-[11px] text-slate-500 font-bold text-center">
+              <p className="text-xs text-slate-400 font-bold text-center">
                 ※枠をタップすると時計・カレンダーが出ます
               </p>
             </div>
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-2.5 pt-2">
               <button
                 type="button"
                 onClick={handleApply}
-                className="w-full min-h-[50px] py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-base rounded-xl shadow-md transition-all flex items-center justify-center"
+                className="w-full min-h-[54px] py-2.5 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-lg rounded-xl shadow-lg transition-all flex items-center justify-center"
               >
                 この日時で決定する
               </button>
@@ -180,14 +180,14 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
                 <button
                   type="button"
                   onClick={handleResetNow}
-                  className="min-h-[44px] py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center text-center leading-tight px-1"
+                  className="min-h-[48px] py-2 bg-slate-800 hover:bg-slate-700 text-emerald-300 border-2 border-emerald-500 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center text-center leading-tight px-1"
                 >
                   ⚡ 現在時刻に戻す
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="min-h-[44px] py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center"
+                  className="min-h-[48px] py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border-2 border-slate-600 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center"
                 >
                   キャンセル
                 </button>
@@ -220,12 +220,12 @@ function TempInputRow({
   const valid = isTempValid(value, min, max);
 
   return (
-    <div className="border-t-3 border-slate-200 pt-4">
+    <div className="border-t-2 border-slate-800 pt-4">
       <div className="flex flex-wrap justify-between items-baseline mb-2 gap-1.5">
-        <label className="text-lg font-black text-slate-900 leading-snug">
-          {label} <span className="text-red-600 text-xl">*</span>
+        <label className="text-lg sm:text-xl font-black text-white leading-snug">
+          {label} <span className="text-red-400 text-xl">*</span>
         </label>
-        <span className="text-xs font-black text-blue-800 bg-blue-100 px-2.5 py-0.5 rounded-lg border border-blue-300">
+        <span className="text-xs font-black text-sky-200 bg-sky-950 px-2.5 py-1 rounded-lg border border-sky-500">
           {target}
         </span>
       </div>
@@ -234,7 +234,7 @@ function TempInputRow({
         <button
           type="button"
           onClick={() => onChange(String(base))}
-          className="col-span-2 min-h-[48px] py-2 px-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-base rounded-xl shadow border-2 border-blue-700 flex items-center justify-center gap-1 leading-tight"
+          className="col-span-2 min-h-[50px] py-2 px-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black text-base sm:text-lg rounded-xl shadow border-2 border-blue-400 flex items-center justify-center gap-1 leading-tight"
         >
           <span>目安</span>
           <span>{base > 0 ? `+${base}` : base}℃</span>
@@ -242,19 +242,19 @@ function TempInputRow({
         <button
           type="button"
           onClick={() => onChange(adjustTempValue(value, -1, base))}
-          className="min-h-[48px] py-2 px-1 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-950 font-black text-sm sm:text-base rounded-xl border-2 border-sky-400 flex items-center justify-center gap-0.5 shadow-sm"
+          className="min-h-[50px] py-2 px-1 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 text-sky-300 font-black text-base rounded-xl border-2 border-sky-400 flex items-center justify-center gap-0.5 shadow-sm"
           title="温度を下げる（冷やす）"
         >
-          <span className="text-lg text-sky-700 font-black">↓</span>
+          <span className="text-xl text-sky-400 font-black">↓</span>
           <span>-1℃</span>
         </button>
         <button
           type="button"
           onClick={() => onChange(adjustTempValue(value, +1, base))}
-          className="min-h-[48px] py-2 px-1 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-950 font-black text-sm sm:text-base rounded-xl border-2 border-amber-400 flex items-center justify-center gap-0.5 shadow-sm"
+          className="min-h-[50px] py-2 px-1 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 text-amber-300 font-black text-base rounded-xl border-2 border-amber-400 flex items-center justify-center gap-0.5 shadow-sm"
           title="温度を上げる（暖める）"
         >
-          <span className="text-lg text-amber-600 font-black">↑</span>
+          <span className="text-xl text-amber-400 font-black">↑</span>
           <span>+1℃</span>
         </button>
       </div>
@@ -267,12 +267,12 @@ function TempInputRow({
           required
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full min-h-[58px] py-2 text-2xl font-black px-4 pr-16 border-2 rounded-xl transition-colors ${
+          className={`w-full min-h-[62px] py-2 text-3xl font-black px-4 pr-16 border-2 rounded-xl transition-colors font-mono ${
             !valid
-              ? 'border-red-500 bg-red-50 text-red-700'
+              ? 'border-red-500 bg-red-950/80 text-red-200'
               : value === ''
-              ? 'border-amber-400 bg-amber-50/40'
-              : 'border-slate-400 bg-white'
+              ? 'border-amber-400 bg-slate-900 text-amber-300'
+              : 'border-slate-500 bg-black text-white focus:border-amber-400'
           }`}
         />
         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
@@ -280,18 +280,18 @@ function TempInputRow({
             <button
               type="button"
               onClick={() => onChange('')}
-              className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-full w-6 h-6 flex items-center justify-center font-bold"
+              className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-full w-7 h-7 flex items-center justify-center font-black"
               title="クリア"
             >
               ✕
             </button>
           )}
-          <span className="text-slate-400 text-xl font-black">℃</span>
+          <span className="text-slate-400 text-2xl font-black">℃</span>
         </div>
       </div>
 
       {!valid && (
-        <p className="text-xs text-red-600 font-black mt-1 px-1 leading-tight">
+        <p className="text-xs text-red-400 font-black mt-1 px-1 leading-tight">
           ⚠️ 入力値が正常範囲（{min}℃ 〜 {max}℃）を超えています。数値をご確認ください。
         </p>
       )}
@@ -308,7 +308,7 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // モーションスワイプ用 State / Ref[cite: 11]
+  // モーションスワイプ用 State / Ref[cite: 8]
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -333,7 +333,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 11]
+  // 1. 基本チェック[cite: 8]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -343,7 +343,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 11]
+  // 2. 生魚加工[cite: 8]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -354,7 +354,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 11]
+  // 3. 小割加工[cite: 8]
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -366,7 +366,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 11]
+  // 4. 荷物受入[cite: 8]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -376,27 +376,27 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 8]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
   const [fishStorageTemp, setFishStorageTemp] = useState('');
   const [constantFloorTemp, setConstantFloorTemp] = useState('');
   const [floorTemp, setFloorTemp] = useState('');
-  // 衛生管理 4項目
-  const [storageHygieneStatus, setStorageHygieneStatus] = useState<'よい' | 'わるい' | ''>(''); // 保管庫 衛生・整頓
-  const [processingZoneStatus, setProcessingZoneStatus] = useState<'よい' | 'わるい' | ''>(''); // 太物売場 衛生・整頓
-  const [floorHygieneStatus, setFloorHygieneStatus] = useState<'よい' | 'わるい' | ''>(''); // 売場 衛生・整頓
-  const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>(''); // 害獣の痕跡
+  // 衛生管理 4項目[cite: 8]
+  const [storageHygieneStatus, setStorageHygieneStatus] = useState<'よい' | 'わるい' | ''>(''); // 保管庫 衛生・整頓[cite: 8]
+  const [processingZoneStatus, setProcessingZoneStatus] = useState<'よい' | 'わるい' | ''>(''); // 太物売場 衛生・整頓[cite: 8]
+  const [floorHygieneStatus, setFloorHygieneStatus] = useState<'よい' | 'わるい' | ''>(''); // 売場 衛生・整頓[cite: 8]
+  const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>(''); // 害獣の痕跡[cite: 8]
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 11]
+  // 6. 退勤前温度[cite: 8]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 11]
+  // 7. 運転日報[cite: 8]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -675,7 +675,7 @@ function ChecksheetForm() {
       }
     }
 
-    // 保管庫,売場管理（衛生管理項目で「わるい / 問題発生」時の特記未記入チェック）
+    // 保管庫,売場管理（衛生管理項目で「わるい / 問題発生」時の特記未記入チェック）[cite: 8]
     if (activeTab === 'temp') {
       const badItems: string[] = [];
       if (storageHygieneStatus === 'わるい') badItems.push('保管庫 衛生・整頓状況（わるい）');
@@ -1063,18 +1063,21 @@ function ChecksheetForm() {
 
   return (
     <main
-      className="min-h-screen bg-slate-100 text-slate-900 pb-28 font-sans overflow-x-hidden"
+      className="min-h-screen bg-slate-950 text-white pb-32 font-sans overflow-x-hidden antialiased"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <header className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-30">
-        <h1 className="text-xl font-black text-center tracking-wide">業務管理チェックシート</h1>
+      {/* ヘッダー：漆黒と鮮明な白抜き文字、黄色の警告アクセント */}
+      <header className="bg-black text-white p-4 shadow-2xl sticky top-0 z-30 border-b-2 border-slate-800">
+        <h1 className="text-xl sm:text-2xl font-black text-center tracking-wider text-amber-300">
+          業務管理チェックシート
+        </h1>
       </header>
 
-      {/* タブナビゲーション：保管庫温度 -> 保管庫,売場管理 に改称 */}
-      <div className="bg-white border-b-2 border-slate-300 sticky top-[61px] z-20 overflow-x-auto shadow-sm">
-        <div className="flex px-2 py-2 gap-1.5 min-w-max">
+      {/* タブナビゲーション：高コントラストボタン */}
+      <div className="bg-slate-900 border-b-2 border-slate-800 sticky top-[65px] z-20 overflow-x-auto shadow-md">
+        <div className="flex px-2 py-2.5 gap-2 min-w-max">
           {[
             { key: 'alcohol', label: '📋 基本チェック' },
             { key: 'drive', label: '🚗 運転日報' },
@@ -1089,10 +1092,10 @@ function ChecksheetForm() {
               id={`tab-btn-${tab.key}`}
               type="button"
               onClick={() => changeTab(tab.key as TabType)}
-              className={`min-h-[46px] px-3.5 py-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center ${
+              className={`min-h-[48px] px-4 py-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center border-2 ${
                 activeTab === tab.key
-                  ? 'bg-blue-700 text-white shadow ring-2 ring-blue-300'
-                  : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg scale-[1.02]'
+                  : 'bg-black text-slate-200 hover:bg-slate-800 border-slate-700'
               }`}
             >
               {tab.label}
@@ -1101,8 +1104,9 @@ function ChecksheetForm() {
         </div>
       </div>
 
+      {/* モーションスワイプ コンテナ */}
       <div
-        className="max-w-xl mx-auto p-3.5 space-y-5 select-none"
+        className="max-w-xl mx-auto p-3.5 space-y-6 select-none"
         style={{
           transform: `translateX(${dragOffset}px)`,
           transition: isDragging ? 'none' : 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)',
@@ -1113,32 +1117,33 @@ function ChecksheetForm() {
         onTouchEnd={handleTouchEnd}
       >
         {successMsg && (
-          <div className="p-4 bg-emerald-100 border-3 border-emerald-500 text-emerald-950 rounded-2xl text-base sm:text-lg text-center font-black shadow-md animate-bounce leading-snug">
+          <div className="p-4 bg-emerald-950 border-3 border-emerald-400 text-emerald-200 rounded-2xl text-lg sm:text-xl text-center font-black shadow-2xl animate-bounce leading-snug">
             ✅ {successMsg}
           </div>
         )}
 
         {dialogError && (
-          <div className="p-4 bg-red-100 border-3 border-red-500 text-red-950 rounded-2xl shadow-lg flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2 text-base font-black">
+          <div className="p-4 bg-red-950 border-3 border-red-500 text-red-100 rounded-2xl shadow-2xl flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-lg font-black text-red-400">
               <span>⚠️</span>
               <span>入力内容をご確認ください</span>
             </div>
-            <p className="text-sm font-bold text-center leading-snug">{dialogError}</p>
+            <p className="text-base font-bold text-center leading-snug">{dialogError}</p>
             <button
               type="button"
               onClick={() => setDialogError('')}
-              className="mt-1 px-6 min-h-[40px] py-1.5 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl text-xs shadow flex items-center justify-center"
+              className="mt-1 px-8 min-h-[44px] py-1.5 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-sm shadow flex items-center justify-center border-2 border-red-400"
             >
               閉じる
             </button>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300">
-            <label className="block text-lg font-black text-slate-900 mb-2 leading-tight">
-              あなたのお名前 <span className="text-red-600 text-xl">*</span>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* お名前入力カード */}
+          <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
+            <label className="block text-xl font-black text-white mb-2 leading-tight">
+              あなたのお名前 <span className="text-red-400 text-2xl">*</span>
             </label>
             <input
               type="text"
@@ -1147,7 +1152,7 @@ function ChecksheetForm() {
               value={staffName}
               onChange={(e) => setStaffName(e.target.value)}
               placeholder="お名前を入力（例：山田 太郎）"
-              className="w-full text-lg font-bold min-h-[54px] py-2 px-3.5 border-2 border-slate-400 rounded-xl focus:border-blue-600 focus:bg-blue-50 outline-none"
+              className="w-full text-xl font-black min-h-[58px] py-2 px-4 border-2 border-slate-500 bg-black text-white rounded-xl focus:border-amber-400 focus:bg-slate-950 outline-none placeholder-slate-500"
             />
             <datalist id="staffList">
               {staffHistory.map((name, i) => (
@@ -1158,15 +1163,15 @@ function ChecksheetForm() {
 
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               {alcoholMode === 'finish' && myLatestPendingDrive && (
-                <div className="p-4 bg-amber-50 border-3 border-amber-500 text-amber-950 rounded-2xl shadow-md space-y-2.5 animate-pulse">
-                  <div className="flex items-center gap-2 font-black text-base sm:text-lg">
+                <div className="p-4 bg-amber-950/80 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-2xl space-y-3 animate-pulse">
+                  <div className="flex items-center gap-2 font-black text-lg sm:text-xl text-amber-300">
                     <span className="text-2xl">🚗⚠️</span>
                     <span>運転日報が【運行中】のままです！</span>
                   </div>
-                  <p className="text-xs sm:text-sm font-bold leading-snug text-slate-800">
-                    <b>{myLatestPendingDrive.vehicle_name}</b> の帰社（降車メーター）記録が完了していません。退勤前に運転日報を送信してください。
+                  <p className="text-sm sm:text-base font-bold leading-snug text-slate-200">
+                    <b className="text-amber-300 underline">{myLatestPendingDrive.vehicle_name}</b> の帰社（降車メーター）記録が完了していません。退勤前に運転日報を送信してください。
                   </p>
                   <button
                     type="button"
@@ -1175,7 +1180,7 @@ function ChecksheetForm() {
                       setDriveMode('finish');
                       setSelectedDriveId(myLatestPendingDrive.id);
                     }}
-                    className="w-full min-h-[46px] py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-black text-sm rounded-xl shadow flex items-center justify-center gap-1.5 transition-all"
+                    className="w-full min-h-[50px] py-2 px-3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-base rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition-all"
                   >
                     <span>👉</span>
                     <span>このまま帰社（降車メーター）を入力する</span>
@@ -1183,36 +1188,36 @@ function ChecksheetForm() {
                 </div>
               )}
 
-              <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-4">
-                <h2 className="font-black text-xl text-slate-900 border-l-8 border-blue-600 pl-3">
+              <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+                <h2 className="font-black text-2xl text-amber-300 border-l-8 border-blue-500 pl-3">
                   基本チェック
                 </h2>
 
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
 
                 {/* 体調チェック */}
-                <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
+                <div className="bg-black border-2 border-slate-700 p-4 rounded-2xl space-y-3">
                   <div className="flex justify-between items-baseline gap-1">
-                    <label className="text-lg font-black text-slate-900 leading-snug">
-                      体調チェック <span className="text-red-600">*</span>
+                    <label className="text-lg sm:text-xl font-black text-white leading-snug">
+                      体調チェック <span className="text-red-400">*</span>
                     </label>
-                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                    <span className="text-xs font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-600">
                       点検項目
                     </span>
                   </div>
 
-                  <div className="text-base sm:text-lg font-black text-red-950 bg-amber-100 p-3.5 rounded-xl border border-amber-400 shadow-sm leading-snug">
+                  <div className="text-sm sm:text-base font-black text-amber-200 bg-amber-950/60 p-3.5 rounded-xl border-2 border-amber-500 leading-snug">
                     ※本人、同居者に発熱、下痢、嘔吐がない
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <div className="grid grid-cols-2 gap-2.5 pt-0.5">
                     <button
                       type="button"
                       onClick={() => setBasicHealthStatus('良')}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         basicHealthStatus === '良'
-                          ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                          ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                          : 'bg-slate-900 text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       ○ よい（症状なし）
@@ -1220,10 +1225,10 @@ function ChecksheetForm() {
                     <button
                       type="button"
                       onClick={() => setBasicHealthStatus('否')}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         basicHealthStatus === '否'
-                          ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                          ? 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-slate-900 text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       ○ 否（要報告）
@@ -1232,28 +1237,28 @@ function ChecksheetForm() {
                 </div>
 
                 {/* 手の衛生チェック */}
-                <div className="bg-white border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
+                <div className="bg-black border-2 border-slate-700 p-4 rounded-2xl space-y-3">
                   <div className="flex justify-between items-baseline gap-1">
-                    <label className="text-lg font-black text-slate-900 leading-snug">
-                      手の衛生チェック <span className="text-red-600">*</span>
+                    <label className="text-lg sm:text-xl font-black text-white leading-snug">
+                      手の衛生チェック <span className="text-red-400">*</span>
                     </label>
-                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                    <span className="text-xs font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-600">
                       点検項目
                     </span>
                   </div>
 
-                  <div className="text-base sm:text-lg font-black text-red-950 bg-amber-100 p-3.5 rounded-xl border border-amber-400 shadow-sm leading-snug">
+                  <div className="text-sm sm:text-base font-black text-amber-200 bg-amber-950/60 p-3.5 rounded-xl border-2 border-amber-500 leading-snug">
                     ※爪の長さ・手荒れ・傷・手指消毒の点検
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <div className="grid grid-cols-2 gap-2.5 pt-0.5">
                     <button
                       type="button"
                       onClick={() => setHandHygieneStatus('良')}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handHygieneStatus === '良'
-                          ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                          ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                          : 'bg-slate-900 text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       ○ よい（異常なし）
@@ -1261,10 +1266,10 @@ function ChecksheetForm() {
                     <button
                       type="button"
                       onClick={() => setHandHygieneStatus('否')}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handHygieneStatus === '否'
-                          ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                          ? 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-slate-900 text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       ○ 否（要報告）
@@ -1274,17 +1279,19 @@ function ChecksheetForm() {
               </div>
 
               {/* アルコールチェックカード */}
-              <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-4">
-                <h3 className="font-black text-xl text-slate-900 border-l-8 border-blue-600 pl-3">
+              <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+                <h3 className="font-black text-2xl text-amber-300 border-l-8 border-blue-500 pl-3">
                   アルコールチェック
                 </h3>
 
-                <div className="grid grid-cols-2 gap-2 bg-slate-200 p-1.5 rounded-2xl">
+                <div className="grid grid-cols-2 gap-2 bg-black p-1.5 rounded-2xl border-2 border-slate-700">
                   <button
                     type="button"
                     onClick={() => setAlcoholMode('start')}
-                    className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
-                      alcoholMode === 'start' ? 'bg-blue-600 text-white shadow ring-2 ring-blue-300' : 'text-slate-800'
+                    className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                      alcoholMode === 'start'
+                        ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
+                        : 'text-slate-300 hover:text-white'
                     }`}
                   >
                     ① 出勤時（業務前）
@@ -1292,8 +1299,10 @@ function ChecksheetForm() {
                   <button
                     type="button"
                     onClick={() => setAlcoholMode('finish')}
-                    className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
-                      alcoholMode === 'finish' ? 'bg-blue-600 text-white shadow ring-2 ring-blue-300' : 'text-slate-800'
+                    className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                      alcoholMode === 'finish'
+                        ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
+                        : 'text-slate-300 hover:text-white'
                     }`}
                   >
                     ② 退勤時（業務後）
@@ -1302,10 +1311,10 @@ function ChecksheetForm() {
 
                 <div>
                   <div className="flex flex-wrap justify-between items-baseline mb-1.5 gap-1.5">
-                    <label className="text-lg font-black text-slate-900 leading-snug">
-                      確認者（対面確認） <span className="text-red-600">*</span>
+                    <label className="text-lg font-black text-white leading-snug">
+                      確認者（対面確認） <span className="text-red-400">*</span>
                     </label>
-                    <span className="text-xs font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                    <span className="text-xs font-black text-amber-300 bg-amber-950 px-2 py-0.5 rounded border border-amber-500">
                       第三者と対面
                     </span>
                   </div>
@@ -1313,7 +1322,7 @@ function ChecksheetForm() {
                     <select
                       value={checkerType}
                       onChange={(e) => setCheckerType(e.target.value)}
-                      className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-300 rounded-xl text-lg font-black bg-white outline-none focus:border-blue-600"
+                      className="w-full min-h-[54px] py-2 px-4 border-2 border-slate-500 rounded-xl text-lg font-black bg-black text-white outline-none focus:border-amber-400"
                     >
                       {CHECKER_OPTIONS.map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -1326,21 +1335,21 @@ function ChecksheetForm() {
                         placeholder="確認者の名前を入力"
                         value={customChecker}
                         onChange={(e) => setCustomChecker(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-blue-400 bg-blue-50 rounded-xl text-lg font-bold"
+                        className="w-full min-h-[54px] py-2 px-4 border-2 border-amber-400 bg-slate-950 rounded-xl text-lg font-black text-white"
                         required
                       />
                     )}
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 space-y-2.5">
+                <div className="bg-black p-4 rounded-2xl border-2 border-slate-700 space-y-3">
                   <div className="flex justify-between items-baseline gap-1">
-                    <label className="text-lg font-black text-slate-900 leading-snug">
-                      アルコール測定値 (mg/L) <span className="text-red-600">*</span>
+                    <label className="text-lg font-black text-white leading-snug">
+                      アルコール測定値 (mg/L) <span className="text-red-400">*</span>
                     </label>
-                    <span className="text-xs font-bold text-slate-500">検知器の数字</span>
+                    <span className="text-xs font-bold text-slate-400">検知器の数字</span>
                   </div>
-                  <div className="flex gap-2 items-stretch">
+                  <div className="flex gap-2.5 items-stretch">
                     <input
                       type="number"
                       step="0.01"
@@ -1349,38 +1358,38 @@ function ChecksheetForm() {
                       required
                       value={alcoholVal}
                       onChange={(e) => setAlcoholVal(e.target.value)}
-                      className="w-full text-3xl sm:text-4xl font-black min-h-[64px] py-1 px-3 border-2 border-slate-400 rounded-xl text-center bg-white shadow-inner"
+                      className="w-full text-4xl sm:text-5xl font-black min-h-[68px] py-1 px-3 border-2 border-slate-500 rounded-xl text-center bg-slate-950 text-amber-300 shadow-inner font-mono focus:border-amber-400"
                     />
                     <button
                       type="button"
                       onClick={() => setAlcoholVal('0.00')}
-                      className="min-h-[64px] px-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black rounded-xl shadow whitespace-nowrap flex flex-col items-center justify-center border-2 border-emerald-700 shrink-0"
+                      className="min-h-[68px] px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black rounded-xl shadow-lg whitespace-nowrap flex flex-col items-center justify-center border-2 border-emerald-300 shrink-0"
                     >
-                      <span className="text-[10px]">一発入力</span>
-                      <span className="text-xl mt-0.5">0.00</span>
+                      <span className="text-xs">一発入力</span>
+                      <span className="text-2xl mt-0.5 font-mono">0.00</span>
                     </button>
                   </div>
 
                   {alcoholVal !== '' && (
                     <div className="mt-3 text-center">
                       {alcNum === 0 && (
-                        <div className="p-3 bg-emerald-100 text-emerald-950 rounded-xl border border-emerald-500 text-base font-black">
+                        <div className="p-3.5 bg-emerald-950 text-emerald-200 rounded-xl border-2 border-emerald-400 text-lg font-black">
                           ✅ 0.00（正常・運転可）
                         </div>
                       )}
                       {isAlcoholWarning && (
-                        <div className="p-3 bg-amber-100 text-amber-950 rounded-xl border border-amber-400 text-sm font-black leading-snug">
+                        <div className="p-3.5 bg-amber-950 text-amber-200 rounded-xl border-2 border-amber-400 text-base font-black leading-snug">
                           ⚠️ 0.15未満（{alcNum} mg/L）再計測または確認を行ってください
                         </div>
                       )}
                       {isAlcoholDanger && (
-                        <div className="p-3.5 bg-red-600 text-white rounded-xl shadow text-sm font-black leading-snug">
+                        <div className="p-4 bg-red-600 text-white rounded-xl shadow-xl text-base font-black leading-snug border-2 border-white">
                           🚨 0.15以上〜0.25未満：運転禁止！<br />
                           上席に指示を仰ぎ、特記事項に理由を記入してください
                         </div>
                       )}
                       {isAlcoholFlashing && (
-                        <div className="p-4 bg-red-700 text-white rounded-xl shadow-xl animate-pulse border-2 border-yellow-300 text-base font-black leading-snug">
+                        <div className="p-4 bg-red-700 text-white rounded-xl shadow-2xl animate-pulse border-4 border-yellow-300 text-lg font-black leading-snug">
                           ⚡ 0.25以上：運転厳禁！<br />
                           直ちに上席に連絡してください
                         </div>
@@ -1390,13 +1399,13 @@ function ChecksheetForm() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                  <label className="block text-sm font-bold text-slate-300 mb-1.5">特記事項・連絡事項</label>
                   <textarea
                     rows={2}
                     value={alcoholNotes}
                     onChange={(e) => setAlcoholNotes(e.target.value)}
                     placeholder="0.15以上の場合や体調不良時は内容を記入"
-                    className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                    className="w-full p-3.5 text-base border-2 border-slate-600 bg-black text-white rounded-xl focus:border-amber-400"
                   />
                 </div>
               </div>
@@ -1405,17 +1414,19 @@ function ChecksheetForm() {
 
           {/* 2. 運転日報 */}
           {activeTab === 'drive' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-amber-600 pl-3">
+            <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+              <h2 className="font-black text-2xl text-amber-300 border-l-8 border-amber-500 pl-3">
                 運転日報
               </h2>
 
-              <div className="grid grid-cols-2 gap-2 bg-slate-200 p-1.5 rounded-2xl">
+              <div className="grid grid-cols-2 gap-2 bg-black p-1.5 rounded-2xl border-2 border-slate-700">
                 <button
                   type="button"
                   onClick={() => setDriveMode('start')}
-                  className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
-                    driveMode === 'start' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-slate-800'
+                  className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                    driveMode === 'start'
+                      ? 'bg-amber-400 text-slate-950 shadow-md border-2 border-amber-300'
+                      : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   ① 出発時（乗車）
@@ -1426,8 +1437,10 @@ function ChecksheetForm() {
                     setDriveMode('finish');
                     fetchActiveDrives();
                   }}
-                  className={`min-h-[52px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
-                    driveMode === 'finish' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-slate-800'
+                  className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                    driveMode === 'finish'
+                      ? 'bg-amber-400 text-slate-950 shadow-md border-2 border-amber-300'
+                      : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   ② 帰社時（降車）
@@ -1437,14 +1450,14 @@ function ChecksheetForm() {
               {driveMode === 'start' ? (
                 <div className="space-y-4 pt-1">
                   <div>
-                    <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
-                      使用車両 <span className="text-red-600">*</span>
+                    <label className="block text-lg font-black text-white mb-1.5 leading-snug">
+                      使用車両 <span className="text-red-400">*</span>
                     </label>
                     <div className="space-y-2">
                       <select
                         value={vehicle}
                         onChange={(e) => setVehicle(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white"
+                        className="w-full min-h-[54px] py-2 px-4 border-2 border-slate-500 rounded-xl text-lg font-black bg-black text-white focus:border-amber-400"
                       >
                         {VEHICLE_OPTIONS.map((v) => (
                           <option key={v} value={v}>{v}</option>
@@ -1457,7 +1470,7 @@ function ChecksheetForm() {
                           placeholder="車両名を入力"
                           value={customVehicle}
                           onChange={(e) => setCustomVehicle(e.target.value)}
-                          className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-lg font-bold"
+                          className="w-full min-h-[54px] py-2 px-4 border-2 border-amber-400 bg-slate-950 rounded-xl text-lg font-black text-white"
                           required
                         />
                       )}
@@ -1465,14 +1478,14 @@ function ChecksheetForm() {
                   </div>
 
                   <div>
-                    <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">
-                      行先 <span className="text-red-600">*</span>
+                    <label className="block text-lg font-black text-white mb-1.5 leading-snug">
+                      行先 <span className="text-red-400">*</span>
                     </label>
                     <div className="space-y-2">
                       <select
                         value={destination}
                         onChange={(e) => setDestination(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white"
+                        className="w-full min-h-[54px] py-2 px-4 border-2 border-slate-500 rounded-xl text-lg font-black bg-black text-white focus:border-amber-400"
                       >
                         {DESTINATION_OPTIONS.map((d) => (
                           <option key={d} value={d}>{d}</option>
@@ -1485,7 +1498,7 @@ function ChecksheetForm() {
                           placeholder="行先を入力"
                           value={customDestination}
                           onChange={(e) => setCustomDestination(e.target.value)}
-                          className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-lg font-bold"
+                          className="w-full min-h-[54px] py-2 px-4 border-2 border-amber-400 bg-slate-950 rounded-xl text-lg font-black text-white"
                           required
                         />
                       )}
@@ -1493,12 +1506,12 @@ function ChecksheetForm() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">同乗者（ある場合記入）</label>
+                    <label className="block text-sm font-bold text-slate-300 mb-1">同乗者（ある場合記入）</label>
                     <input
                       type="text"
                       value={passenger}
                       onChange={(e) => setPassenger(e.target.value)}
-                      className="w-full min-h-[50px] py-2 px-3 border-2 border-slate-400 rounded-xl text-base font-bold"
+                      className="w-full min-h-[52px] py-2 px-4 border-2 border-slate-600 bg-black text-white rounded-xl text-base font-bold focus:border-amber-400"
                     />
                   </div>
 
@@ -1506,10 +1519,10 @@ function ChecksheetForm() {
                     <BigDateDisplay value={driveStart} onChange={setDriveStart} />
 
                     <div className="flex justify-between items-baseline mb-1.5 mt-3">
-                      <label className="text-lg font-black text-slate-900 leading-snug">
-                        乗車時メーター (km) <span className="text-red-600">*</span>
+                      <label className="text-lg font-black text-white leading-snug">
+                        乗車時メーター (km) <span className="text-red-400">*</span>
                       </label>
-                      <span className="text-xs font-bold text-slate-500">車のメーター値</span>
+                      <span className="text-xs font-bold text-slate-400">車のメーター値</span>
                     </div>
                     <input
                       type="number"
@@ -1518,10 +1531,10 @@ function ChecksheetForm() {
                       required
                       value={startMeter}
                       onChange={(e) => setStartMeter(e.target.value)}
-                      className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
+                      className={`w-full min-h-[64px] py-2 px-4 text-3xl font-black border-2 rounded-xl font-mono ${
                         isStartMeterDecreased || isStartMeterDigitError
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-slate-400'
+                          ? 'border-red-500 bg-red-950 text-red-200'
+                          : 'border-slate-500 bg-black text-white focus:border-amber-400'
                       }`}
                     />
                   </div>
@@ -1529,20 +1542,20 @@ function ChecksheetForm() {
                   {fetchingLastMeter ? (
                     <div className="text-xs text-slate-400 italic">車両の過去メーターを参照中...</div>
                   ) : lastRecordedMeter !== null ? (
-                    <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl text-sm flex justify-between items-center">
-                      <span className="font-bold text-slate-700">前回最終記録:</span>
-                      <span className="font-mono font-black text-lg text-slate-950">{lastRecordedMeter.toLocaleString()} km</span>
+                    <div className="p-3.5 bg-black border border-slate-700 rounded-xl text-sm flex justify-between items-center">
+                      <span className="font-bold text-slate-300">前回最終記録:</span>
+                      <span className="font-mono font-black text-xl text-amber-300">{lastRecordedMeter.toLocaleString()} km</span>
                     </div>
                   ) : null}
 
                   {isStartMeterDecreased && (
-                    <div className="p-3 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-xs sm:text-sm font-black animate-pulse leading-snug">
+                    <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
                       🚨 メーター逆行エラー：前回の最終記録（{lastRecordedMeter} km）より小さくなっています。
                     </div>
                   )}
 
                   {isStartMeterDigitError && !isStartMeterDecreased && (
-                    <div className="p-3 bg-amber-100 border-2 border-amber-500 text-amber-950 rounded-xl text-xs sm:text-sm font-black leading-snug">
+                    <div className="p-3.5 bg-amber-950 border-2 border-amber-500 text-amber-200 rounded-xl text-sm font-black leading-snug">
                       ⚠️ 桁数違いの疑い：前回の記録（{lastRecordedMeter} km）と桁数が大きく異なります。
                     </div>
                   )}
@@ -1562,25 +1575,25 @@ function ChecksheetForm() {
                     <div className="space-y-4 pt-1">
                       <div>
                         <div className="flex justify-between items-baseline mb-1.5 gap-1">
-                          <label className="text-lg font-black text-slate-900 leading-snug">
-                            完了する運行を選択 <span className="text-red-600">*</span>
+                          <label className="text-lg font-black text-white leading-snug">
+                            完了する運行を選択 <span className="text-red-400">*</span>
                           </label>
                           {currentDrive && isNameMatch(currentDrive.staff_name, staffName) && (
-                            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                            <span className="text-xs font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500">
                               ✓ あなたの運行を自動選択中
                             </span>
                           )}
                         </div>
 
                         {activeDrives.length === 0 ? (
-                          <div className="p-4 bg-slate-50 border-2 border-slate-200 text-base font-bold text-slate-500 text-center rounded-xl">
+                          <div className="p-4 bg-black border-2 border-slate-700 text-base font-bold text-slate-400 text-center rounded-xl">
                             現在運行中のデータはありません
                           </div>
                         ) : (
                           <select
                             value={selectedDriveId}
                             onChange={(e) => setSelectedDriveId(e.target.value)}
-                            className="w-full min-h-[52px] py-2 px-3 border-2 border-amber-400 bg-amber-50 rounded-xl text-base sm:text-lg font-black shadow-sm"
+                            className="w-full min-h-[54px] py-2 px-3 border-2 border-amber-400 bg-black text-amber-300 rounded-xl text-base sm:text-lg font-black shadow-inner"
                           >
                             {activeDrives.map((d) => {
                               const isMine = isNameMatch(d.staff_name, staffName);
@@ -1598,11 +1611,11 @@ function ChecksheetForm() {
                         <BigDateDisplay value={driveEnd} onChange={setDriveEnd} />
 
                         <div className="flex justify-between items-baseline mb-1.5 mt-3">
-                          <label className="text-lg font-black text-slate-900 leading-snug">
-                            降車時メーター (km) <span className="text-red-600">*</span>
+                          <label className="text-lg font-black text-white leading-snug">
+                            降車時メーター (km) <span className="text-red-400">*</span>
                           </label>
                           {currentStartMeter !== null && (
-                            <span className="text-xs font-bold text-slate-600">乗車時: {currentStartMeter} km</span>
+                            <span className="text-xs font-bold text-slate-400">乗車時: {currentStartMeter} km</span>
                           )}
                         </div>
                         <input
@@ -1612,47 +1625,47 @@ function ChecksheetForm() {
                           required
                           value={endMeter}
                           onChange={(e) => setEndMeter(e.target.value)}
-                          className={`w-full min-h-[60px] py-2 px-3 text-3xl font-black border-2 rounded-xl ${
+                          className={`w-full min-h-[64px] py-2 px-4 text-3xl font-black border-2 rounded-xl font-mono ${
                             isMeterInvalid
-                              ? 'border-red-500 bg-red-50 text-red-700'
-                              : 'border-slate-400'
+                              ? 'border-red-500 bg-red-950 text-red-200'
+                              : 'border-slate-500 bg-black text-white focus:border-amber-400'
                           }`}
                         />
                       </div>
 
                       {isMeterInvalid && (
-                        <div className="p-3 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-xs sm:text-sm font-black animate-pulse leading-snug">
+                        <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
                           🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
                         </div>
                       )}
 
                       {calculatedDistance !== null && (
-                        <div className="p-4 bg-emerald-50 border-2 border-emerald-400 text-emerald-950 rounded-xl text-base font-black flex justify-between items-center shadow-sm">
+                        <div className="p-4 bg-emerald-950/80 border-2 border-emerald-400 text-emerald-200 rounded-xl text-base font-black flex justify-between items-center shadow-lg">
                           <span>走行距離（自動計算）:</span>
-                          <span className="text-2xl font-mono text-emerald-900">{calculatedDistance} km</span>
+                          <span className="text-3xl font-mono font-black text-emerald-300">{calculatedDistance} km</span>
                         </div>
                       )}
 
                       <div>
-                        <label className="block text-lg font-black text-slate-900 mb-1.5 leading-snug">給油（ある場合記入・ℓ）</label>
+                        <label className="block text-lg font-black text-white mb-1.5 leading-snug">給油（ある場合記入・ℓ）</label>
                         <input
                           type="number"
                           step="0.1"
                           inputMode="decimal"
                           value={refuelLiters}
                           onChange={(e) => setRefuelLiters(e.target.value)}
-                          className="w-full min-h-[52px] py-2 px-3 text-xl font-bold border-2 border-slate-400 rounded-xl"
+                          className="w-full min-h-[54px] py-2 px-4 text-2xl font-black border-2 border-slate-600 bg-black text-white rounded-xl focus:border-amber-400"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+                        <label className="block text-sm font-bold text-slate-300 mb-1">特記事項・連絡事項</label>
                         <textarea
                           rows={2}
                           value={driveNotes}
                           onChange={(e) => setDriveNotes(e.target.value)}
                           placeholder="異常や連絡事項があれば記入"
-                          className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                          className="w-full p-3.5 text-base border-2 border-slate-600 bg-black text-white rounded-xl focus:border-amber-400"
                         />
                       </div>
                     </div>
@@ -1664,19 +1677,19 @@ function ChecksheetForm() {
 
           {/* 3. 生魚加工衛生管理 */}
           {activeTab === 'fish' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-emerald-600 pl-3">
+            <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+              <h2 className="font-black text-2xl text-amber-300 border-l-8 border-emerald-500 pl-3">
                 生魚加工衛生管理
               </h2>
 
               <BigDateDisplay value={fishDate} onChange={setFishDate} />
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  健康状態 <span className="text-red-600">*</span>
+              <div className="border-t-2 border-slate-800 pt-4">
+                <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                  健康状態 <span className="text-red-400">*</span>
                 </div>
-                <div className="text-xs text-slate-600 font-bold mb-2">発熱・下痢・嘔吐等の症状なし</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="text-xs text-slate-400 font-bold mb-2">発熱・下痢・嘔吐等の症状なし</div>
+                <div className="grid grid-cols-2 gap-2.5">
                   {[
                     { label: '○ 良（異常なし）', val: '良' as const },
                     { label: '○ 否（要報告）', val: '否' as const },
@@ -1685,12 +1698,12 @@ function ChecksheetForm() {
                       key={btn.val}
                       type="button"
                       onClick={() => setHealthStatus(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         healthStatus === btn.val
                           ? btn.val === '良'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                            ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                            : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       {btn.label}
@@ -1699,11 +1712,11 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  手洗い実施 <span className="text-red-600">*</span>
+              <div className="border-t-2 border-slate-800 pt-4">
+                <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                  手洗い実施 <span className="text-red-400">*</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-2.5 mt-2">
                   {[
                     { label: '○ 実施済み', val: '実施済み' as const },
                     { label: '○ 未実施', val: '未実施' as const },
@@ -1712,12 +1725,12 @@ function ChecksheetForm() {
                       key={btn.val}
                       type="button"
                       onClick={() => setHandWashing(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handWashing === btn.val
                           ? btn.val === '実施済み'
-                            ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                            ? 'bg-blue-600 text-white border-blue-300 shadow-lg scale-[1.02]'
+                            : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       {btn.label}
@@ -1733,12 +1746,12 @@ function ChecksheetForm() {
                 { label: '施設の衛生', sub: '手洗い設備・天井・壁・床・照明・整理整頓', val: facilityHygiene, setter: setFacilityHygiene, badSub: '特記に説明' },
                 { label: '用具・備品の衛生', sub: '作業台・床・計量器・包丁・ノコギリ・ラップ等', val: toolsHygiene, setter: setToolsHygiene, badSub: '特記に説明' },
               ].map((item, idx) => (
-                <div key={idx} className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    {item.label} <span className="text-red-600">*</span>
+                <div key={idx} className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    {item.label} <span className="text-red-400">*</span>
                   </div>
-                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">{item.sub}</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="text-xs text-slate-400 font-bold mb-2 leading-tight">{item.sub}</div>
+                  <div className="grid grid-cols-2 gap-2.5">
                     {[
                       { label: '○ よい', val: 'よい' as const },
                       { label: `○ わるい (${item.badSub})`, val: 'わるい' as const },
@@ -1747,12 +1760,12 @@ function ChecksheetForm() {
                         key={btn.val}
                         type="button"
                         onClick={() => item.setter(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                           item.val === btn.val
                             ? btn.val === 'よい'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                              : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                            : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                         }`}
                       >
                         {btn.label}
@@ -1762,11 +1775,11 @@ function ChecksheetForm() {
                 </div>
               ))}
 
-              <div className="border-t-2 border-slate-200 pt-4">
+              <div className="border-t-2 border-slate-800 pt-4">
                 <div className="flex justify-between items-baseline mb-1">
-                  <label className="block text-sm font-bold text-slate-700">特記事項・連絡事項</label>
+                  <label className="block text-sm font-bold text-slate-300">特記事項・連絡事項</label>
                   {(healthStatus === '否' || handWashing === '未実施' || productCheck === 'わるい' || fishWashing === 'わるい' || workTemp === 'わるい' || facilityHygiene === 'わるい' || toolsHygiene === 'わるい') && (
-                    <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300 animate-pulse">
+                    <span className="text-xs font-black text-red-300 bg-red-950 px-2 py-0.5 rounded border border-red-500 animate-pulse">
                       ※「わるい/否」があるため記入必須
                     </span>
                   )}
@@ -1777,10 +1790,10 @@ function ChecksheetForm() {
                   value={fishNotes}
                   onChange={(e) => setFishNotes(e.target.value)}
                   placeholder="悪い・否の場合は内容と指示内容を必ず記入"
-                  className={`w-full p-3 text-base border-2 rounded-xl ${
+                  className={`w-full p-3.5 text-base border-2 rounded-xl bg-black text-white ${
                     (healthStatus === '否' || handWashing === '未実施' || productCheck === 'わるい' || fishWashing === 'わるい' || workTemp === 'わるい' || facilityHygiene === 'わるい' || toolsHygiene === 'わるい') && !fishNotes.trim()
-                      ? 'border-red-500 bg-red-50/50'
-                      : 'border-slate-400'
+                      ? 'border-red-500 bg-red-950/40'
+                      : 'border-slate-600 focus:border-amber-400'
                   }`}
                 />
               </div>
@@ -1789,19 +1802,19 @@ function ChecksheetForm() {
 
           {/* 4. 小割加工衛生管理 */}
           {activeTab === 'kowari' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-purple-600 pl-3">
+            <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+              <h2 className="font-black text-2xl text-amber-300 border-l-8 border-purple-500 pl-3">
                 小割加工衛生管理
               </h2>
 
               <BigDateDisplay value={kowariDate} onChange={setKowariDate} />
 
-              <div className="bg-slate-50 border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
+              <div className="bg-black border-2 border-slate-700 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-baseline gap-1">
-                  <label className="text-lg font-black text-slate-900 leading-snug">
-                    何をしますか？ <span className="text-red-600">*</span>
+                  <label className="text-lg font-black text-white leading-snug">
+                    何をしますか？ <span className="text-red-400">*</span>
                   </label>
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-bold text-slate-400">
                     作業品目を選択
                   </span>
                 </div>
@@ -1809,7 +1822,7 @@ function ChecksheetForm() {
                   <select
                     value={kowariItemType}
                     onChange={(e) => setKowariItemType(e.target.value)}
-                    className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white outline-none focus:border-purple-600 shadow-sm"
+                    className="w-full min-h-[54px] py-2 px-4 border-2 border-slate-500 rounded-xl text-lg font-black bg-slate-950 text-white outline-none focus:border-purple-400"
                   >
                     {KOWARI_ITEM_OPTIONS.map((item) => (
                       <option key={item} value={item}>{item}</option>
@@ -1824,7 +1837,7 @@ function ChecksheetForm() {
                         placeholder="品名・作業内容を入力（例：ホタテ、いくら 等）"
                         value={customKowariItem}
                         onChange={(e) => setCustomKowariItem(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-purple-500 bg-purple-50/40 rounded-xl text-lg font-bold outline-none"
+                        className="w-full min-h-[54px] py-2 px-4 border-2 border-purple-400 bg-slate-950 rounded-xl text-lg font-black text-white outline-none"
                         required
                       />
                     </div>
@@ -1832,12 +1845,12 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  健康状態 <span className="text-red-600">*</span>
+              <div className="border-t-2 border-slate-800 pt-4">
+                <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                  健康状態 <span className="text-red-400">*</span>
                 </div>
-                <div className="text-xs text-slate-600 font-bold mb-2">発熱、下痢、嘔吐等の症状なし</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="text-xs text-slate-400 font-bold mb-2">発熱、下痢、嘔吐等の症状なし</div>
+                <div className="grid grid-cols-2 gap-2.5">
                   {[
                     { label: '○ 良（異常なし）', val: '良' as const },
                     { label: '○ 否（要報告）', val: '否' as const },
@@ -1846,12 +1859,12 @@ function ChecksheetForm() {
                       key={btn.val}
                       type="button"
                       onClick={() => setKowariHealthStatus(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         kowariHealthStatus === btn.val
                           ? btn.val === '良'
-                            ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                            ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                            : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       {btn.label}
@@ -1860,12 +1873,12 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                  手の衛生実施 <span className="text-red-600">*</span>
+              <div className="border-t-2 border-slate-800 pt-4">
+                <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                  手の衛生実施 <span className="text-red-400">*</span>
                 </div>
-                <div className="text-xs text-slate-600 font-bold mb-2">アルコール、手洗い</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="text-xs text-slate-400 font-bold mb-2">アルコール、手洗い</div>
+                <div className="grid grid-cols-2 gap-2.5">
                   {[
                     { label: '○ 実施済み', val: '実施済み' as const },
                     { label: '○ 未実施', val: '未実施' as const },
@@ -1874,12 +1887,12 @@ function ChecksheetForm() {
                       key={btn.val}
                       type="button"
                       onClick={() => setKowariHandHygiene(btn.val)}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         kowariHandHygiene === btn.val
                           ? btn.val === '実施済み'
-                            ? 'bg-blue-600 text-white border-blue-800 shadow scale-[1.01]'
-                            : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                            ? 'bg-blue-600 text-white border-blue-300 shadow-lg scale-[1.02]'
+                            : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       {btn.label}
@@ -1894,12 +1907,12 @@ function ChecksheetForm() {
                 { label: '用具・備品の衛生', sub: '作業台、計量器、パック、ラップ、ポリ袋等', val: kowariToolsHygiene, setter: setKowariToolsHygiene, badSub: '特記に説明' },
                 { label: '食品表示ラベル貼付', sub: 'アレルゲン表示を含む適正確認', val: kowariLabelCheck, setter: setKowariLabelCheck, badSub: '特記に説明' },
               ].map((item, idx) => (
-                <div key={idx} className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    {item.label} <span className="text-red-600">*</span>
+                <div key={idx} className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    {item.label} <span className="text-red-400">*</span>
                   </div>
-                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">{item.sub}</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="text-xs text-slate-400 font-bold mb-2 leading-tight">{item.sub}</div>
+                  <div className="grid grid-cols-2 gap-2.5">
                     {[
                       { label: '○ よい', val: 'よい' as const },
                       { label: `○ わるい (${item.badSub})`, val: 'わるい' as const },
@@ -1908,12 +1921,12 @@ function ChecksheetForm() {
                         key={btn.val}
                         type="button"
                         onClick={() => item.setter(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                           item.val === btn.val
                             ? btn.val === 'よい'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                              : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                            : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                         }`}
                       >
                         {btn.label}
@@ -1923,11 +1936,11 @@ function ChecksheetForm() {
                 </div>
               ))}
 
-              <div className="border-t-2 border-slate-200 pt-4">
+              <div className="border-t-2 border-slate-800 pt-4">
                 <div className="flex justify-between items-baseline mb-1">
-                  <label className="block text-sm font-bold text-slate-700">特記事項・連絡事項</label>
+                  <label className="block text-sm font-bold text-slate-300">特記事項・連絡事項</label>
                   {(kowariHealthStatus === '否' || kowariHandHygiene === '未実施' || kowariWorkTemp === 'わるい' || kowariFacilityHygiene === 'わるい' || kowariToolsHygiene === 'わるい' || kowariLabelCheck === 'わるい') && (
-                    <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300 animate-pulse">
+                    <span className="text-xs font-black text-red-300 bg-red-950 px-2 py-0.5 rounded border border-red-500 animate-pulse">
                       ※「わるい/否」があるため記入必須
                     </span>
                   )}
@@ -1938,10 +1951,10 @@ function ChecksheetForm() {
                   value={kowariNotes}
                   onChange={(e) => setKowariNotes(e.target.value)}
                   placeholder="悪い・否の場合は内容と指示内容を必ず記入"
-                  className={`w-full p-3 text-base border-2 rounded-xl ${
+                  className={`w-full p-3.5 text-base border-2 rounded-xl bg-black text-white ${
                     (kowariHealthStatus === '否' || kowariHandHygiene === '未実施' || kowariWorkTemp === 'わるい' || kowariFacilityHygiene === 'わるい' || kowariToolsHygiene === 'わるい' || kowariLabelCheck === 'わるい') && !kowariNotes.trim()
-                      ? 'border-red-500 bg-red-50/50'
-                      : 'border-slate-400'
+                      ? 'border-red-500 bg-red-950/40'
+                      : 'border-slate-600 focus:border-amber-400'
                   }`}
                 />
               </div>
@@ -1950,8 +1963,8 @@ function ChecksheetForm() {
 
           {/* 5. 退勤前温度管理 */}
           {activeTab === 'closing' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-indigo-600 pl-3">
+            <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+              <h2 className="font-black text-2xl text-amber-300 border-l-8 border-indigo-500 pl-3">
                 退勤前温度管理
               </h2>
 
@@ -1977,28 +1990,27 @@ function ChecksheetForm() {
                 max={0}
               />
 
-              <div className="border-t-2 border-slate-200 pt-4">
-                <label className="block text-sm font-bold text-slate-700 mb-1">特記事項・連絡事項</label>
+              <div className="border-t-2 border-slate-800 pt-4">
+                <label className="block text-sm font-bold text-slate-300 mb-1">特記事項・連絡事項</label>
                 <textarea
                   rows={2}
                   value={closingNotes}
                   onChange={(e) => setClosingNotes(e.target.value)}
                   placeholder="特記事項があれば記入"
-                  className="w-full p-3 text-base border-2 border-slate-400 rounded-xl"
+                  className="w-full p-3.5 text-base border-2 border-slate-600 bg-black text-white rounded-xl focus:border-amber-400"
                 />
               </div>
             </div>
           )}
 
-          {/* 6. 保管庫,売場管理（温度管理 ＆ 衛生管理） */}
+          {/* 6. 保管庫,売場管理 */}
           {activeTab === 'temp' && (
-            <div className="space-y-5">
-              {/* 保管庫・売場 温度管理カード */}
-              <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-                <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
+            <div className="space-y-6">
+              <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+                <h2 className="font-black text-2xl text-amber-300 border-l-8 border-cyan-500 pl-3">
                   保管庫温度管理
                 </h2>
-                <div className="p-3.5 bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm font-bold rounded-xl leading-relaxed">
+                <div className="p-3.5 bg-amber-950/80 border-2 border-amber-400 text-amber-200 text-sm font-bold rounded-xl leading-relaxed">
                   ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
                 </div>
 
@@ -2055,18 +2067,18 @@ function ChecksheetForm() {
                 />
               </div>
 
-              {/* 保管庫・売場 衛生管理カード（新設） */}
-              <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-                <h2 className="font-black text-xl text-slate-900 border-l-8 border-cyan-600 pl-3">
+              {/* 衛生管理カード */}
+              <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+                <h2 className="font-black text-2xl text-amber-300 border-l-8 border-cyan-500 pl-3">
                   保管庫・売場 衛生管理
                 </h2>
 
                 {/* 1. 保管庫 衛生・整頓状況 */}
-                <div className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    保管庫 衛生・整頓状況 <span className="text-red-600">*</span>
+                <div className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    保管庫 衛生・整頓状況 <span className="text-red-400">*</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2.5 mt-2">
                     {[
                       { label: '○ よい', val: 'よい' as const },
                       { label: '○ わるい (特記に説明)', val: 'わるい' as const },
@@ -2075,12 +2087,12 @@ function ChecksheetForm() {
                         key={btn.val}
                         type="button"
                         onClick={() => setStorageHygieneStatus(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                           storageHygieneStatus === btn.val
                             ? btn.val === 'よい'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                              : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                            : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                         }`}
                       >
                         {btn.label}
@@ -2089,12 +2101,12 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 2. 太物売場（生魚加工ゾーン）衛生・整頓状況（現存項目） */}
-                <div className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-600">*</span>
+                {/* 2. 太物売場 衛生・整頓状況 */}
+                <div className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-400">*</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2.5 mt-2">
                     {[
                       { label: '○ よい', val: 'よい' as const },
                       { label: '○ わるい (特記に説明)', val: 'わるい' as const },
@@ -2103,12 +2115,12 @@ function ChecksheetForm() {
                         key={btn.val}
                         type="button"
                         onClick={() => setProcessingZoneStatus(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                           processingZoneStatus === btn.val
                             ? btn.val === 'よい'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                              : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                            : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                         }`}
                       >
                         {btn.label}
@@ -2118,11 +2130,11 @@ function ChecksheetForm() {
                 </div>
 
                 {/* 3. 売場 衛生・整頓状況 */}
-                <div className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    売場 衛生・整頓状況 <span className="text-red-600">*</span>
+                <div className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    売場 衛生・整頓状況 <span className="text-red-400">*</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2.5 mt-2">
                     {[
                       { label: '○ よい', val: 'よい' as const },
                       { label: '○ わるい (特記に説明)', val: 'わるい' as const },
@@ -2131,12 +2143,12 @@ function ChecksheetForm() {
                         key={btn.val}
                         type="button"
                         onClick={() => setFloorHygieneStatus(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                           floorHygieneStatus === btn.val
                             ? btn.val === 'よい'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                              : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                            : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                         }`}
                       >
                         {btn.label}
@@ -2145,13 +2157,13 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 4. 害獣の痕跡（現存項目） */}
-                <div className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    害獣の痕跡 <span className="text-red-600">*</span>
+                {/* 4. 害獣の痕跡 */}
+                <div className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    害獣の痕跡 <span className="text-red-400">*</span>
                   </div>
-                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">ネズミ、鳥類他による汚れや商品破損</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="text-xs text-slate-400 font-bold mb-2 leading-tight">ネズミ、鳥類他による汚れや商品破損</div>
+                  <div className="grid grid-cols-2 gap-2.5">
                     {[
                       { label: '○ 気になる所見なし', val: '気になる所見なし' as const },
                       { label: '○ 問題発生 (特記に説明)', val: '問題発生' as const },
@@ -2160,12 +2172,12 @@ function ChecksheetForm() {
                         key={btn.val}
                         type="button"
                         onClick={() => setPestEvidence(btn.val)}
-                        className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                        className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                           pestEvidence === btn.val
                             ? btn.val === '気になる所見なし'
-                              ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                              : 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                            : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                              : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                            : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                         }`}
                       >
                         {btn.label}
@@ -2175,11 +2187,11 @@ function ChecksheetForm() {
                 </div>
 
                 {/* 特記事項・連絡事項 */}
-                <div className="border-t-2 border-slate-200 pt-4">
+                <div className="border-t-2 border-slate-800 pt-4">
                   <div className="flex justify-between items-baseline mb-1">
-                    <label className="block text-sm font-bold text-slate-700">特記事項・連絡事項</label>
+                    <label className="block text-sm font-bold text-slate-300">特記事項・連絡事項</label>
                     {(storageHygieneStatus === 'わるい' || processingZoneStatus === 'わるい' || floorHygieneStatus === 'わるい' || pestEvidence === '問題発生') && (
-                      <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300 animate-pulse">
+                      <span className="text-xs font-black text-red-300 bg-red-950 px-2 py-0.5 rounded border border-red-500 animate-pulse">
                         ※「わるい/問題発生」があるため記入必須
                       </span>
                     )}
@@ -2190,10 +2202,10 @@ function ChecksheetForm() {
                     value={tempNotes}
                     onChange={(e) => setTempNotes(e.target.value)}
                     placeholder="悪い・問題発生の際は内容を説明"
-                    className={`w-full p-3 text-base border-2 rounded-xl ${
+                    className={`w-full p-3.5 text-base border-2 rounded-xl bg-black text-white ${
                       (storageHygieneStatus === 'わるい' || processingZoneStatus === 'わるい' || floorHygieneStatus === 'わるい' || pestEvidence === '問題発生') && !tempNotes.trim()
-                        ? 'border-red-500 bg-red-50/50'
-                        : 'border-slate-400'
+                        ? 'border-red-500 bg-red-950/40'
+                        : 'border-slate-600 focus:border-amber-400'
                     }`}
                   />
                 </div>
@@ -2203,19 +2215,19 @@ function ChecksheetForm() {
 
           {/* 7. 荷物受入チェック */}
           {activeTab === 'receiving' && (
-            <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-slate-300 space-y-5">
-              <h2 className="font-black text-xl text-slate-900 border-l-8 border-teal-600 pl-3">
+            <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
+              <h2 className="font-black text-2xl text-amber-300 border-l-8 border-teal-500 pl-3">
                 荷物受入チェック
               </h2>
 
               <BigDateDisplay value={receivingDate} onChange={setReceivingDate} />
 
-              <div className="bg-slate-50 border-2 border-slate-300 p-4 rounded-2xl space-y-2.5">
+              <div className="bg-black border-2 border-slate-700 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-baseline gap-1">
-                  <label className="text-lg font-black text-slate-900 leading-snug">
-                    便名 <span className="text-red-600">*</span>
+                  <label className="text-lg font-black text-white leading-snug">
+                    便名 <span className="text-red-400">*</span>
                   </label>
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-bold text-slate-400">
                     受入トラック・便を選択
                   </span>
                 </div>
@@ -2223,7 +2235,7 @@ function ChecksheetForm() {
                   <select
                     value={selectedFlight}
                     onChange={(e) => setSelectedFlight(e.target.value)}
-                    className="w-full min-h-[52px] py-2 px-3 border-2 border-slate-400 rounded-xl text-lg font-black bg-white outline-none focus:border-teal-600 shadow-sm"
+                    className="w-full min-h-[54px] py-2 px-4 border-2 border-slate-500 rounded-xl text-lg font-black bg-slate-950 text-white outline-none focus:border-teal-400"
                   >
                     {flightOptions.map((f) => (
                       <option key={f} value={f}>{f}</option>
@@ -2233,16 +2245,16 @@ function ChecksheetForm() {
 
                   {flightOptions.some((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f)) && (
                     <div className="pt-1">
-                      <span className="text-[11px] font-bold text-slate-500 block mb-1">
+                      <span className="text-xs font-bold text-slate-400 block mb-1">
                         追加した便名（タップで削除）：
                       </span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2">
                         {flightOptions
                           .filter((f) => !DEFAULT_FLIGHT_OPTIONS.includes(f))
                           .map((customName) => (
                             <span
                               key={customName}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-xs font-bold text-slate-200"
                             >
                               <span>{customName}</span>
                               <button
@@ -2256,7 +2268,7 @@ function ChecksheetForm() {
                                     setSelectedFlight(DEFAULT_FLIGHT_OPTIONS[0]);
                                   }
                                 }}
-                                className="text-slate-400 hover:text-red-600 active:text-red-700 font-black px-1 rounded hover:bg-slate-100"
+                                className="text-slate-400 hover:text-red-400 active:text-red-500 font-black px-1"
                                 title="この便名を候補から削除"
                               >
                                 ✕
@@ -2274,10 +2286,10 @@ function ChecksheetForm() {
                         placeholder="便名を入力（例：ヤマト便、4便、臨時便）"
                         value={customFlight}
                         onChange={(e) => setCustomFlight(e.target.value)}
-                        className="w-full min-h-[52px] py-2 px-3 border-2 border-teal-500 bg-teal-50/40 rounded-xl text-lg font-bold outline-none"
+                        className="w-full min-h-[54px] py-2 px-4 border-2 border-teal-400 bg-slate-950 rounded-xl text-lg font-black text-white outline-none"
                         required
                       />
-                      <p className="text-[11px] text-teal-800 font-bold px-1 leading-tight">
+                      <p className="text-xs text-teal-300 font-bold px-1 leading-tight">
                         ※入力して送信すると、次回からメニューの最後尾に自動追加されます。
                       </p>
                     </div>
@@ -2290,19 +2302,19 @@ function ChecksheetForm() {
                 { label: '鮮度・においに問題がないこと', sub: '異臭・変色・ドリップ異常なし', val: freshnessStatus, set: setFreshnessStatus },
                 { label: '輸送温度に問題がなかったこと（目視、触診）', sub: '保冷状態・品温の異常なし', val: transitTempStatus, set: setTransitTempStatus },
               ].map((item, idx) => (
-                <div key={idx} className="border-t-2 border-slate-200 pt-4">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    {item.label} <span className="text-red-600">*</span>
+                <div key={idx} className="border-t-2 border-slate-800 pt-4">
+                  <div className="text-lg sm:text-xl font-black text-white leading-snug">
+                    {item.label} <span className="text-red-400">*</span>
                   </div>
-                  <div className="text-xs text-slate-600 font-bold mb-2 leading-tight">{item.sub}</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="text-xs text-slate-400 font-bold mb-2 leading-tight">{item.sub}</div>
+                  <div className="grid grid-cols-2 gap-2.5">
                     <button
                       type="button"
                       onClick={() => item.set('よい')}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         item.val === 'よい'
-                          ? 'bg-emerald-600 text-white border-emerald-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                          ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                          : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       ○ よい（異常なし）
@@ -2310,10 +2322,10 @@ function ChecksheetForm() {
                     <button
                       type="button"
                       onClick={() => item.set('わるい')}
-                      className={`min-h-[56px] py-2 px-2 text-sm sm:text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
+                      className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         item.val === 'わるい'
-                          ? 'bg-red-600 text-white border-red-800 shadow scale-[1.01]'
-                          : 'bg-blue-50 text-blue-900 border-blue-400 hover:bg-blue-100'
+                          ? 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                          : 'bg-black text-slate-200 border-slate-600 hover:bg-slate-800'
                       }`}
                     >
                       ○ わるい（要報告）
@@ -2322,13 +2334,13 @@ function ChecksheetForm() {
                 </div>
               ))}
 
-              <div className="border-t-2 border-slate-200 pt-4">
+              <div className="border-t-2 border-slate-800 pt-4">
                 <div className="flex justify-between items-baseline mb-1.5 gap-1">
-                  <label className="text-sm font-bold text-slate-700">
+                  <label className="text-sm font-bold text-slate-300">
                     特記事項・連絡事項
                   </label>
                   {(pkgStatus === 'わるい' || freshnessStatus === 'わるい' || transitTempStatus === 'わるい') && (
-                    <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-300">
+                    <span className="text-xs font-black text-red-300 bg-red-950 px-2 py-0.5 rounded border border-red-500">
                       ※「わるい」があるため記入必須
                     </span>
                   )}
@@ -2338,25 +2350,26 @@ function ChecksheetForm() {
                   value={receivingNotes}
                   onChange={(e) => setReceivingNotes(e.target.value)}
                   placeholder="「わるい」がある場合は、品名、担当営業名、具体的な破損・温度異常の状態、指示内容を必ず記入してください。"
-                  className={`w-full p-3 text-base border-2 rounded-xl ${
+                  className={`w-full p-3.5 text-base border-2 rounded-xl bg-black text-white ${
                     (pkgStatus === 'わるい' || freshnessStatus === 'わるい' || transitTempStatus === 'わるい') && !receivingNotes.trim()
-                      ? 'border-red-500 bg-red-50/50'
-                      : 'border-slate-400'
+                      ? 'border-red-500 bg-red-950/40'
+                      : 'border-slate-600 focus:border-amber-400'
                   }`}
                 />
               </div>
             </div>
           )}
 
-          {/* 送信ボタン手前の直近エラー表示[cite: 11] */}
+          {/* 直近エラー表示 */}
           {dialogError && (
-            <div className="p-3.5 bg-red-100 border-2 border-red-500 text-red-950 rounded-xl text-sm font-bold flex items-center gap-2">
-              <span className="text-lg">⚠️</span>
+            <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
+              <span className="text-2xl">⚠️</span>
               <span>{dialogError}</span>
             </div>
           )}
 
-          <div className="pt-2">
+          {/* メイン送信ボタン（最大コントラスト） */}
+          <div className="pt-3">
             <button
               type="submit"
               disabled={
@@ -2365,7 +2378,7 @@ function ChecksheetForm() {
                 (activeTab === 'drive' && driveMode === 'finish' && activeDrives.length === 0) ||
                 (activeTab === 'drive' && driveMode === 'start' && (isStartMeterDecreased || isStartMeterDigitError))
               }
-              className="w-full min-h-[64px] py-3.5 px-4 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-black text-xl rounded-2xl shadow-lg transition-all disabled:opacity-40 tracking-wider flex items-center justify-center text-center leading-tight"
+              className="w-full min-h-[68px] py-4 px-4 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-2xl rounded-2xl shadow-2xl transition-all disabled:opacity-40 tracking-wider flex items-center justify-center text-center leading-tight border-2 border-amber-200"
             >
               {submitting
                 ? '送信中...'
@@ -2393,39 +2406,39 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* 基本チェック 重複送信防止モーダル[cite: 11] */}
+      {/* 基本チェック 重複送信防止モーダル */}
       {duplicateAlcoholAlert && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-500 text-center">
-            <div className="bg-amber-500 text-slate-950 py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2">
-              <span className="text-xl">⚠️</span>
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-400 text-center text-white">
+            <div className="bg-amber-400 text-slate-950 py-3.5 px-4 font-black text-base tracking-wider flex items-center justify-center gap-2">
+              <span className="text-2xl">⚠️</span>
               <span>すでに記録済みです！</span>
-              <span className="text-xl">⚠️</span>
+              <span className="text-2xl">⚠️</span>
             </div>
 
             <div className="p-6 sm:p-8 space-y-5">
-              <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-300">
+              <div className="w-20 h-20 bg-amber-950/80 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-400">
                 📋
               </div>
 
               <div className="space-y-2">
-                <span className="text-xs font-black text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full">
+                <span className="text-xs font-black text-amber-300 bg-amber-950 border border-amber-500 px-3 py-1 rounded-full">
                   二重送信ガード
                 </span>
 
-                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
                   本日の【{duplicateAlcoholAlert.modeText}】は<br />
-                  <span className="text-blue-700 underline decoration-4 underline-offset-4">
+                  <span className="text-amber-300 underline decoration-4 underline-offset-4">
                     すでに記録完了
                   </span>
                   しています
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 text-left font-bold text-slate-700 text-xs sm:text-sm leading-relaxed space-y-1">
+              <div className="bg-black p-4 rounded-2xl border-2 border-slate-700 text-left font-bold text-slate-200 text-sm leading-relaxed space-y-1">
                 <div><b>対象者:</b> {staffName} さん</div>
-                <div><b>記録日時:</b> {duplicateAlcoholAlert.existingTime}</div>
-                <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
+                <div><b>記録日時:</b> <span className="text-amber-300 font-mono">{duplicateAlcoholAlert.existingTime}</span></div>
+                <div className="text-xs text-slate-400 pt-1 border-t border-slate-800">
                   ※修正が必要な場合は、管理者に伝えて管理画面から時刻や内容を修正してください。
                 </div>
               </div>
@@ -2434,7 +2447,7 @@ function ChecksheetForm() {
                 <button
                   type="button"
                   onClick={() => setDuplicateAlcoholAlert(null)}
-                  className="w-full min-h-[64px] bg-slate-900 hover:bg-black text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide"
+                  className="w-full min-h-[64px] bg-slate-800 hover:bg-slate-700 text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide border-2 border-slate-500"
                 >
                   <span>確認しました（閉じる）</span>
                   <span>✓</span>
@@ -2445,31 +2458,31 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 全画面リマインダーモーダル[cite: 11] */}
+      {/* 全画面リマインダーモーダル */}
       {fullscreenAlert && (
-        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-slate-900 text-center">
-            <div className="bg-amber-400 text-slate-950 py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2 border-b-4 border-slate-900">
-              <span className="text-xl">⚠️</span>
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-400 text-center text-white">
+            <div className="bg-amber-400 text-slate-950 py-3.5 px-4 font-black text-base tracking-wider flex items-center justify-center gap-2">
+              <span className="text-2xl">⚠️</span>
               <span>【重要】つぎの作業予定をお忘れなく！</span>
-              <span className="text-xl">⚠️</span>
+              <span className="text-2xl">⚠️️</span>
             </div>
 
             <div className="p-6 sm:p-8 space-y-6">
-              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-5xl shadow-inner border-4 border-slate-900">
+              <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto text-5xl shadow-inner border-4 border-slate-700">
                 {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
               </div>
 
               <div className="space-y-3">
-                <span className="text-xs font-black text-slate-500 bg-slate-200 px-3 py-1 rounded-full border border-slate-300">
+                <span className="text-xs font-black text-amber-300 bg-amber-950 px-3 py-1 rounded-full border border-amber-500">
                   つぎにやること
                 </span>
 
-                <div className="text-3xl sm:text-4xl font-black text-red-600 tracking-tight leading-snug">
+                <div className="text-3xl sm:text-4xl font-black text-amber-300 tracking-tight leading-snug">
                   {fullscreenAlert.type === 'drive_start' ? (
                     <>
                       戻ったら必ず<br />
-                      <span className="underline decoration-4 underline-offset-4 text-slate-950 bg-amber-300 px-2 rounded">
+                      <span className="underline decoration-4 underline-offset-4 text-white bg-slate-800 px-2 rounded">
                         「帰社メーター」
                       </span>
                       を記録！
@@ -2477,7 +2490,7 @@ function ChecksheetForm() {
                   ) : (
                     <>
                       仕事終わりは必ず<br />
-                      <span className="underline decoration-4 underline-offset-4 text-slate-950 bg-amber-300 px-2 rounded">
+                      <span className="underline decoration-4 underline-offset-4 text-white bg-slate-800 px-2 rounded">
                         「退勤時の点呼」
                       </span>
                       を記録！
@@ -2486,10 +2499,10 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 text-left font-bold text-slate-700 text-xs sm:text-sm leading-relaxed space-y-1">
+              <div className="bg-black p-4 rounded-2xl border-2 border-slate-700 text-left font-bold text-slate-300 text-sm leading-relaxed space-y-1">
                 {fullscreenAlert.type === 'drive_start' ? (
                   <>
-                    <div className="text-slate-900 font-black">
+                    <div className="text-amber-300 font-black">
                       車両: {fullscreenAlert.targetVehicle || '選択車両'}
                     </div>
                     <div>
@@ -2498,7 +2511,7 @@ function ChecksheetForm() {
                   </>
                 ) : (
                   <>
-                    <div className="text-slate-900 font-black">
+                    <div className="text-amber-300 font-black">
                       対面点呼（アルコールチェック）
                     </div>
                     <div>
@@ -2512,7 +2525,7 @@ function ChecksheetForm() {
                 <button
                   type="button"
                   onClick={() => setFullscreenAlert(null)}
-                  className="w-full min-h-[68px] bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 font-black text-xl sm:text-2xl rounded-2xl shadow-xl border-3 border-slate-900 transition-all flex items-center justify-center gap-2 tracking-wide"
+                  className="w-full min-h-[68px] bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-2xl rounded-2xl shadow-xl border-2 border-amber-200 transition-all flex items-center justify-center gap-2 tracking-wide"
                 >
                   <span>了解しました（確認）</span>
                   <span className="text-2xl">✓</span>
@@ -2525,36 +2538,36 @@ function ChecksheetForm() {
 
       {/* 特記事項 未入力時の全画面ブロックモーダル */}
       {notesRequiredAlert && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-600 text-center">
-            <div className="bg-red-600 text-white py-3 px-4 font-black text-sm tracking-wider flex items-center justify-center gap-2">
-              <span className="text-xl">🚨</span>
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-500 text-center text-white">
+            <div className="bg-red-600 text-white py-3.5 px-4 font-black text-base tracking-wider flex items-center justify-center gap-2">
+              <span className="text-2xl">🚨</span>
               <span>特記事項の記入が必要です！</span>
-              <span className="text-xl">🚨</span>
+              <span className="text-2xl">🚨</span>
             </div>
 
             <div className="p-6 sm:p-8 space-y-5">
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-300">
+              <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
                 ✍️
               </div>
 
               <div className="space-y-2">
-                <span className="text-xs font-black text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
+                <span className="text-xs font-black text-red-300 bg-red-950 border border-red-500 px-3 py-1 rounded-full">
                   {notesRequiredAlert.sectionName}
                 </span>
 
-                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
                   「わるい / 問題発生」の<br />
-                  <span className="text-red-600 underline decoration-4 underline-offset-4">
+                  <span className="text-red-400 underline decoration-4 underline-offset-4">
                     具体的な状況
                   </span>
                   を記入してください
                 </div>
               </div>
 
-              <div className="bg-amber-50 p-3.5 rounded-2xl border-2 border-amber-300 text-left font-bold text-amber-950 text-xs sm:text-sm leading-relaxed space-y-1">
-                <div><b>対象項目:</b> {notesRequiredAlert.badItemsText}</div>
-                <div className="text-[11px] text-slate-600 pt-1 border-t border-amber-200">
+              <div className="bg-black p-4 rounded-2xl border-2 border-slate-700 text-left font-bold text-slate-200 text-sm leading-relaxed space-y-1">
+                <div><b>対象項目:</b> <span className="text-amber-300">{notesRequiredAlert.badItemsText}</span></div>
+                <div className="text-xs text-slate-400 pt-1 border-t border-slate-800">
                   ※原因・対応状況・指示内容などを特記事項欄に記録してから再度送信してください。
                 </div>
               </div>
@@ -2576,7 +2589,7 @@ function ChecksheetForm() {
                       }
                     }, 100);
                   }}
-                  className="w-full min-h-[64px] bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide"
+                  className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide border-2 border-red-300"
                 >
                   <span>特記事項を入力する</span>
                   <span>👉</span>
@@ -2592,7 +2605,7 @@ function ChecksheetForm() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xl font-black">読み込み中...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-xl font-black bg-slate-950 text-white min-h-screen">読み込み中...</div>}>
       <ChecksheetForm />
     </Suspense>
   );
