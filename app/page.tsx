@@ -10,7 +10,7 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブ順序定義[cite: 11]
+// タブ順序定義[cite: 12]
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
 const getNowJST = () => {
@@ -86,7 +86,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（白抜き文字ベース）[cite: 11]
+// 日時表示コンポーネント（白抜き文字ベース）[cite: 12]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -201,7 +201,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 温度入力コンポーネント（明るい入力枠 ＋ 青ボタン）[cite: 11]
+// 温度入力コンポーネント[cite: 12]
 function TempInputRow({
   label,
   target,
@@ -308,14 +308,14 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // モーションスワイプ用 State / Ref[cite: 11]
+  // モーションスワイプ用 State / Ref[cite: 12]
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信後シンプルアラート用ステート（出勤時・出発時）
+  // 送信後シンプルアラート用ステート（出勤時・出発時）[cite: 12]
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
   } | null>(null);
@@ -325,15 +325,15 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
+  // 基本チェック 重複送信防止シンプルアラート用ステート
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
-    modeText: string;
-    existingTime: string;
+    isStart: boolean;
   } | null>(null);
 
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 11]
+  // 1. 基本チェック[cite: 12]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -343,7 +343,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 11]
+  // 2. 生魚加工[cite: 12]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -354,7 +354,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 11]
+  // 3. 小割加工[cite: 12]
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -366,7 +366,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 11]
+  // 4. 荷物受入[cite: 12]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -376,7 +376,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 11]
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 12]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -389,13 +389,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 11]
+  // 6. 退勤前温度[cite: 12]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 11]
+  // 7. 運転日報[cite: 12]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -716,6 +716,7 @@ function ChecksheetForm() {
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
 
+        // 基本チェック：業務前／業務後の重複投稿防止バリデーション
         const { startIso, endIso } = getBusinessRangeJST();
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
@@ -733,8 +734,7 @@ function ChecksheetForm() {
 
           if (duplicate) {
             setDuplicateAlcoholAlert({
-              modeText: timingLabel,
-              existingTime: formatDisplayJST(duplicate.checked_at),
+              isStart: alcoholMode === 'start',
             });
             setSubmitting(false);
             return;
@@ -761,7 +761,7 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
-        // 出勤時の場合、シンプル全画面アラートを表示[cite: 11]
+        // 出勤時の場合、シンプル全画面アラートを表示[cite: 12]
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
@@ -985,7 +985,7 @@ function ChecksheetForm() {
           setPassenger('');
           await fetchActiveDrives();
 
-          // 出発時の場合、シンプル全画面アラートを表示[cite: 11]
+          // 出発時の場合、シンプル全画面アラートを表示[cite: 12]
           setFullscreenAlert({
             type: 'drive_start',
           });
@@ -1067,14 +1067,14 @@ function ChecksheetForm() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ヘッダー：黒背景に白文字[cite: 11] */}
+      {/* ヘッダー：黒背景に白文字[cite: 12] */}
       <header className="bg-black text-white p-4 shadow-2xl sticky top-0 z-30 border-b-2 border-slate-800">
         <h1 className="text-xl sm:text-2xl font-black text-center tracking-wider text-white">
           業務管理チェックシート
         </h1>
       </header>
 
-      {/* タブナビゲーション[cite: 11] */}
+      {/* タブナビゲーション[cite: 12] */}
       <div className="bg-slate-900 border-b-2 border-slate-800 sticky top-[65px] z-20 overflow-x-auto shadow-md">
         <div className="flex px-2 py-2.5 gap-2 min-w-max">
           {[
@@ -1103,7 +1103,7 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      {/* モーションスワイプ コンテナ[cite: 11] */}
+      {/* モーションスワイプ コンテナ[cite: 12] */}
       <div
         className="max-w-xl mx-auto p-3.5 space-y-6 select-none"
         style={{
@@ -1139,7 +1139,7 @@ function ChecksheetForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* お名前入力カード[cite: 11] */}
+          {/* お名前入力カード[cite: 12] */}
           <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
             <label className="block text-xl font-black text-white mb-2 leading-tight">
               あなたのお名前 <span className="text-red-400 text-2xl">*</span>
@@ -2359,7 +2359,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 直近エラー表示[cite: 11] */}
+          {/* 直近エラー表示[cite: 12] */}
           {dialogError && (
             <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
@@ -2367,7 +2367,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン：高コントラストな青[cite: 11] */}
+          {/* 送信ボタン：高コントラストな青[cite: 12] */}
           <div className="pt-3">
             <button
               type="submit"
@@ -2405,60 +2405,39 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* 基本チェック 重複送信防止モーダル[cite: 11] */}
+      {/* ========================================================
+          基本チェック 重複送信防止シンプルアラート
+         ======================================================== */}
       {duplicateAlcoholAlert && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-400 text-center text-white">
-            <div className="bg-amber-400 text-slate-950 py-3.5 px-4 font-black text-base tracking-wider flex items-center justify-center gap-2">
-              <span className="text-2xl">⚠️</span>
-              <span>すでに記録済みです！</span>
-              <span className="text-2xl">⚠️</span>
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-400 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-slate-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-400">
+              📋
             </div>
 
-            <div className="p-6 sm:p-8 space-y-5">
-              <div className="w-20 h-20 bg-amber-950/80 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-400">
-                📋
-              </div>
+            {/* ご要望のシンプル特大メッセージ */}
+            <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+              {duplicateAlcoholAlert.isStart
+                ? '本日の出勤時記録はすでに完了しています！'
+                : '本日の退勤時記録はすでに完了しています！'}
+            </div>
 
-              <div className="space-y-2">
-                <span className="text-xs font-black text-amber-300 bg-amber-950 border border-amber-500 px-3 py-1 rounded-full">
-                  二重送信ガード
-                </span>
-
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-                  本日の【{duplicateAlcoholAlert.modeText}】は<br />
-                  <span className="text-amber-300 underline decoration-4 underline-offset-4">
-                    すでに記録完了
-                  </span>
-                  しています
-                </div>
-              </div>
-
-              <div className="bg-slate-950 p-4 rounded-2xl border-2 border-slate-700 text-left font-bold text-slate-200 text-sm leading-relaxed space-y-1">
-                <div><b>対象者:</b> {staffName} さん</div>
-                <div><b>記録日時:</b> <span className="text-white font-mono">{duplicateAlcoholAlert.existingTime}</span></div>
-                <div className="text-xs text-slate-400 pt-1 border-t border-slate-800">
-                  ※修正が必要な場合は、管理者に伝えて管理画面から時刻や内容を修正してください。
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDuplicateAlcoholAlert(null)}
-                  className="w-full min-h-[64px] bg-slate-800 hover:bg-slate-700 text-white font-black text-xl rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 tracking-wide border-2 border-slate-500"
-                >
-                  <span>確認しました（閉じる）</span>
-                  <span>✓</span>
-                </button>
-              </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setDuplicateAlcoholAlert(null)}
+                className="w-full min-h-[64px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-slate-500 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>確認しました（閉じる）</span>
+                <span>✓</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================
-          送信後シンプル全画面アラート（出勤時 & 出発時）
+          送信後シンプル全画面アラート（出勤時 & 出発時）[cite: 12]
          ======================================================== */}
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
@@ -2467,13 +2446,11 @@ function ChecksheetForm() {
               {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
             </div>
 
-            {/* シンプルな特大メッセージ */}
+            {/* シンプルな特大メッセージ[cite: 12] */}
             <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
-              {fullscreenAlert.type === 'drive_start' ? (
-                '戻ってからの記録も忘れずに！'
-              ) : (
-                '仕事終わりの記録も忘れずに！'
-              )}
+              {fullscreenAlert.type === 'drive_start'
+                ? '戻ってからの記録も忘れずに！'
+                : '仕事終わりの記録も忘れずに！'}
             </div>
 
             <div className="pt-2">
@@ -2490,7 +2467,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 特記事項 未入力時の全画面ブロックモーダル[cite: 11] */}
+      {/* 特記事項 未入力時の全画面ブロックモーダル[cite: 12] */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-500 text-center text-white">
