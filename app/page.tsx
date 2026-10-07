@@ -4,13 +4,16 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const CHECKER_OPTIONS = ['石川', '武藤', '長谷川', '五十嵐'];
+// 出勤時・退勤時それぞれの確認者選択肢定義
+const CHECKER_OPTIONS_START = ['石川', '武藤', '長谷川', '五十嵐'];
+const CHECKER_OPTIONS_FINISH = ['武藤', '長谷川', '五十嵐'];
+
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '新長沼店', '猪苗代方面', '只見方面'];
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブ順序定義[cite: 13]
+// タブ順序定義[cite: 14]
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
 const getNowJST = () => {
@@ -86,7 +89,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（白抜き文字ベース）[cite: 13]
+// 日時表示コンポーネント（白抜き文字ベース）[cite: 14]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -201,7 +204,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 温度入力コンポーネント[cite: 13]
+// 温度入力コンポーネント[cite: 14]
 function TempInputRow({
   label,
   target,
@@ -308,14 +311,14 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // モーションスワイプ用 State / Ref[cite: 13]
+  // モーションスワイプ用 State / Ref[cite: 14]
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信後シンプルアラート用ステート[cite: 13]
+  // 送信後シンプルアラート用ステート[cite: 14]
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
   } | null>(null);
@@ -325,7 +328,7 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止シンプルアラート用ステート[cite: 13]
+  // 基本チェック 重複送信防止シンプルアラート用ステート[cite: 14]
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     isStart: boolean;
   } | null>(null);
@@ -333,17 +336,17 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 13]
+  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）[cite: 14]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
   const [handHygieneStatus, setHandHygieneStatus] = useState<'良' | '否' | ''>('');
-  const [checkerType, setCheckerType] = useState(CHECKER_OPTIONS[0] || '');
+  const [checkerType, setCheckerType] = useState(CHECKER_OPTIONS_START[0] || '石川');
   const [customChecker, setCustomChecker] = useState('');
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 13]
+  // 2. 生魚加工[cite: 14]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -354,7 +357,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 13]
+  // 3. 小割加工[cite: 14]
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -366,7 +369,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 13]
+  // 4. 荷物受入[cite: 14]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -376,7 +379,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 13]
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 14]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -389,13 +392,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 13]
+  // 6. 退勤前温度[cite: 14]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 13]
+  // 7. 運転日報[cite: 14]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -413,6 +416,19 @@ function ChecksheetForm() {
   const [endMeter, setEndMeter] = useState('');
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
+
+  // 出勤時・退勤時ボタン切り替えハンドラー（確認者リストと初期値の自動切り替え）
+  const handleSwitchAlcoholMode = (mode: 'start' | 'finish') => {
+    setAlcoholMode(mode);
+    setCustomChecker('');
+    if (mode === 'finish') {
+      // 退勤時: 石川を除外し、デフォルトを武藤に
+      setCheckerType('武藤');
+    } else {
+      // 出勤時: これまで通りデフォルトを石川に
+      setCheckerType('石川');
+    }
+  };
 
   const changeTab = (tab: TabType) => {
     setActiveTab(tab);
@@ -695,7 +711,7 @@ function ChecksheetForm() {
 
     try {
       if (activeTab === 'alcohol') {
-        // 出勤時のみ体調・手の衛生チェックを必須判定
+        // 出勤時のみ体調・手の衛生チェックを必須判定[cite: 14]
         if (alcoholMode === 'start') {
           if (!basicHealthStatus) throw new Error('体調チェックを選択してください');
           if (!handHygieneStatus) throw new Error('手の衛生チェックを選択してください');
@@ -720,7 +736,7 @@ function ChecksheetForm() {
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
 
-        // 基本チェック：業務前／業務後の重複投稿防止バリデーション
+        // 基本チェック：業務前／業務後の重複投稿防止バリデーション[cite: 14]
         const { startIso, endIso } = getBusinessRangeJST();
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
@@ -747,7 +763,7 @@ function ChecksheetForm() {
 
         saveStaffNameHistory(staffName);
 
-        // 出勤時のみ体調・衛生の情報を特記文字列に含める
+        // 出勤時のみ体調・衛生の情報を特記文字列に含める[cite: 14]
         const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
         const handNote = alcoholMode === 'start' ? `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】` : '';
 
@@ -771,7 +787,7 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
-        // 出勤時の場合、シンプル全画面アラートを表示[cite: 13]
+        // 出勤時の場合、シンプル全画面アラートを表示[cite: 14]
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
@@ -995,7 +1011,7 @@ function ChecksheetForm() {
           setPassenger('');
           await fetchActiveDrives();
 
-          // 出発時の場合、シンプル全画面アラートを表示[cite: 13]
+          // 出発時の場合、シンプル全画面アラートを表示[cite: 14]
           setFullscreenAlert({
             type: 'drive_start',
           });
@@ -1070,6 +1086,9 @@ function ChecksheetForm() {
     }
   };
 
+  // 出勤時・退勤時で確認者の選択肢を動的切り替え
+  const currentCheckerOptions = alcoholMode === 'finish' ? CHECKER_OPTIONS_FINISH : CHECKER_OPTIONS_START;
+
   return (
     <main
       className="min-h-screen bg-slate-950 text-white pb-32 font-sans overflow-x-hidden antialiased"
@@ -1077,14 +1096,14 @@ function ChecksheetForm() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ヘッダー：黒背景に白文字[cite: 13] */}
+      {/* ヘッダー：黒背景に白文字[cite: 14] */}
       <header className="bg-black text-white p-4 shadow-2xl sticky top-0 z-30 border-b-2 border-slate-800">
         <h1 className="text-xl sm:text-2xl font-black text-center tracking-wider text-white">
           業務管理チェックシート
         </h1>
       </header>
 
-      {/* タブナビゲーション[cite: 13] */}
+      {/* タブナビゲーション[cite: 14] */}
       <div className="bg-slate-900 border-b-2 border-slate-800 sticky top-[65px] z-20 overflow-x-auto shadow-md">
         <div className="flex px-2 py-2.5 gap-2 min-w-max">
           {[
@@ -1113,7 +1132,7 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      {/* モーションスワイプ コンテナ[cite: 13] */}
+      {/* モーションスワイプ コンテナ[cite: 14] */}
       <div
         className="max-w-xl mx-auto p-3.5 space-y-6 select-none"
         style={{
@@ -1149,7 +1168,7 @@ function ChecksheetForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ① あなたのお名前入力カード（全タブ共通最上部） */}
+          {/* ① あなたのお名前入力カード（全タブ共通最上部）[cite: 14] */}
           <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
             <label className="block text-xl font-black text-white mb-2 leading-tight">
               あなたのお名前 <span className="text-red-400 text-2xl">*</span>
@@ -1170,7 +1189,7 @@ function ChecksheetForm() {
             </datalist>
           </div>
 
-          {/* 1. 基本チェック（表示順：日時 -> アルコールチェック -> 体調・衛生） */}
+          {/* 1. 基本チェック（表示順：日時 -> アルコールチェック -> 体調・衛生）[cite: 14] */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
               {alcoholMode === 'finish' && myLatestPendingDrive && (
@@ -1197,12 +1216,12 @@ function ChecksheetForm() {
                 </div>
               )}
 
-              {/* ② 記録日時 */}
+              {/* ② 記録日時[cite: 14] */}
               <div className="space-y-2">
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
               </div>
 
-              {/* ③ アルコールチェックカード */}
+              {/* ③ アルコールチェックカード[cite: 14] */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h3 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   アルコールチェック
@@ -1211,7 +1230,7 @@ function ChecksheetForm() {
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setAlcoholMode('start')}
+                    onClick={() => handleSwitchAlcoholMode('start')}
                     className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
                       alcoholMode === 'start'
                         ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
@@ -1222,7 +1241,7 @@ function ChecksheetForm() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAlcoholMode('finish')}
+                    onClick={() => handleSwitchAlcoholMode('finish')}
                     className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
                       alcoholMode === 'finish'
                         ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
@@ -1248,7 +1267,7 @@ function ChecksheetForm() {
                       onChange={(e) => setCheckerType(e.target.value)}
                       className="w-full min-h-[54px] py-2 px-4 border-2 border-slate-300 rounded-xl text-lg font-black bg-white text-slate-950 outline-none focus:border-blue-600 shadow-inner"
                     >
-                      {CHECKER_OPTIONS.map((c) => (
+                      {currentCheckerOptions.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                       <option value="その他">その他（手入力）</option>
@@ -1334,14 +1353,14 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要） */}
+              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要）[cite: 14] */}
               {alcoholMode === 'start' && (
                 <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                   <h3 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
                     体調・衛生チェック
                   </h3>
 
-                  {/* 体調チェック */}
+                  {/* 体調チェック[cite: 14] */}
                   <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-3">
                     <div className="flex justify-between items-baseline gap-1">
                       <label className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1382,7 +1401,7 @@ function ChecksheetForm() {
                     </div>
                   </div>
 
-                  {/* 手の衛生チェック */}
+                  {/* 手の衛生チェック[cite: 14] */}
                   <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-3">
                     <div className="flex justify-between items-baseline gap-1">
                       <label className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1427,7 +1446,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 2. 運転日報 */}
+          {/* 2. 運転日報[cite: 14] */}
           {activeTab === 'drive' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
@@ -1690,7 +1709,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 3. 生魚加工衛生管理 */}
+          {/* 3. 生魚加工衛生管理[cite: 14] */}
           {activeTab === 'fish' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
@@ -1815,7 +1834,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 4. 小割加工衛生管理 */}
+          {/* 4. 小割加工衛生管理[cite: 14] */}
           {activeTab === 'kowari' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-purple-600 pl-3">
@@ -1976,7 +1995,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 5. 退勤前温度管理 */}
+          {/* 5. 退勤前温度管理[cite: 14] */}
           {activeTab === 'closing' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
@@ -2018,7 +2037,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 6. 保管庫,売場管理 */}
+          {/* 6. 保管庫,売場管理[cite: 14] */}
           {activeTab === 'temp' && (
             <div className="space-y-6">
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
@@ -2082,13 +2101,13 @@ function ChecksheetForm() {
                 />
               </div>
 
-              {/* 衛生管理カード */}
+              {/* 衛生管理カード[cite: 14] */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   保管庫・売場 衛生管理
                 </h2>
 
-                {/* 1. 保管庫 衛生・整頓状況 */}
+                {/* 1. 保管庫 衛生・整頓状況[cite: 14] */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     保管庫 衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2116,7 +2135,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 2. 太物売場 衛生・整頓状況 */}
+                {/* 2. 太物売場 衛生・整頓状況[cite: 14] */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2144,7 +2163,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 3. 売場 衛生・整頓状況 */}
+                {/* 3. 売場 衛生・整頓状況[cite: 14] */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     売場 衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2172,7 +2191,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 4. 害獣の痕跡 */}
+                {/* 4. 害獣の痕跡[cite: 14] */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     害獣の痕跡 <span className="text-red-400">*</span>
@@ -2201,7 +2220,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 特記事項・連絡事項 */}
+                {/* 特記事項・連絡事項[cite: 14] */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="flex justify-between items-baseline mb-1">
                     <label className="block text-sm font-bold text-slate-300">特記事項・連絡事項</label>
@@ -2228,7 +2247,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 7. 荷物受入チェック */}
+          {/* 7. 荷物受入チェック[cite: 14] */}
           {activeTab === 'receiving' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
@@ -2375,7 +2394,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 直近エラー表示[cite: 13] */}
+          {/* 直近エラー表示[cite: 14] */}
           {dialogError && (
             <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
@@ -2383,7 +2402,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン：高コントラストな青[cite: 13] */}
+          {/* 送信ボタン：高コントラストな青[cite: 14] */}
           <div className="pt-3">
             <button
               type="submit"
@@ -2421,7 +2440,7 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* 基本チェック 重複送信防止シンプルアラート[cite: 13] */}
+      {/* 基本チェック 重複送信防止シンプルアラート[cite: 14] */}
       {duplicateAlcoholAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-400 text-center text-white space-y-6">
@@ -2449,7 +2468,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 送信後シンプル全画面アラート（出勤時 & 出発時）[cite: 13] */}
+      {/* 送信後シンプル全画面アラート（出勤時 & 出発時）[cite: 14] */}
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-blue-500 text-center text-white space-y-6">
@@ -2477,7 +2496,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 特記事項 未入力時の全画面ブロックモーダル[cite: 13] */}
+      {/* 特記事項 未入力時の全画面ブロックモーダル[cite: 14] */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-500 text-center text-white">
