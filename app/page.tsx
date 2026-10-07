@@ -10,7 +10,7 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブ順序定義
+// タブ順序定義[cite: 11]
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
 const getNowJST = () => {
@@ -86,7 +86,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（白抜き文字ベース）
+// 日時表示コンポーネント（白抜き文字ベース）[cite: 11]
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -120,7 +120,6 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
             <span className="text-sm font-black text-slate-300">記録日時</span>
             <span className="text-xs font-bold text-sky-200 bg-sky-950 px-2 py-0.5 rounded border border-sky-500">自動</span>
           </div>
-          {/* 純白の白抜き文字 */}
           <span className="text-[26px] sm:text-[30px] font-black text-white tracking-tight font-mono leading-none">
             {formatDisplayJST(value)}
           </span>
@@ -157,7 +156,6 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
                 日付と時刻を選択してください
               </label>
 
-              {/* 明るい入力枠 */}
               <input
                 type="datetime-local"
                 value={tempValue}
@@ -203,7 +201,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 温度入力コンポーネント（明るい入力枠 ＋ 青ボタン）
+// 温度入力コンポーネント（明るい入力枠 ＋ 青ボタン）[cite: 11]
 function TempInputRow({
   label,
   target,
@@ -310,16 +308,16 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // モーションスワイプ用 State / Ref[cite: 8]
+  // モーションスワイプ用 State / Ref[cite: 11]
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
+  // 送信後シンプルアラート用ステート（出勤時・出発時）
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
-    targetVehicle?: string;
   } | null>(null);
 
   const [notesRequiredAlert, setNotesRequiredAlert] = useState<{
@@ -335,7 +333,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック[cite: 8]
+  // 1. 基本チェック[cite: 11]
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -345,7 +343,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 8]
+  // 2. 生魚加工[cite: 11]
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -356,7 +354,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 8]
+  // 3. 小割加工[cite: 11]
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -368,7 +366,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 8]
+  // 4. 荷物受入[cite: 11]
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -378,27 +376,26 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 8]
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 11]
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
   const [fishStorageTemp, setFishStorageTemp] = useState('');
   const [constantFloorTemp, setConstantFloorTemp] = useState('');
   const [floorTemp, setFloorTemp] = useState('');
-  // 衛生管理 4項目[cite: 8]
   const [storageHygieneStatus, setStorageHygieneStatus] = useState<'よい' | 'わるい' | ''>('');
   const [processingZoneStatus, setProcessingZoneStatus] = useState<'よい' | 'わるい' | ''>('');
   const [floorHygieneStatus, setFloorHygieneStatus] = useState<'よい' | 'わるい' | ''>('');
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 8]
+  // 6. 退勤前温度[cite: 11]
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 8]
+  // 7. 運転日報[cite: 11]
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -764,6 +761,7 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
+        // 出勤時の場合、シンプル全画面アラートを表示[cite: 11]
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
@@ -987,9 +985,9 @@ function ChecksheetForm() {
           setPassenger('');
           await fetchActiveDrives();
 
+          // 出発時の場合、シンプル全画面アラートを表示[cite: 11]
           setFullscreenAlert({
             type: 'drive_start',
-            targetVehicle: v,
           });
           return;
         } else {
@@ -1069,14 +1067,14 @@ function ChecksheetForm() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ヘッダー：黒背景に白文字 */}
+      {/* ヘッダー：黒背景に白文字[cite: 11] */}
       <header className="bg-black text-white p-4 shadow-2xl sticky top-0 z-30 border-b-2 border-slate-800">
         <h1 className="text-xl sm:text-2xl font-black text-center tracking-wider text-white">
           業務管理チェックシート
         </h1>
       </header>
 
-      {/* タブナビゲーション */}
+      {/* タブナビゲーション[cite: 11] */}
       <div className="bg-slate-900 border-b-2 border-slate-800 sticky top-[65px] z-20 overflow-x-auto shadow-md">
         <div className="flex px-2 py-2.5 gap-2 min-w-max">
           {[
@@ -1105,7 +1103,7 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      {/* モーションスワイプ コンテナ */}
+      {/* モーションスワイプ コンテナ[cite: 11] */}
       <div
         className="max-w-xl mx-auto p-3.5 space-y-6 select-none"
         style={{
@@ -1141,7 +1139,7 @@ function ChecksheetForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* お名前入力カード：白背景に入力 */}
+          {/* お名前入力カード[cite: 11] */}
           <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
             <label className="block text-xl font-black text-white mb-2 leading-tight">
               あなたのお名前 <span className="text-red-400 text-2xl">*</span>
@@ -1207,7 +1205,6 @@ function ChecksheetForm() {
                     </span>
                   </div>
 
-                  {/* 注意を促す※部分のみ黄色 */}
                   <div className="text-sm sm:text-base font-black text-amber-200 bg-amber-950/60 p-3.5 rounded-xl border-2 border-amber-500 leading-snug">
                     ※本人、同居者に発熱、下痢、嘔吐がない
                   </div>
@@ -1249,7 +1246,6 @@ function ChecksheetForm() {
                     </span>
                   </div>
 
-                  {/* 注意を促す※部分のみ黄色 */}
                   <div className="text-sm sm:text-base font-black text-amber-200 bg-amber-950/60 p-3.5 rounded-xl border-2 border-amber-500 leading-snug">
                     ※爪の長さ・手荒れ・傷・手指消毒の点検
                   </div>
@@ -1731,7 +1727,7 @@ function ChecksheetForm() {
                       className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         handWashing === btn.val
                           ? btn.val === '実施済み'
-                            ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                            ? 'bg-blue-600 text-white border-blue-300 shadow-lg scale-[1.02]'
                             : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
                           : 'bg-blue-900/90 text-white border-blue-500 hover:bg-blue-800'
                       }`}
@@ -1893,7 +1889,7 @@ function ChecksheetForm() {
                       className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
                         kowariHandHygiene === btn.val
                           ? btn.val === '実施済み'
-                            ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                            ? 'bg-blue-600 text-white border-blue-300 shadow-lg scale-[1.02]'
                             : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
                           : 'bg-blue-900/90 text-white border-blue-500 hover:bg-blue-800'
                       }`}
@@ -2363,7 +2359,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 直近エラー表示 */}
+          {/* 直近エラー表示[cite: 11] */}
           {dialogError && (
             <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
@@ -2371,7 +2367,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン：高コントラストな青 */}
+          {/* 送信ボタン：高コントラストな青[cite: 11] */}
           <div className="pt-3">
             <button
               type="submit"
@@ -2409,7 +2405,7 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* 基本チェック 重複送信防止モーダル */}
+      {/* 基本チェック 重複送信防止モーダル[cite: 11] */}
       {duplicateAlcoholAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-400 text-center text-white">
@@ -2461,85 +2457,40 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 全画面リマインダーモーダル */}
+      {/* ========================================================
+          送信後シンプル全画面アラート（出勤時 & 出発時）
+         ======================================================== */}
       {fullscreenAlert && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-amber-400 text-center text-white">
-            <div className="bg-amber-400 text-slate-950 py-3.5 px-4 font-black text-base tracking-wider flex items-center justify-center gap-2">
-              <span className="text-2xl">⚠️</span>
-              <span>【重要】つぎの作業予定をお忘れなく！</span>
-              <span className="text-2xl">⚠️</span>
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-blue-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-slate-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-blue-400">
+              {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
             </div>
 
-            <div className="p-6 sm:p-8 space-y-6">
-              <div className="w-24 h-24 bg-slate-950 rounded-full flex items-center justify-center mx-auto text-5xl shadow-inner border-4 border-slate-700">
-                {fullscreenAlert.type === 'drive_start' ? '🚗' : '📋'}
-              </div>
+            {/* シンプルな特大メッセージ */}
+            <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+              {fullscreenAlert.type === 'drive_start' ? (
+                '戻ってからの記録も忘れずに！'
+              ) : (
+                '仕事終わりの記録も忘れずに！'
+              )}
+            </div>
 
-              <div className="space-y-3">
-                <span className="text-xs font-black text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-600">
-                  つぎにやること
-                </span>
-
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-snug">
-                  {fullscreenAlert.type === 'drive_start' ? (
-                    <>
-                      戻ったら必ず<br />
-                      <span className="underline decoration-4 underline-offset-4 text-amber-300">
-                        「帰社メーター」
-                      </span>
-                      を記録！
-                    </>
-                  ) : (
-                    <>
-                      仕事終わりは必ず<br />
-                      <span className="underline decoration-4 underline-offset-4 text-amber-300">
-                        「退勤時の点呼」
-                      </span>
-                      を記録！
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-slate-950 p-4 rounded-2xl border-2 border-slate-800 text-left font-bold text-slate-300 text-sm leading-relaxed space-y-1">
-                {fullscreenAlert.type === 'drive_start' ? (
-                  <>
-                    <div className="text-white font-black">
-                      車両: {fullscreenAlert.targetVehicle || '選択車両'}
-                    </div>
-                    <div>
-                      ※市場に戻ったら、エンジン停止後にオドメーターの数値を「帰社時」タブから入力してください。
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-white font-black">
-                      対面点呼（アルコールチェック）
-                    </div>
-                    <div>
-                      ※業務終了時にも必ず確認者と対面で測定・記録を行ってから退勤してください。
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setFullscreenAlert(null)}
-                  className="w-full min-h-[68px] bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black text-2xl rounded-2xl shadow-xl border-2 border-blue-400 transition-all flex items-center justify-center gap-2 tracking-wide"
-                >
-                  <span>了解しました（確認）</span>
-                  <span className="text-2xl">✓</span>
-                </button>
-              </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setFullscreenAlert(null)}
+                className="w-full min-h-[64px] bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-blue-400 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>了解しました（確認）</span>
+                <span className="text-2xl">✓</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 特記事項 未入力時の全画面ブロックモーダル */}
+      {/* 特記事項 未入力時の全画面ブロックモーダル[cite: 11] */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-500 text-center text-white">
@@ -2568,7 +2519,7 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              <div className="bg-slate-950 p-4 rounded-2xl border-2 border-slate-800 text-left font-bold text-slate-200 text-sm leading-relaxed space-y-1">
+              <div className="bg-slate-950 p-4 rounded-2xl border-2 border-slate-700 text-left font-bold text-slate-200 text-sm leading-relaxed space-y-1">
                 <div><b>対象項目:</b> <span className="text-amber-300">{notesRequiredAlert.badItemsText}</span></div>
                 <div className="text-xs text-slate-400 pt-1 border-t border-slate-800">
                   ※原因・対応状況・指示内容などを特記事項欄に記録してから再度送信してください。
