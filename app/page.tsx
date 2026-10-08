@@ -13,7 +13,7 @@ const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面
 const DEFAULT_FLIGHT_OPTIONS = ['郡配', '東配', '丸水', 'N-丸和', 'N-キャリー', '村瀬エコライン'];
 const KOWARI_ITEM_OPTIONS = ['干し貝柱', '筋子'];
 
-// タブ順序定義[cite: 14]
+// タブ順序定義
 const TAB_ORDER: TabType[] = ['alcohol', 'drive', 'fish', 'kowari', 'closing', 'temp', 'receiving'];
 
 const getNowJST = () => {
@@ -89,7 +89,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（白抜き文字ベース）[cite: 14]
+// 日時表示コンポーネント（白抜き文字ベース）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -204,7 +204,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 温度入力コンポーネント[cite: 14]
+// 温度入力コンポーネント
 function TempInputRow({
   label,
   target,
@@ -311,14 +311,14 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // モーションスワイプ用 State / Ref[cite: 14]
+  // モーションスワイプ用 State / Ref
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信後シンプルアラート用ステート[cite: 14]
+  // 送信後シンプルアラート用ステート（出勤時・出発時）
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
   } | null>(null);
@@ -328,15 +328,21 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止シンプルアラート用ステート[cite: 14]
+  // 基本チェック 重複送信防止シンプルアラート用ステート（赤色統一）
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     isStart: boolean;
+  } | null>(null);
+
+  // 運行中のまま退勤しようとした際の物理ブロックアラート用ステート
+  const [drivePendingAlert, setDrivePendingAlert] = useState<{
+    vehicleName: string;
+    driveId: string;
   } | null>(null);
 
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）[cite: 14]
+  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -346,7 +352,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 14]
+  // 2. 生魚加工
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -357,7 +363,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 14]
+  // 3. 小割加工
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -369,7 +375,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 14]
+  // 4. 荷物受入
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -379,7 +385,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 14]
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -392,13 +398,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 14]
+  // 6. 退勤前温度
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 14]
+  // 7. 運転日報
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -422,10 +428,8 @@ function ChecksheetForm() {
     setAlcoholMode(mode);
     setCustomChecker('');
     if (mode === 'finish') {
-      // 退勤時: 石川を除外し、デフォルトを武藤に
       setCheckerType('武藤');
     } else {
-      // 出勤時: これまで通りデフォルトを石川に
       setCheckerType('石川');
     }
   };
@@ -443,7 +447,7 @@ function ChecksheetForm() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert) return;
+    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert || drivePendingAlert) return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
@@ -711,7 +715,17 @@ function ChecksheetForm() {
 
     try {
       if (activeTab === 'alcohol') {
-        // 出勤時のみ体調・手の衛生チェックを必須判定[cite: 14]
+        // 退勤時かつ運行中のデータがある場合、全画面アラートで物理的にブロック
+        if (alcoholMode === 'finish' && myLatestPendingDrive) {
+          setDrivePendingAlert({
+            vehicleName: myLatestPendingDrive.vehicle_name,
+            driveId: myLatestPendingDrive.id,
+          });
+          setSubmitting(false);
+          return;
+        }
+
+        // 出勤時のみ体調・手の衛生チェックを必須判定
         if (alcoholMode === 'start') {
           if (!basicHealthStatus) throw new Error('体調チェックを選択してください');
           if (!handHygieneStatus) throw new Error('手の衛生チェックを選択してください');
@@ -734,9 +748,9 @@ function ChecksheetForm() {
         if (alcoholVal === '') throw new Error('アルコール測定値を入力してください');
 
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
-        const timingLabel = alcoholMode === 'start' ? '出勤時（業務前）' : '退勤時（業務後）';
+        const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
 
-        // 基本チェック：業務前／業務後の重複投稿防止バリデーション[cite: 14]
+        // 基本チェック：業務前／業務後の重複投稿防止バリデーション
         const { startIso, endIso } = getBusinessRangeJST();
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
@@ -763,7 +777,7 @@ function ChecksheetForm() {
 
         saveStaffNameHistory(staffName);
 
-        // 出勤時のみ体調・衛生の情報を特記文字列に含める[cite: 14]
+        // 出勤時のみ体調・衛生の情報を特記文字列に含める
         const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
         const handNote = alcoholMode === 'start' ? `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】` : '';
 
@@ -787,7 +801,7 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
-        // 出勤時の場合、シンプル全画面アラートを表示[cite: 14]
+        // 出勤時の場合、シンプル全画面アラートを表示
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
@@ -1011,7 +1025,7 @@ function ChecksheetForm() {
           setPassenger('');
           await fetchActiveDrives();
 
-          // 出発時の場合、シンプル全画面アラートを表示[cite: 14]
+          // 出発時の場合、シンプル全画面アラートを表示
           setFullscreenAlert({
             type: 'drive_start',
           });
@@ -1096,14 +1110,14 @@ function ChecksheetForm() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ヘッダー：黒背景に白文字[cite: 14] */}
+      {/* ヘッダー：黒背景に白文字 */}
       <header className="bg-black text-white p-4 shadow-2xl sticky top-0 z-30 border-b-2 border-slate-800">
         <h1 className="text-xl sm:text-2xl font-black text-center tracking-wider text-white">
           業務管理チェックシート
         </h1>
       </header>
 
-      {/* タブナビゲーション[cite: 14] */}
+      {/* タブナビゲーション */}
       <div className="bg-slate-900 border-b-2 border-slate-800 sticky top-[65px] z-20 overflow-x-auto shadow-md">
         <div className="flex px-2 py-2.5 gap-2 min-w-max">
           {[
@@ -1132,7 +1146,7 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      {/* モーションスワイプ コンテナ[cite: 14] */}
+      {/* モーションスワイプ コンテナ */}
       <div
         className="max-w-xl mx-auto p-3.5 space-y-6 select-none"
         style={{
@@ -1168,7 +1182,7 @@ function ChecksheetForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ① あなたのお名前入力カード（全タブ共通最上部）[cite: 14] */}
+          {/* ① あなたのお名前入力カード（全タブ共通最上部） */}
           <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
             <label className="block text-xl font-black text-white mb-2 leading-tight">
               あなたのお名前 <span className="text-red-400 text-2xl">*</span>
@@ -1189,66 +1203,43 @@ function ChecksheetForm() {
             </datalist>
           </div>
 
-          {/* 1. 基本チェック（表示順：日時 -> アルコールチェック -> 体調・衛生）[cite: 14] */}
+          {/* 1. 基本チェック（表示順：記録日時 -> アルコールチェック -> 体調・衛生） */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
-              {alcoholMode === 'finish' && myLatestPendingDrive && (
-                <div className="p-4 bg-amber-950/80 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-2xl space-y-3 animate-pulse">
-                  <div className="flex items-center gap-2 font-black text-lg sm:text-xl text-amber-300">
-                    <span className="text-2xl">🚗⚠️</span>
-                    <span>運転日報が【運行中】のままです！</span>
-                  </div>
-                  <p className="text-sm sm:text-base font-bold leading-snug text-slate-200">
-                    <b className="text-amber-300 underline">{myLatestPendingDrive.vehicle_name}</b> の帰社（降車メーター）記録が完了していません。退勤前に運転日報を送信してください。
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      changeTab('drive');
-                      setDriveMode('finish');
-                      setSelectedDriveId(myLatestPendingDrive.id);
-                    }}
-                    className="w-full min-h-[50px] py-2 px-3 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-base rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <span>👉</span>
-                    <span>このまま帰社（降車メーター）を入力する</span>
-                  </button>
-                </div>
-              )}
-
-              {/* ② 記録日時[cite: 14] */}
+              {/* ② 記録日時 */}
               <div className="space-y-2">
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
               </div>
 
-              {/* ③ アルコールチェックカード[cite: 14] */}
+              {/* ③ アルコールチェックカード */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h3 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   アルコールチェック
                 </h3>
 
+                {/* 出勤時・退勤時ボタン（カッコ書き無し・文字特大） */}
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                   <button
                     type="button"
                     onClick={() => handleSwitchAlcoholMode('start')}
-                    className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                    className={`min-h-[58px] py-2 px-2 text-xl sm:text-2xl font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight tracking-wider ${
                       alcoholMode === 'start'
                         ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
                         : 'text-slate-300 hover:text-white'
                     }`}
                   >
-                    ① 出勤時（業務前）
+                    ① 出勤時
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSwitchAlcoholMode('finish')}
-                    className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                    className={`min-h-[58px] py-2 px-2 text-xl sm:text-2xl font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight tracking-wider ${
                       alcoholMode === 'finish'
                         ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
                         : 'text-slate-300 hover:text-white'
                     }`}
                   >
-                    ② 退勤時（業務後）
+                    ② 退勤時
                   </button>
                 </div>
 
@@ -1353,14 +1344,14 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要）[cite: 14] */}
+              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要） */}
               {alcoholMode === 'start' && (
                 <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                   <h3 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
                     体調・衛生チェック
                   </h3>
 
-                  {/* 体調チェック[cite: 14] */}
+                  {/* 体調チェック */}
                   <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-3">
                     <div className="flex justify-between items-baseline gap-1">
                       <label className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1401,7 +1392,7 @@ function ChecksheetForm() {
                     </div>
                   </div>
 
-                  {/* 手の衛生チェック[cite: 14] */}
+                  {/* 手の衛生チェック */}
                   <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-3">
                     <div className="flex justify-between items-baseline gap-1">
                       <label className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1446,7 +1437,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 2. 運転日報[cite: 14] */}
+          {/* 2. 運転日報 */}
           {activeTab === 'drive' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
@@ -1669,7 +1660,7 @@ function ChecksheetForm() {
 
                       {isMeterInvalid && (
                         <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
-                          🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
+                          🚨 メーター逆行エラー：乗車時（{currentStartMeter} km）より小さくなっています。
                         </div>
                       )}
 
@@ -1709,7 +1700,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 3. 生魚加工衛生管理[cite: 14] */}
+          {/* 3. 生魚加工衛生管理 */}
           {activeTab === 'fish' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
@@ -1834,7 +1825,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 4. 小割加工衛生管理[cite: 14] */}
+          {/* 4. 小割加工衛生管理 */}
           {activeTab === 'kowari' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-purple-600 pl-3">
@@ -1995,7 +1986,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 5. 退勤前温度管理[cite: 14] */}
+          {/* 5. 退勤前温度管理 */}
           {activeTab === 'closing' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
@@ -2037,7 +2028,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 6. 保管庫,売場管理[cite: 14] */}
+          {/* 6. 保管庫,売場管理 */}
           {activeTab === 'temp' && (
             <div className="space-y-6">
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
@@ -2101,13 +2092,13 @@ function ChecksheetForm() {
                 />
               </div>
 
-              {/* 衛生管理カード[cite: 14] */}
+              {/* 衛生管理カード */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   保管庫・売場 衛生管理
                 </h2>
 
-                {/* 1. 保管庫 衛生・整頓状況[cite: 14] */}
+                {/* 1. 保管庫 衛生・整頓状況 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     保管庫 衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2135,7 +2126,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 2. 太物売場 衛生・整頓状況[cite: 14] */}
+                {/* 2. 太物売場 衛生・整頓状況 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2163,7 +2154,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 3. 売場 衛生・整頓状況[cite: 14] */}
+                {/* 3. 売場 衛生・整頓状況 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     売場 衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2191,7 +2182,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 4. 害獣の痕跡[cite: 14] */}
+                {/* 4. 害獣の痕跡 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     害獣の痕跡 <span className="text-red-400">*</span>
@@ -2220,7 +2211,7 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 特記事項・連絡事項[cite: 14] */}
+                {/* 特記事項・連絡事項 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="flex justify-between items-baseline mb-1">
                     <label className="block text-sm font-bold text-slate-300">特記事項・連絡事項</label>
@@ -2247,7 +2238,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 7. 荷物受入チェック[cite: 14] */}
+          {/* 7. 荷物受入チェック */}
           {activeTab === 'receiving' && (
             <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
               <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
@@ -2394,7 +2385,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 直近エラー表示[cite: 14] */}
+          {/* 直近エラー表示 */}
           {dialogError && (
             <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
@@ -2402,7 +2393,7 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン：高コントラストな青[cite: 14] */}
+          {/* 送信ボタン：高コントラストな青 */}
           <div className="pt-3">
             <button
               type="submit"
@@ -2440,12 +2431,52 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* 基本チェック 重複送信防止シンプルアラート[cite: 14] */}
+      {/* ========================================================
+          運行中放置時の退勤ブロック全画面アラート（赤基調）
+         ======================================================== */}
+      {drivePendingAlert && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              🚗⚠️
+            </div>
+
+            <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+              運転日報の帰社記録をしてください！
+            </div>
+
+            <div className="p-3.5 bg-black border border-slate-700 rounded-xl text-sm font-bold text-slate-300">
+              対象車両: <span className="text-amber-300 font-black">{drivePendingAlert.vehicleName}</span>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetDriveId = drivePendingAlert.driveId;
+                  setDrivePendingAlert(null);
+                  changeTab('drive');
+                  setDriveMode('finish');
+                  setSelectedDriveId(targetDriveId);
+                }}
+                className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>🚗 運転日報を開く</span>
+                <span>👉</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          基本チェック 重複送信防止シンプルアラート（赤基調へ統一）
+         ======================================================== */}
       {duplicateAlcoholAlert && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-400 text-center text-white space-y-6">
-            <div className="w-20 h-20 bg-slate-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-400">
-              📋
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              📋⚠️
             </div>
 
             <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
@@ -2458,7 +2489,7 @@ function ChecksheetForm() {
               <button
                 type="button"
                 onClick={() => setDuplicateAlcoholAlert(null)}
-                className="w-full min-h-[64px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-slate-500 transition-all flex items-center justify-center gap-2 tracking-wide"
+                className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
               >
                 <span>確認しました（閉じる）</span>
                 <span>✓</span>
@@ -2468,7 +2499,9 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 送信後シンプル全画面アラート（出勤時 & 出発時）[cite: 14] */}
+      {/* ========================================================
+          送信後シンプル全画面アラート（出勤時 & 出発時）
+         ======================================================== */}
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-blue-500 text-center text-white space-y-6">
@@ -2496,7 +2529,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 特記事項 未入力時の全画面ブロックモーダル[cite: 14] */}
+      {/* 特記事項 未入力時の全画面ブロックモーダル（赤基調） */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-500 text-center text-white">
