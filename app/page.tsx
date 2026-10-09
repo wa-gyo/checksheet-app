@@ -318,7 +318,7 @@ function ChecksheetForm() {
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信後シンプルアラート用ステート（出勤時・出発時）
+  // 送信後シンプルアラート用ステート
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
   } | null>(null);
@@ -328,7 +328,7 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止シンプルアラート用ステート（赤色統一）
+  // 基本チェック 重複送信防止シンプルアラート用ステート
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     isStart: boolean;
   } | null>(null);
@@ -423,7 +423,7 @@ function ChecksheetForm() {
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
 
-  // 出勤時・退勤時ボタン切り替えハンドラー（確認者リストと初期値の自動切り替え）
+  // 出勤時・退勤時ボタン切り替えハンドラー
   const handleSwitchAlcoholMode = (mode: 'start' | 'finish') => {
     setAlcoholMode(mode);
     setCustomChecker('');
@@ -1444,17 +1444,18 @@ function ChecksheetForm() {
                 運転日報
               </h2>
 
+              {/* 出発時・帰社時ボタン（カッコ書き無し・文字特大） */}
               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                 <button
                   type="button"
                   onClick={() => setDriveMode('start')}
-                  className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                  className={`min-h-[58px] py-2 px-2 text-xl sm:text-2xl font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight tracking-wider ${
                     driveMode === 'start'
                       ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  ① 出発時（乗車）
+                  ① 出発時
                 </button>
                 <button
                   type="button"
@@ -1462,13 +1463,13 @@ function ChecksheetForm() {
                     setDriveMode('finish');
                     fetchActiveDrives();
                   }}
-                  className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                  className={`min-h-[58px] py-2 px-2 text-xl sm:text-2xl font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight tracking-wider ${
                     driveMode === 'finish'
                       ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  ② 帰社時（降車）
+                  ② 帰社時
                 </button>
               </div>
 
@@ -1660,7 +1661,7 @@ function ChecksheetForm() {
 
                       {isMeterInvalid && (
                         <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
-                          🚨 メーター逆行エラー：乗車時（{currentStartMeter} km）より小さくなっています。
+                          🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
                         </div>
                       )}
 
