@@ -318,7 +318,7 @@ function ChecksheetForm() {
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信後シンプルアラート用ステート（出勤時・出発時）
+  // 送信後シンプルアラート用ステート
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
   } | null>(null);
@@ -328,7 +328,7 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止シンプルアラート用ステート（赤色統一）
+  // 基本チェック 重複送信防止シンプルアラート用ステート
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     isStart: boolean;
   } | null>(null);
@@ -337,6 +337,11 @@ function ChecksheetForm() {
   const [drivePendingAlert, setDrivePendingAlert] = useState<{
     vehicleName: string;
     driveId: string;
+  } | null>(null);
+
+  // 走行距離200km超えの確認モーダル用ステート
+  const [distanceConfirmAlert, setDistanceConfirmAlert] = useState<{
+    calculatedDistance: string;
   } | null>(null);
 
   const [staffName, setStaffName] = useState('');
@@ -423,7 +428,7 @@ function ChecksheetForm() {
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
 
-  // 出勤時・退勤時ボタン切り替えハンドラー（確認者リストと初期値の自動切り替え）
+  // 出勤時・退勤時ボタン切り替えハンドラー
   const handleSwitchAlcoholMode = (mode: 'start' | 'finish') => {
     setAlcoholMode(mode);
     setCustomChecker('');
@@ -447,7 +452,7 @@ function ChecksheetForm() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert || drivePendingAlert) return;
+    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert || drivePendingAlert || distanceConfirmAlert) return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
@@ -647,6 +652,79 @@ function ChecksheetForm() {
     !isNaN(currentStartMeterNum) &&
     (currentStartMeterNum < lastRecordedMeter * 0.2 || currentStartMeterNum > lastRecordedMeter * 2.5);
 
+  // 帰社記録の実行関数（直接または200km確認モーダル承認後に呼び出し）
+  const executeFinishDrive = async () => {
+    if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
+    if (!endMeter) throw new Error('降車時メーターを入力してください');
+
+    const selectedDrive = activeDrives.find((d) => d.id === selectedDriveId);
+    const startM = selectedDrive ? Number(selectedDrive.start_meter) : 0;
+    const endM = parseFloat(endMeter);
+
+    if (endM < startM) {
+      throw new Error(
+        `降車時メーター（${endM} km）が乗車時メーター（${startM} km）より小さくなっています。数値を再確認してください。`
+      );
+    }
+
+    setSubmitting(true);
+    setSuccessMsg('');
+
+    try {
+      const { error } = await supabase
+        .from('check_driving_report')
+        .update({
+          end_at: new Date(driveEnd).toISOString(),
+          end_meter: endM,
+          refuel_liters: refuelLiters ? parseFloat(refuelLiters) : null,
+          notes: driveNotes,
+        })
+        .eq('id', selectedDriveId);
+
+      if (error) throw error;
+
+      if (selectedDrive) {
+        const duplicatePendingIds = activeDrives
+          .filter(
+            (d) =>
+              d.id !== selectedDriveId &&
+              isNameMatch(d.staff_name, selectedDrive.staff_name) &&
+              d.vehicle_name === selectedDrive.vehicle_name
+          )
+          .map((d) => d.id);
+
+        if (duplicatePendingIds.length > 0) {
+          await supabase
+            .from('check_driving_report')
+            .update({
+              end_at: new Date(driveEnd).toISOString(),
+              end_meter: endM,
+              notes: '[出発時重複により自動同期完了]',
+            })
+            .in('id', duplicatePendingIds);
+        }
+      }
+
+      setEndMeter('');
+      setRefuelLiters('');
+      setDriveNotes('');
+      await fetchActiveDrives();
+      setDriveMode('start');
+      setDistanceConfirmAlert(null);
+      setSuccessMsg('送信が完了しました！');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setDialogError(err.message || 'Supabase接続エラー');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setSubmitting(false);
+      setIsCooldown(true);
+      setTimeout(() => {
+        setIsCooldown(false);
+      }, 3000);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting || isCooldown) return;
@@ -708,6 +786,37 @@ function ChecksheetForm() {
         });
         return;
       }
+    }
+
+    // 運転日報・帰社時: 走行距離が200kmを超える場合は確認モーダルを出してストップ
+    if (activeTab === 'drive' && driveMode === 'finish') {
+      if (!selectedDriveId) {
+        setDialogError('完了対象の運行データを選択してください');
+        return;
+      }
+      if (!endMeter) {
+        setDialogError('降車時メーターを入力してください');
+        return;
+      }
+      const selectedDrive = activeDrives.find((d) => d.id === selectedDriveId);
+      const startM = selectedDrive ? Number(selectedDrive.start_meter) : 0;
+      const endM = parseFloat(endMeter);
+
+      if (endM < startM) {
+        setDialogError(`降車時メーター（${endM} km）が乗車時メーター（${startM} km）より小さくなっています。数値を再確認してください。`);
+        return;
+      }
+
+      const diff = endM - startM;
+      if (diff > 200) {
+        setDistanceConfirmAlert({
+          calculatedDistance: diff.toFixed(1),
+        });
+        return;
+      }
+
+      await executeFinishDrive();
+      return;
     }
 
     setSubmitting(true);
@@ -992,98 +1101,43 @@ function ChecksheetForm() {
         setClosingMainTemp('');
         setClosingRoom2Temp('');
         setClosingNotes('');
-      } else if (activeTab === 'drive') {
+      } else if (activeTab === 'drive' && driveMode === 'start') {
         saveStaffNameHistory(staffName);
-        if (driveMode === 'start') {
-          const v = vehicle === 'その他' ? customVehicle : vehicle;
-          const d = destination === 'その他' ? customDestination : destination;
-          if (!startMeter) throw new Error('乗車時メーターを入力してください');
+        const v = vehicle === 'その他' ? customVehicle : vehicle;
+        const d = destination === 'その他' ? customDestination : destination;
+        if (!startMeter) throw new Error('乗車時メーターを入力してください');
 
-          if (isStartMeterDecreased) {
-            throw new Error(
-              `乗車時メーター（${currentStartMeterNum} km）が前回の最終記録（${lastRecordedMeter} km）より小さくなっています。数値を再確認してください。`
-            );
-          }
-          if (isStartMeterDigitError) {
-            throw new Error(
-              `乗車時メーター（${currentStartMeterNum} km）の桁数が前回の記録（${lastRecordedMeter} km）と大きく異なります。桁間違いがないか確認してください。`
-            );
-          }
-
-          const { error } = await supabase.from('check_driving_report').insert([
-            {
-              staff_name: staffName,
-              vehicle_name: v,
-              destination: d,
-              passenger: passenger,
-              start_at: new Date(driveStart).toISOString(),
-              start_meter: parseFloat(startMeter),
-            },
-          ]);
-          if (error) throw error;
-          setStartMeter('');
-          setPassenger('');
-          await fetchActiveDrives();
-
-          // 出発時の場合、シンプル全画面アラートを表示
-          setFullscreenAlert({
-            type: 'drive_start',
-          });
-          return;
-        } else {
-          if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
-          if (!endMeter) throw new Error('降車時メーターを入力してください');
-
-          const selectedDrive = activeDrives.find((d) => d.id === selectedDriveId);
-          const startM = selectedDrive ? Number(selectedDrive.start_meter) : 0;
-          const endM = parseFloat(endMeter);
-
-          if (endM < startM) {
-            throw new Error(
-              `降車時メーター（${endM} km）が乗車時メーター（${startM} km）より小さくなっています。数値を再確認してください。`
-            );
-          }
-
-          const { error } = await supabase
-            .from('check_driving_report')
-            .update({
-              end_at: new Date(driveEnd).toISOString(),
-              end_meter: endM,
-              refuel_liters: refuelLiters ? parseFloat(refuelLiters) : null,
-              notes: driveNotes,
-            })
-            .eq('id', selectedDriveId);
-
-          if (error) throw error;
-
-          if (selectedDrive) {
-            const duplicatePendingIds = activeDrives
-              .filter(
-                (d) =>
-                  d.id !== selectedDriveId &&
-                  isNameMatch(d.staff_name, selectedDrive.staff_name) &&
-                  d.vehicle_name === selectedDrive.vehicle_name
-              )
-              .map((d) => d.id);
-
-            if (duplicatePendingIds.length > 0) {
-              await supabase
-                .from('check_driving_report')
-                .update({
-                  end_at: new Date(driveEnd).toISOString(),
-                  end_meter: endM,
-                  notes: '[出発時重複により自動同期完了]',
-                })
-                .in('id', duplicatePendingIds);
-            }
-          }
-
-          setEndMeter('');
-          setRefuelLiters('');
-          setDriveNotes('');
-          await fetchActiveDrives();
-          setDriveMode('start');
+        if (isStartMeterDecreased) {
+          throw new Error(
+            `乗車時メーター（${currentStartMeterNum} km）が前回の最終記録（${lastRecordedMeter} km）より小さくなっています。数値を再確認してください。`
+          );
         }
+        if (isStartMeterDigitError) {
+          throw new Error(
+            `乗車時メーター（${currentStartMeterNum} km）の桁数が前回の記録（${lastRecordedMeter} km）と大きく異なります。桁間違いがないか確認してください。`
+          );
+        }
+
+        const { error } = await supabase.from('check_driving_report').insert([
+          {
+            staff_name: staffName,
+            vehicle_name: v,
+            destination: d,
+            passenger: passenger,
+            start_at: new Date(driveStart).toISOString(),
+            start_meter: parseFloat(startMeter),
+          },
+        ]);
+        if (error) throw error;
+        setStartMeter('');
+        setPassenger('');
+        await fetchActiveDrives();
+
+        // 出発時の場合、シンプル全画面アラートを表示
+        setFullscreenAlert({
+          type: 'drive_start',
+        });
+        return;
       }
 
       setSuccessMsg('送信が完了しました！');
@@ -1444,17 +1498,18 @@ function ChecksheetForm() {
                 運転日報
               </h2>
 
+              {/* 出発時・帰社時ボタン（カッコ書き無し・文字特大） */}
               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                 <button
                   type="button"
                   onClick={() => setDriveMode('start')}
-                  className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                  className={`min-h-[58px] py-2 px-2 text-xl sm:text-2xl font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight tracking-wider ${
                     driveMode === 'start'
                       ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  ① 出発時（乗車）
+                  ① 出発時
                 </button>
                 <button
                   type="button"
@@ -1462,13 +1517,13 @@ function ChecksheetForm() {
                     setDriveMode('finish');
                     fetchActiveDrives();
                   }}
-                  className={`min-h-[54px] py-2 px-2 text-sm sm:text-base font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight ${
+                  className={`min-h-[58px] py-2 px-2 text-xl sm:text-2xl font-black rounded-xl transition-all flex items-center justify-center text-center leading-tight tracking-wider ${
                     driveMode === 'finish'
                       ? 'bg-blue-600 text-white shadow-md border-2 border-blue-300'
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  ② 帰社時（降車）
+                  ② 帰社時
                 </button>
               </div>
 
@@ -1660,7 +1715,7 @@ function ChecksheetForm() {
 
                       {isMeterInvalid && (
                         <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
-                          🚨 メーター逆行エラー：乗車時（{currentStartMeter} km）より小さくなっています。
+                          🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
                         </div>
                       )}
 
@@ -1913,10 +1968,8 @@ function ChecksheetForm() {
                       type="button"
                       onClick={() => setKowariHandHygiene(btn.val)}
                       className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        kowariHandHygiene === btn.val
-                          ? btn.val === '実施済み'
-                            ? 'bg-blue-600 text-white border-blue-300 shadow-lg scale-[1.02]'
-                            : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
+                        handHygieneStatus === '良'
+                          ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
                           : 'bg-blue-900/90 text-white border-blue-500 hover:bg-blue-800'
                       }`}
                     >
@@ -2463,6 +2516,55 @@ function ChecksheetForm() {
               >
                 <span>🚗 運転日報を開く</span>
                 <span>👉</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          走行距離200km超えの確認モーダル（赤基調）
+         ======================================================== */}
+      {distanceConfirmAlert && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              ⚠️
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
+                長距離走行の確認
+              </div>
+              <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+                走行距離が<br />
+                <span className="text-amber-300 font-mono text-3xl sm:text-4xl underline decoration-4 underline-offset-4">
+                  {distanceConfirmAlert.calculatedDistance} km
+                </span>
+                <br />
+                になっています。<br />
+                間違いないですか？
+              </div>
+              <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
+                ※メーターの桁数や入力間違いがないかご確認ください。
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={executeFinishDrive}
+                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>間違いない（送信する）</span>
+                <span>✓</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDistanceConfirmAlert(null)}
+                className="w-full min-h-[50px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-sm rounded-xl border border-slate-600 transition-all flex items-center justify-center"
+              >
+                数値を見直す（キャンセル）
               </button>
             </div>
           </div>
