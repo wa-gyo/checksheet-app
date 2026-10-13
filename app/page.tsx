@@ -204,7 +204,6 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-// 温度入力コンポーネント
 function TempInputRow({
   label,
   target,
@@ -344,10 +343,18 @@ function ChecksheetForm() {
     calculatedDistance: string;
   } | null>(null);
 
+  // 前日分未精算ブロック用ステート
+  const [unsettledAlert, setUnsettledAlert] = useState<{
+    type: 'drive' | 'alcohol';
+    message: string;
+    targetVehicle?: string;
+    targetDriveId?: string;
+  } | null>(null);
+
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）
+  // 1. 基本チェック
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -428,7 +435,6 @@ function ChecksheetForm() {
   const [refuelLiters, setRefuelLiters] = useState('');
   const [driveNotes, setDriveNotes] = useState('');
 
-  // 出勤時・退勤時ボタン切り替えハンドラー
   const handleSwitchAlcoholMode = (mode: 'start' | 'finish') => {
     setAlcoholMode(mode);
     setCustomChecker('');
@@ -452,7 +458,7 @@ function ChecksheetForm() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert || drivePendingAlert || distanceConfirmAlert) return;
+    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert || drivePendingAlert || distanceConfirmAlert || unsettledAlert) return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
@@ -652,7 +658,6 @@ function ChecksheetForm() {
     !isNaN(currentStartMeterNum) &&
     (currentStartMeterNum < lastRecordedMeter * 0.2 || currentStartMeterNum > lastRecordedMeter * 2.5);
 
-  // 帰社記録の実行関数（直接または200km確認モーダル承認後に呼び出し）
   const executeFinishDrive = async () => {
     if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
     if (!endMeter) throw new Error('降車時メーターを入力してください');
@@ -733,6 +738,63 @@ function ChecksheetForm() {
       setDialogError('あなたのお名前を入力してください');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
+    }
+
+    const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
+
+    // =========================================================
+    // 翌朝チェック：前営業日以前の未精算データがある場合の物理ブロック
+    // =========================================================
+    const { startIso } = getBusinessRangeJST();
+
+    // 1. 前日の帰社メーター（運行中放置）チェック
+    if (
+      (activeTab === 'alcohol' && alcoholMode === 'start') ||
+      (activeTab === 'drive' && driveMode === 'start')
+    ) {
+      const { data: pastDrives, error: pastDriveError } = await supabase
+        .from('check_driving_report')
+        .select('id, vehicle_name, start_meter, start_at, staff_name')
+        .is('end_meter', null)
+        .lt('start_at', startIso);
+
+      if (!pastDriveError && pastDrives) {
+        const myUnfinishedDrive = pastDrives.find((d) => isNameMatch(d.staff_name, cleanStaff));
+        if (myUnfinishedDrive) {
+          setUnsettledAlert({
+            type: 'drive',
+            message: `前日の【${myUnfinishedDrive.vehicle_name}】の帰社メーター（降車記録）が未入力のままです！`,
+            targetVehicle: myUnfinishedDrive.vehicle_name,
+            targetDriveId: myUnfinishedDrive.id,
+          });
+          return;
+        }
+      }
+
+      // 2. 前日の退勤チェック忘れチェック
+      const prevDate = new Date(startIso);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevStartIso = prevDate.toISOString();
+
+      const { data: pastAlcoholRecords, error: pastAlcoholError } = await supabase
+        .from('check_alcohol')
+        .select('checked_at, notes, staff_name')
+        .gte('checked_at', prevStartIso)
+        .lt('checked_at', startIso);
+
+      if (!pastAlcoholError && pastAlcoholRecords) {
+        const myPastLogs = pastAlcoholRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
+        const hasStart = myPastLogs.some((r) => r.notes && r.notes.includes('出勤時'));
+        const hasFinish = myPastLogs.some((r) => r.notes && r.notes.includes('退勤時'));
+
+        if (hasStart && !hasFinish) {
+          setUnsettledAlert({
+            type: 'alcohol',
+            message: '前日の【退勤時の点呼・アルコールチェック】が完了していません！',
+          });
+          return;
+        }
+      }
     }
 
     if (activeTab === 'fish') {
@@ -843,7 +905,6 @@ function ChecksheetForm() {
         const checker = checkerType === 'その他' ? customChecker : checkerType;
         if (!checker.trim()) throw new Error('確認者を入力してください');
 
-        const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
         const cleanChecker = checker.replace(/[\s ]+/g, '').trim();
         if (
           cleanStaff === cleanChecker ||
@@ -859,8 +920,8 @@ function ChecksheetForm() {
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
 
-        // 基本チェック：業務前／業務後の重複投稿防止バリデーション
-        const { startIso, endIso } = getBusinessRangeJST();
+        // 当日分の重複投稿防止バリデーション
+        const { endIso } = getBusinessRangeJST();
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
           .select('id, checked_at, notes, staff_name')
@@ -886,7 +947,6 @@ function ChecksheetForm() {
 
         saveStaffNameHistory(staffName);
 
-        // 出勤時のみ体調・衛生の情報を特記文字列に含める
         const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
         const handNote = alcoholMode === 'start' ? `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】` : '';
 
@@ -910,7 +970,6 @@ function ChecksheetForm() {
         setBasicHealthStatus('');
         setHandHygieneStatus('');
 
-        // 出勤時の場合、シンプル全画面アラートを表示
         if (alcoholMode === 'start') {
           setFullscreenAlert({
             type: 'alcohol_start',
@@ -1133,7 +1192,6 @@ function ChecksheetForm() {
         setPassenger('');
         await fetchActiveDrives();
 
-        // 出発時の場合、シンプル全画面アラートを表示
         setFullscreenAlert({
           type: 'drive_start',
         });
@@ -1154,7 +1212,6 @@ function ChecksheetForm() {
     }
   };
 
-  // 出勤時・退勤時で確認者の選択肢を動的切り替え
   const currentCheckerOptions = alcoholMode === 'finish' ? CHECKER_OPTIONS_FINISH : CHECKER_OPTIONS_START;
 
   return (
@@ -1164,7 +1221,6 @@ function ChecksheetForm() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ヘッダー：黒背景に白文字 */}
       <header className="bg-black text-white p-4 shadow-2xl sticky top-0 z-30 border-b-2 border-slate-800">
         <h1 className="text-xl sm:text-2xl font-black text-center tracking-wider text-white">
           業務管理チェックシート
@@ -1200,7 +1256,6 @@ function ChecksheetForm() {
         </div>
       </div>
 
-      {/* モーションスワイプ コンテナ */}
       <div
         className="max-w-xl mx-auto p-3.5 space-y-6 select-none"
         style={{
@@ -1236,7 +1291,7 @@ function ChecksheetForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ① あなたのお名前入力カード（全タブ共通最上部） */}
+          {/* ① あなたのお名前入力カード */}
           <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
             <label className="block text-xl font-black text-white mb-2 leading-tight">
               あなたのお名前 <span className="text-red-400 text-2xl">*</span>
@@ -1257,21 +1312,18 @@ function ChecksheetForm() {
             </datalist>
           </div>
 
-          {/* 1. 基本チェック（表示順：記録日時 -> アルコールチェック -> 体調・衛生） */}
+          {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
-              {/* ② 記録日時 */}
               <div className="space-y-2">
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
               </div>
 
-              {/* ③ アルコールチェックカード */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h3 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   アルコールチェック
                 </h3>
 
-                {/* 出勤時・退勤時ボタン（カッコ書き無し・文字特大） */}
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                   <button
                     type="button"
@@ -1398,14 +1450,13 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要） */}
+              {/* ④ 体調、衛生チェック（出勤時のみ表示） */}
               {alcoholMode === 'start' && (
                 <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                   <h3 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
                     体調・衛生チェック
                   </h3>
 
-                  {/* 体調チェック */}
                   <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-3">
                     <div className="flex justify-between items-baseline gap-1">
                       <label className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1446,7 +1497,6 @@ function ChecksheetForm() {
                     </div>
                   </div>
 
-                  {/* 手の衛生チェック */}
                   <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-3">
                     <div className="flex justify-between items-baseline gap-1">
                       <label className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1498,7 +1548,6 @@ function ChecksheetForm() {
                 運転日報
               </h2>
 
-              {/* 出発時・帰社時ボタン（カッコ書き無し・文字特大） */}
               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                 <button
                   type="button"
@@ -1715,7 +1764,7 @@ function ChecksheetForm() {
 
                       {isMeterInvalid && (
                         <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
-                          🚨 メーター不整合：乗車時（{currentStartMeter} km）より小さくなっています。
+                          🚨 メーター逆行エラー：乗車時（{currentStartMeter} km）より小さくなっています。
                         </div>
                       )}
 
@@ -1968,8 +2017,10 @@ function ChecksheetForm() {
                       type="button"
                       onClick={() => setKowariHandHygiene(btn.val)}
                       className={`min-h-[58px] py-2 px-2 text-base font-black rounded-xl border-2 transition-all flex items-center justify-center text-center leading-tight ${
-                        handHygieneStatus === '良'
-                          ? 'bg-emerald-600 text-white border-emerald-300 shadow-lg scale-[1.02]'
+                        kowariHandHygiene === btn.val
+                          ? btn.val === '実施済み'
+                            ? 'bg-blue-600 text-white border-blue-300 shadow-lg scale-[1.02]'
+                            : 'bg-red-600 text-white border-red-300 shadow-lg scale-[1.02]'
                           : 'bg-blue-900/90 text-white border-blue-500 hover:bg-blue-800'
                       }`}
                     >
@@ -2483,6 +2534,63 @@ function ChecksheetForm() {
           </div>
         </form>
       </div>
+
+      {/* ========================================================
+          翌朝の未精算データ ブロック全画面アラート
+         ======================================================== */}
+      {unsettledAlert && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              ⚠️
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
+                前日の未記録があります
+              </div>
+              <div className="text-xl sm:text-2xl font-black leading-snug tracking-wide text-white">
+                {unsettledAlert.message}
+              </div>
+              <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
+                ※本日の出勤・出発を記録する前に、前日分の記録を完了させてください。
+              </p>
+            </div>
+
+            <div className="pt-2">
+              {unsettledAlert.type === 'drive' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetId = unsettledAlert.targetDriveId;
+                    setUnsettledAlert(null);
+                    changeTab('drive');
+                    setDriveMode('finish');
+                    if (targetId) setSelectedDriveId(targetId);
+                  }}
+                  className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-lg rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+                >
+                  <span>🚗 前日の帰社メーターを入力する</span>
+                  <span>👉</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnsettledAlert(null);
+                    changeTab('alcohol');
+                    handleSwitchAlcoholMode('finish');
+                  }}
+                  className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-lg rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+                >
+                  <span>📋 前日の退勤チェックを入力する</span>
+                  <span>👉</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
           運行中放置時の退勤ブロック全画面アラート（赤基調）
