@@ -89,7 +89,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（白抜き文字ベース）[cite: 12]
+// 日時表示コンポーネント（白抜き文字ベース）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -204,6 +204,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
+// 温度入力コンポーネント
 function TempInputRow({
   label,
   target,
@@ -310,14 +311,14 @@ function ChecksheetForm() {
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
 
-  // モーションスワイプ用 State / Ref[cite: 12]
+  // モーションスワイプ用 State / Ref
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // 送信後シンプルアラート用ステート[cite: 12]
+  // 送信後シンプルアラート用ステート
   const [fullscreenAlert, setFullscreenAlert] = useState<{
     type: 'drive_start' | 'alcohol_start';
   } | null>(null);
@@ -327,23 +328,23 @@ function ChecksheetForm() {
     badItemsText: string;
   } | null>(null);
 
-  // 基本チェック 重複送信防止シンプルアラート用ステート[cite: 12]
+  // 基本チェック 重複送信防止シンプルアラート用ステート
   const [duplicateAlcoholAlert, setDuplicateAlcoholAlert] = useState<{
     isStart: boolean;
   } | null>(null);
 
-  // 運行中のまま退勤しようとした際の物理ブロックアラート用ステート[cite: 12]
+  // 運行中のまま退勤しようとした際の物理ブロックアラート用ステート
   const [drivePendingAlert, setDrivePendingAlert] = useState<{
     vehicleName: string;
     driveId: string;
   } | null>(null);
 
-  // 走行距離200km超えの確認モーダル用ステート[cite: 12]
+  // 走行距離200km超えの確認モーダル用ステート
   const [distanceConfirmAlert, setDistanceConfirmAlert] = useState<{
     calculatedDistance: string;
   } | null>(null);
 
-  // 前日分未精算ブロック用ステート[cite: 12]
+  // 前日分未精算ブロック用ステート
   const [unsettledAlert, setUnsettledAlert] = useState<{
     type: 'drive' | 'alcohol';
     message: string;
@@ -354,7 +355,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）[cite: 12]
+  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -364,7 +365,7 @@ function ChecksheetForm() {
   const [alcoholVal, setAlcoholVal] = useState('');
   const [alcoholNotes, setAlcoholNotes] = useState('');
 
-  // 2. 生魚加工[cite: 12]
+  // 2. 生魚加工
   const [fishDate, setFishDate] = useState(getNowJST());
   const [healthStatus, setHealthStatus] = useState<'良' | '否' | ''>('');
   const [handWashing, setHandWashing] = useState<'実施済み' | '未実施' | ''>('');
@@ -375,7 +376,7 @@ function ChecksheetForm() {
   const [toolsHygiene, setToolsHygiene] = useState<'よい' | 'わるい' | ''>('');
   const [fishNotes, setFishNotes] = useState('');
 
-  // 3. 小割加工[cite: 12]
+  // 3. 小割加工
   const [kowariDate, setKowariDate] = useState(getNowJST());
   const [kowariItemType, setKowariItemType] = useState(KOWARI_ITEM_OPTIONS[0] || '干し貝柱');
   const [customKowariItem, setCustomKowariItem] = useState('');
@@ -387,7 +388,7 @@ function ChecksheetForm() {
   const [kowariLabelCheck, setKowariLabelCheck] = useState<'よい' | 'わるい' | ''>('');
   const [kowariNotes, setKowariNotes] = useState('');
 
-  // 4. 荷物受入[cite: 12]
+  // 4. 荷物受入
   const [receivingDate, setReceivingDate] = useState(getNowJST());
   const [flightOptions, setFlightOptions] = useState<string[]>(DEFAULT_FLIGHT_OPTIONS);
   const [selectedFlight, setSelectedFlight] = useState(DEFAULT_FLIGHT_OPTIONS[0] || '郡配');
@@ -397,7 +398,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）[cite: 12]
+  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -410,13 +411,13 @@ function ChecksheetForm() {
   const [pestEvidence, setPestEvidence] = useState<'気になる所見なし' | '問題発生' | ''>('');
   const [tempNotes, setTempNotes] = useState('');
 
-  // 6. 退勤前温度[cite: 12]
+  // 6. 退勤前温度
   const [closingDate, setClosingDate] = useState(getNowJST());
   const [closingMainTemp, setClosingMainTemp] = useState('');
   const [closingRoom2Temp, setClosingRoom2Temp] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
-  // 7. 運転日報[cite: 12]
+  // 7. 運転日報
   const [driveMode, setDriveMode] = useState<'start' | 'finish'>('start');
   const [vehicle, setVehicle] = useState(VEHICLE_OPTIONS[0] || '');
   const [customVehicle, setCustomVehicle] = useState('');
@@ -742,7 +743,7 @@ function ChecksheetForm() {
 
     const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
 
-    // 翌朝チェック：前営業日以前の未精算データがある場合の物理ブロック[cite: 12]
+    // 翌朝チェック：前営業日以前の未精算データがある場合の物理ブロック
     const { startIso } = getBusinessRangeJST();
 
     if (
@@ -846,7 +847,7 @@ function ChecksheetForm() {
       }
     }
 
-    // 運転日報・帰社時: 走行距離が200kmを超える場合は確認モーダルを出してストップ[cite: 12]
+    // 運転日報・帰社時: 走行距離が200kmを超える場合は確認モーダルを出してストップ
     if (activeTab === 'drive' && driveMode === 'finish') {
       if (!selectedDriveId) {
         setDialogError('完了対象の運行データを選択してください');
@@ -882,7 +883,7 @@ function ChecksheetForm() {
 
     try {
       if (activeTab === 'alcohol') {
-        // 退勤時かつ運行中のデータがある場合、全画面アラートで物理的にブロック[cite: 12]
+        // 退勤時かつ運行中のデータがある場合、全画面アラートで物理的にブロック
         if (alcoholMode === 'finish' && myLatestPendingDrive) {
           setDrivePendingAlert({
             vehicleName: myLatestPendingDrive.vehicle_name,
@@ -1069,7 +1070,7 @@ function ChecksheetForm() {
             hand_hygiene: kowariHandHygiene,
             work_temp: kowariWorkTemp,
             facility_hygiene: kowariFacilityHygiene,
-            tools_hygiene: kowariToolsHygiene,
+            tools_hygiene: toolsHygiene,
             label_check: kowariLabelCheck,
             notes: kowariNotes,
           },
@@ -1309,15 +1310,18 @@ function ChecksheetForm() {
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
+              {/* ② 記録日時 */}
               <div className="space-y-2">
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
               </div>
 
+              {/* ③ アルコールチェックカード */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h3 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   アルコールチェック
                 </h3>
 
+                {/* 出勤時・退勤時ボタン（カッコ書き無し・文字特大） */}
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                   <button
                     type="button"
@@ -1444,6 +1448,7 @@ function ChecksheetForm() {
                 </div>
               </div>
 
+              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要） */}
               {alcoholMode === 'start' && (
                 <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                   <h3 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
@@ -1702,7 +1707,7 @@ function ChecksheetForm() {
                             完了する運行を選択 <span className="text-red-400">*</span>
                           </label>
                           {currentDrive && isNameMatch(currentDrive.staff_name, staffName) && (
-                            <span className="text-xs font-black text-amber-950 bg-amber-300 px-2.5 py-1 rounded-md border-2 border-amber-500 shadow-sm animate-pulse">
+                            <span className="text-xs font-black text-red-950 bg-red-300 px-2.5 py-1 rounded-md border-2 border-red-500 shadow-sm animate-pulse">
                               ✓ あなたの運行を自動選択中
                             </span>
                           )}
@@ -1713,11 +1718,11 @@ function ChecksheetForm() {
                             現在運行中のデータはありません
                           </div>
                         ) : (
-                          /* ★........の背景を目立つ薄い黄色・ゴールド太枠に変更 */
+                          /* ★........の背景を注意を引く薄い赤色に変更 */
                           <select
                             value={selectedDriveId}
                             onChange={(e) => setSelectedDriveId(e.target.value)}
-                            className="w-full min-h-[58px] py-2 px-3 border-4 border-amber-400 bg-amber-100 text-slate-950 rounded-2xl text-base sm:text-xl font-black shadow-xl outline-none focus:ring-4 focus:ring-amber-300"
+                            className="w-full min-h-[58px] py-2 px-3 border-4 border-red-500 bg-red-100 text-slate-950 rounded-2xl text-base sm:text-xl font-black shadow-xl outline-none focus:ring-4 focus:ring-red-300"
                           >
                             {activeDrives.map((d) => {
                               const isMine = isNameMatch(d.staff_name, staffName);
