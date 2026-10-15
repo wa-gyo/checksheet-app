@@ -352,6 +352,14 @@ function ChecksheetForm() {
     targetDriveId?: string;
   } | null>(null);
 
+  // 車両選択時に前回の帰社記録が未完了だった場合の柔らかめなアラート用ステート
+  const [vehicleUnfinishedAlert, setVehicleUnfinishedAlert] = useState<{
+    vehicleName: string;
+    staffName: string;
+    startAt: string;
+    driveId: string;
+  } | null>(null);
+
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
@@ -459,7 +467,16 @@ function ChecksheetForm() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (fullscreenAlert || notesRequiredAlert || duplicateAlcoholAlert || drivePendingAlert || distanceConfirmAlert || unsettledAlert) return;
+    if (
+      fullscreenAlert ||
+      notesRequiredAlert ||
+      duplicateAlcoholAlert ||
+      drivePendingAlert ||
+      distanceConfirmAlert ||
+      unsettledAlert ||
+      vehicleUnfinishedAlert
+    )
+      return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
@@ -561,6 +578,7 @@ function ChecksheetForm() {
     }
   }, []);
 
+  // 車両選択時に前回メーターを取得し、もし未帰社（end_meter === null）ならアラートを表示
   const fetchVehicleLastMeter = async (targetVehicle: string) => {
     if (!targetVehicle || targetVehicle === 'その他') {
       setLastRecordedMeter(null);
@@ -570,7 +588,7 @@ function ChecksheetForm() {
     try {
       const { data, error } = await supabase
         .from('check_driving_report')
-        .select('start_meter, end_meter, created_at')
+        .select('id, staff_name, start_at, start_meter, end_meter, created_at')
         .eq('vehicle_name', targetVehicle)
         .order('created_at', { ascending: false })
         .limit(1);
@@ -581,6 +599,16 @@ function ChecksheetForm() {
         const val = prev.end_meter !== null ? Number(prev.end_meter) : Number(prev.start_meter);
         setLastRecordedMeter(val);
         setStartMeter(String(val));
+
+        // もし直近の記録で帰社メーター（end_meter）が入っていなければアラートを表示
+        if (prev.end_meter === null) {
+          setVehicleUnfinishedAlert({
+            vehicleName: targetVehicle,
+            staffName: prev.staff_name || '前回使用者',
+            startAt: prev.start_at,
+            driveId: prev.id,
+          });
+        }
       } else {
         setLastRecordedMeter(null);
       }
@@ -883,7 +911,6 @@ function ChecksheetForm() {
 
     try {
       if (activeTab === 'alcohol') {
-        // 退勤時かつ運行中のデータがある場合、全画面アラートで物理的にブロック
         if (alcoholMode === 'finish' && myLatestPendingDrive) {
           setDrivePendingAlert({
             vehicleName: myLatestPendingDrive.vehicle_name,
@@ -1070,7 +1097,7 @@ function ChecksheetForm() {
             hand_hygiene: kowariHandHygiene,
             work_temp: kowariWorkTemp,
             facility_hygiene: kowariFacilityHygiene,
-            tools_hygiene: toolsHygiene,
+            tools_hygiene: kowariToolsHygiene,
             label_check: kowariLabelCheck,
             notes: kowariNotes,
           },
@@ -1718,7 +1745,6 @@ function ChecksheetForm() {
                             現在運行中のデータはありません
                           </div>
                         ) : (
-                          /* ★........の背景を注意を引く薄い赤色に変更 */
                           <select
                             value={selectedDriveId}
                             onChange={(e) => setSelectedDriveId(e.target.value)}
@@ -2534,6 +2560,60 @@ function ChecksheetForm() {
           </div>
         </form>
       </div>
+
+      {/* ========================================================
+          車両選択時の前回帰社未記録お知らせモーダル（柔らかめな表現）
+         ======================================================== */}
+      {vehicleUnfinishedAlert && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-400 text-center text-white space-y-5">
+            <div className="w-20 h-20 bg-slate-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-amber-400">
+              🚗💬
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-black text-amber-300 bg-amber-950 px-3 py-1 rounded-full border border-amber-500 inline-block">
+                {vehicleUnfinishedAlert.vehicleName} の確認
+              </div>
+              <div className="text-xl sm:text-2xl font-black leading-snug tracking-wide text-white">
+                前回使用した<br />
+                <span className="text-amber-300 underline decoration-4 underline-offset-4">
+                  {vehicleUnfinishedAlert.staffName} さん
+                </span>
+                の帰社時記録が<br />
+                まだ行われていないようです。
+              </div>
+              <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
+                （出発日時: {formatDisplayJST(vehicleUnfinishedAlert.startAt)}）
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const targetId = vehicleUnfinishedAlert.driveId;
+                  setVehicleUnfinishedAlert(null);
+                  setDriveMode('finish');
+                  await fetchActiveDrives();
+                  setSelectedDriveId(targetId);
+                }}
+                className="w-full min-h-[58px] bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black text-base sm:text-lg rounded-2xl shadow-xl border-2 border-blue-400 transition-all flex items-center justify-center gap-2"
+              >
+                <span>🚗 帰社時記録の画面へ移動する</span>
+                <span>👉</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVehicleUnfinishedAlert(null)}
+                className="w-full min-h-[50px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-sm rounded-xl border border-slate-600 transition-all flex items-center justify-center"
+              >
+                確認しました（このまま出発入力を続ける）
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 翌朝の未精算データ ブロック全画面アラート */}
       {unsettledAlert && (
