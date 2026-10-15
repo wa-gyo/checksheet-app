@@ -360,6 +360,9 @@ function ChecksheetForm() {
     driveId: string;
   } | null>(null);
 
+  // 出発時選択時に、当日の出勤時アルコールチェックが未実施の場合のアラート用ステート
+  const [missingStartAlcoholAlert, setMissingStartAlcoholAlert] = useState(false);
+
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
@@ -474,7 +477,8 @@ function ChecksheetForm() {
       drivePendingAlert ||
       distanceConfirmAlert ||
       unsettledAlert ||
-      vehicleUnfinishedAlert
+      vehicleUnfinishedAlert ||
+      missingStartAlcoholAlert
     )
       return;
     const touch = e.touches[0];
@@ -577,6 +581,43 @@ function ChecksheetForm() {
       console.error(e);
     }
   }, []);
+
+  // 運転日報（出発時）が選択されている際、当日の出勤時アルコールチェックが済んでいるか確認する関数
+  const verifyTodayStartAlcohol = async (targetStaff: string): Promise<boolean> => {
+    const clean = targetStaff.replace(/[\s ]+/g, '').trim();
+    if (!clean) return true; // 名前未入力時は送信時バリデーションに任せる
+
+    try {
+      const { startIso, endIso } = getBusinessRangeJST();
+      const { data, error } = await supabase
+        .from('check_alcohol')
+        .select('id, staff_name, notes')
+        .gte('checked_at', startIso)
+        .lte('checked_at', endIso);
+
+      if (error || !data) return true;
+
+      const hasStartAlcohol = data.some(
+        (r) => isNameMatch(r.staff_name, clean) && r.notes && r.notes.includes('出勤時')
+      );
+
+      if (!hasStartAlcohol) {
+        setMissingStartAlcoholAlert(true);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('Failed to check start alcohol:', e);
+      return true;
+    }
+  };
+
+  // 運転日報タブで「出発時」が選択された時点で出勤時アルコールチェックを確認
+  useEffect(() => {
+    if (activeTab === 'drive' && driveMode === 'start' && staffName.trim()) {
+      verifyTodayStartAlcohol(staffName);
+    }
+  }, [activeTab, driveMode]);
 
   // 車両選択時に前回メーターを取得し、もし未帰社（end_meter === null）ならアラートを表示
   const fetchVehicleLastMeter = async (targetVehicle: string) => {
@@ -772,7 +813,7 @@ function ChecksheetForm() {
     const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
 
     // 翌朝チェック：前営業日以前の未精算データがある場合の物理ブロック
-    const { startIso } = getBusinessRangeJST();
+    const { startIso, endIso } = getBusinessRangeJST();
 
     if (
       (activeTab === 'alcohol' && alcoholMode === 'start') ||
@@ -819,6 +860,14 @@ function ChecksheetForm() {
           });
           return;
         }
+      }
+    }
+
+    // 運転日報の出発時送信の際、本日の出勤時アルコールチェックが未実施ならアラートを出してブロック
+    if (activeTab === 'drive' && driveMode === 'start') {
+      const ok = await verifyTodayStartAlcohol(staffName);
+      if (!ok) {
+        return;
       }
     }
 
@@ -943,7 +992,6 @@ function ChecksheetForm() {
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
 
-        const { endIso } = getBusinessRangeJST();
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
           .select('id, checked_at, notes, staff_name')
@@ -2560,6 +2608,48 @@ function ChecksheetForm() {
           </div>
         </form>
       </div>
+
+      {/* ========================================================
+          出発時：当日の出勤時アルコールチェック未実施アラート
+         ======================================================== */}
+      {missingStartAlcoholAlert && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              📋⚠️
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
+                出勤時チェック未完了
+              </div>
+              <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+                本日の出勤時<br />
+                アルコールチェックが<br />
+                まだ記録されていません！
+              </div>
+              <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
+                ※運転出発を記録する前に、基本チェック（出勤時）を行ってください。
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMissingStartAlcoholAlert(false);
+                  changeTab('alcohol');
+                  handleSwitchAlcoholMode('start');
+                }}
+                className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>📋 出勤時チェックを入力する</span>
+                <span>👉</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
           車両選択時の前回帰社未記録お知らせモーダル（柔らかめな表現）
