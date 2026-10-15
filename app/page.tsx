@@ -48,7 +48,6 @@ const getBusinessRangeJST = () => {
 const getPrevBusinessDayDefaultJST = () => {
   const { startIso } = getBusinessRangeJST();
   const d = new Date(startIso);
-  // startIso（当営業日開始 16:00）の1時間前＝前営業日の15:00を初期値にする
   d.setHours(d.getHours() - 1);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
@@ -349,9 +348,16 @@ function ChecksheetForm() {
     driveId: string;
   } | null>(null);
 
-  // 走行距離200km超えの確認モーダル用ステート
+  // 帰社時：走行距離200km超えの確認モーダル用ステート
   const [distanceConfirmAlert, setDistanceConfirmAlert] = useState<{
     calculatedDistance: string;
+  } | null>(null);
+
+  // 出発時：前回最終記録から200km以上空いている場合の確認モーダル用ステート
+  const [startMeterGapConfirmAlert, setStartMeterGapConfirmAlert] = useState<{
+    gapDistance: string;
+    lastMeter: number;
+    currentMeter: number;
   } | null>(null);
 
   // 前日分未精算ブロック用ステート
@@ -477,7 +483,6 @@ function ChecksheetForm() {
   // ユーザーが「① 出勤時」「② 退勤時」ボタンを手動でタップした際のハンドラー
   const handleSwitchAlcoholMode = async (mode: 'start' | 'finish') => {
     if (mode === 'start') {
-      // 出勤時を手動で選んだ場合は前日精算モードを解除し、現在日時へ戻す
       if (isSettlingPastAlcohol) {
         setIsSettlingPastAlcohol(false);
         setAlcoholDate(getNowJST());
@@ -486,7 +491,6 @@ function ChecksheetForm() {
       return;
     }
 
-    // 「② 退勤時」が押された場合：前日精算モード中でなければ、本日の出勤記録があるかチェック（ハードブロック）
     if (!isSettlingPastAlcohol && staffName.trim()) {
       const clean = staffName.replace(/[\s ]+/g, '').trim();
       try {
@@ -502,7 +506,6 @@ function ChecksheetForm() {
             (r) => isNameMatch(r.staff_name, clean) && r.notes && r.notes.includes('出勤時')
           );
           if (!hasStartToday) {
-            // 当日の出勤記録が無い場合は退勤モードへの切り替えをブロックし、アラートを表示して出勤時に戻す
             applyAlcoholModeInternal('start');
             setMissingStartForFinishAlert(true);
             return;
@@ -519,7 +522,7 @@ function ChecksheetForm() {
   // スマートアシスト：入力されているスタッフの当日の出勤・退勤状況を調べ、自動でモードをセットする
   useEffect(() => {
     if (activeTab !== 'alcohol') return;
-    if (isSettlingPastAlcohol) return; // 前日精算中は自動切り替えしない
+    if (isSettlingPastAlcohol) return;
 
     const clean = staffName.replace(/[\s ]+/g, '').trim();
     if (!clean) {
@@ -543,10 +546,8 @@ function ChecksheetForm() {
         const hasStart = myLogs.some((r) => r.notes && r.notes.includes('出勤時'));
 
         if (hasStart) {
-          // 当日すでに出勤済みの人が開いたら自動で「② 退勤時」をセット
           applyAlcoholModeInternal('finish');
         } else {
-          // 当日未出勤の人が開いたら自動で「① 出勤時」をセット
           applyAlcoholModeInternal('start');
         }
       } catch (e) {
@@ -580,6 +581,7 @@ function ChecksheetForm() {
       duplicateAlcoholAlert ||
       drivePendingAlert ||
       distanceConfirmAlert ||
+      startMeterGapConfirmAlert ||
       unsettledAlert ||
       vehicleUnfinishedAlert ||
       missingStartAlcoholAlert ||
@@ -650,7 +652,6 @@ function ChecksheetForm() {
   useEffect(() => {
     const now = getNowJST();
     if (activeTab === 'alcohol') {
-      // 前日精算モードでない場合のみ現在時刻に更新
       if (!isSettlingPastAlcohol) {
         setAlcoholDate(now);
       }
@@ -690,7 +691,6 @@ function ChecksheetForm() {
     }
   }, []);
 
-  // 運転日報（出発時）が選択されている際、当日の出勤時アルコールチェックが済んでいるか確認する関数
   const verifyTodayStartAlcohol = async (targetStaff: string): Promise<boolean> => {
     const clean = targetStaff.replace(/[\s ]+/g, '').trim();
     if (!clean) return true;
@@ -832,7 +832,63 @@ function ChecksheetForm() {
     lastRecordedMeter > 0 &&
     !isNaN(currentStartMeterNum) &&
     (currentStartMeterNum < lastRecordedMeter * 0.2 || currentStartMeterNum > lastRecordedMeter * 2.5);
+  // 出発時：乗車時メーターが前回最終記録と200km以上空いているか判定
+  const isStartMeterGapLarge =
+    lastRecordedMeter !== null &&
+    !isNaN(currentStartMeterNum) &&
+    !isStartMeterDecreased &&
+    !isStartMeterDigitError &&
+    currentStartMeterNum - lastRecordedMeter >= 200;
 
+  // 出発記録の実行関数（直接または200km乖離確認モーダル承認後に呼び出し）
+  const executeStartDrive = async () => {
+    saveStaffNameHistory(staffName);
+    const v = vehicle === 'その他' ? customVehicle : vehicle;
+    const d = destination === 'その他' ? customDestination : destination;
+    if (!startMeter) {
+      setDialogError('乗車時メーターを入力してください');
+      return;
+    }
+
+    setSubmitting(true);
+    setSuccessMsg('');
+
+    try {
+      const { error } = await supabase.from('check_driving_report').insert([
+        {
+          staff_name: staffName,
+          vehicle_name: v,
+          destination: d,
+          passenger: passenger,
+          start_at: new Date(driveStart).toISOString(),
+          start_meter: parseFloat(startMeter),
+        },
+      ]);
+      if (error) throw error;
+
+      setStartMeter('');
+      setPassenger('');
+      setStartMeterGapConfirmAlert(null);
+      await fetchActiveDrives();
+
+      setFullscreenAlert({
+        type: 'drive_start',
+      });
+      setSuccessMsg('送信が完了しました！');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setDialogError(err.message || 'Supabase接続エラー');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setSubmitting(false);
+      setIsCooldown(true);
+      setTimeout(() => {
+        setIsCooldown(false);
+      }, 3000);
+    }
+  };
+
+  // 帰社記録の実行関数（直接または200km超過確認モーダル承認後に呼び出し）
   const executeFinishDrive = async () => {
     if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
     if (!endMeter) throw new Error('降車時メーターを入力してください');
@@ -967,12 +1023,44 @@ function ChecksheetForm() {
       }
     }
 
-    // 運転日報の出発時送信の際、本日の出勤時アルコールチェックが未実施ならアラートを出してブロック
+    // 運転日報の出発時：バリデーションと200km乖離確認モーダル判定
     if (activeTab === 'drive' && driveMode === 'start') {
       const ok = await verifyTodayStartAlcohol(staffName);
       if (!ok) {
         return;
       }
+
+      if (!startMeter) {
+        setDialogError('乗車時メーターを入力してください');
+        return;
+      }
+
+      if (isStartMeterDecreased) {
+        setDialogError(
+          `乗車時メーター（${currentStartMeterNum} km）が前回の最終記録（${lastRecordedMeter} km）より小さくなっています。数値を再確認してください。`
+        );
+        return;
+      }
+
+      if (isStartMeterDigitError) {
+        setDialogError(
+          `乗車時メーター（${currentStartMeterNum} km）の桁数が前回の記録（${lastRecordedMeter} km）と大きく異なります。桁間違いがないか確認してください。`
+        );
+        return;
+      }
+
+      // 前回最終記録と200km以上空いている場合は確認アラートを表示してストップ
+      if (lastRecordedMeter !== null && currentStartMeterNum - lastRecordedMeter >= 200) {
+        setStartMeterGapConfirmAlert({
+          gapDistance: (currentStartMeterNum - lastRecordedMeter).toFixed(1),
+          lastMeter: lastRecordedMeter,
+          currentMeter: currentStartMeterNum,
+        });
+        return;
+      }
+
+      await executeStartDrive();
+      return;
     }
 
     if (activeTab === 'fish') {
@@ -1096,11 +1184,9 @@ function ChecksheetForm() {
         const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
         const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
 
-        // 送信しようとしている記録日時が「前営業日以前」かどうかを判定
         const selectedIso = new Date(alcoholDate).toISOString();
         const isPastRecord = isSettlingPastAlcohol || selectedIso < new Date(startIso).toISOString();
 
-        // 当日分の入力である場合の各種整合性チェック
         if (!isPastRecord) {
           const { data: existingRecords, error: checkError } = await supabase
             .from('check_alcohol')
@@ -1111,7 +1197,6 @@ function ChecksheetForm() {
           if (!checkError && existingRecords) {
             const myTodayLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
 
-            // 原則ルール1（ハードブロック）：当日の「出勤時」レコードが無いスタッフは「退勤時」の送信を一切受け付けない
             if (alcoholMode === 'finish') {
               const hasStartToday = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
               if (!hasStartToday) {
@@ -1122,7 +1207,6 @@ function ChecksheetForm() {
               }
             }
 
-            // 既存の二重投稿防止チェック（出勤時・退勤時とも重複送信を防止）
             const duplicate = myTodayLogs.find((r) => r.notes && r.notes.includes(timingKey));
             if (duplicate) {
               setDuplicateAlcoholAlert({
@@ -1133,7 +1217,6 @@ function ChecksheetForm() {
             }
           }
         } else {
-          // 例外（前日の退勤忘れ精算時）：記録日時が誤って当日のままになっていたら、自動的に前営業日（前日15:00）に補正して保存
           if (selectedIso >= new Date(startIso).toISOString()) {
             const correctedPastJst = getPrevBusinessDayDefaultJST();
             setAlcoholDate(correctedPastJst);
@@ -1173,13 +1256,11 @@ function ChecksheetForm() {
         setHandHygieneStatus('');
 
         if (alcoholMode === 'start') {
-          // 出勤時記録が完了したら、次は退勤時モードへ自動シフトさせておき、完了アラートを表示
           applyAlcoholModeInternal('finish');
           setFullscreenAlert({
             type: 'alcohol_start',
           });
         } else if (isSettlingPastAlcohol) {
-          // 前日の退勤忘れ精算が完了したら、精算モードを解除して現在時刻の「① 出勤時」へ自動で戻す
           setIsSettlingPastAlcohol(false);
           setAlcoholDate(getNowJST());
           applyAlcoholModeInternal('start');
@@ -1372,42 +1453,6 @@ function ChecksheetForm() {
         setClosingMainTemp('');
         setClosingRoom2Temp('');
         setClosingNotes('');
-      } else if (activeTab === 'drive' && driveMode === 'start') {
-        saveStaffNameHistory(staffName);
-        const v = vehicle === 'その他' ? customVehicle : vehicle;
-        const d = destination === 'その他' ? customDestination : destination;
-        if (!startMeter) throw new Error('乗車時メーターを入力してください');
-
-        if (isStartMeterDecreased) {
-          throw new Error(
-            `乗車時メーター（${currentStartMeterNum} km）が前回の最終記録（${lastRecordedMeter} km）より小さくなっています。数値を再確認してください。`
-          );
-        }
-        if (isStartMeterDigitError) {
-          throw new Error(
-            `乗車時メーター（${currentStartMeterNum} km）の桁数が前回の記録（${lastRecordedMeter} km）と大きく異なります。桁間違いがないか確認してください。`
-          );
-        }
-
-        const { error } = await supabase.from('check_driving_report').insert([
-          {
-            staff_name: staffName,
-            vehicle_name: v,
-            destination: d,
-            passenger: passenger,
-            start_at: new Date(driveStart).toISOString(),
-            start_meter: parseFloat(startMeter),
-          },
-        ]);
-        if (error) throw error;
-        setStartMeter('');
-        setPassenger('');
-        await fetchActiveDrives();
-
-        setFullscreenAlert({
-          type: 'drive_start',
-        });
-        return;
       }
 
       setSuccessMsg('送信が完了しました！');
@@ -1563,7 +1608,7 @@ function ChecksheetForm() {
                   アルコールチェック
                 </h3>
 
-                {/* 出勤時・退勤時ボタン（カッコ書き無し・文字特大） */}
+                {/* 出勤時・退勤時ボタン */}
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                   <button
                     type="button"
@@ -1788,7 +1833,7 @@ function ChecksheetForm() {
                 運転日報
               </h2>
 
-              {/* 出発時・帰社時ボタン（カッコ書き無し・文字特大） */}
+              {/* 出発時・帰社時ボタン */}
               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                 <button
                   type="button"
@@ -1904,6 +1949,8 @@ function ChecksheetForm() {
                       className={`w-full min-h-[64px] py-2 px-4 text-3xl font-black border-2 rounded-xl font-mono shadow-inner ${
                         isStartMeterDecreased || isStartMeterDigitError
                           ? 'border-red-500 bg-red-100 text-red-950'
+                          : isStartMeterGapLarge
+                          ? 'border-amber-400 bg-amber-50 text-slate-950'
                           : 'border-slate-300 bg-white text-slate-950 focus:border-blue-600'
                       }`}
                     />
@@ -1927,6 +1974,12 @@ function ChecksheetForm() {
                   {isStartMeterDigitError && !isStartMeterDecreased && (
                     <div className="p-3.5 bg-amber-950 border-2 border-amber-500 text-amber-200 rounded-xl text-sm font-black leading-snug">
                       ⚠️ 桁数違いの疑い：前回の記録（{lastRecordedMeter} km）と桁数が大きく異なります。
+                    </div>
+                  )}
+
+                  {isStartMeterGapLarge && lastRecordedMeter !== null && (
+                    <div className="p-3.5 bg-amber-950 border-2 border-amber-400 text-amber-200 rounded-xl text-sm font-black leading-snug">
+                      ⚠️ 前回最終記録から <span className="text-amber-300 underline font-mono text-base">{(currentStartMeterNum - lastRecordedMeter).toFixed(1)} km</span> 空いています。送信時に確認画面が表示されます。
                     </div>
                   )}
                 </div>
@@ -2443,7 +2496,6 @@ function ChecksheetForm() {
                   保管庫・売場 衛生管理
                 </h2>
 
-                {/* 1. 保管庫 衛生・整頓状況 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     保管庫 衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2471,7 +2523,6 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 2. 太物売場 衛生・整頓状況 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     太物売場（生魚加工ゾーン）衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2499,7 +2550,6 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 3. 売場 衛生・整頓状況 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     売場 衛生・整頓状況 <span className="text-red-400">*</span>
@@ -2527,7 +2577,6 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 4. 害獣の痕跡 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="text-lg sm:text-xl font-black text-white leading-snug">
                     害獣の痕跡 <span className="text-red-400">*</span>
@@ -2556,7 +2605,6 @@ function ChecksheetForm() {
                   </div>
                 </div>
 
-                {/* 特記事項・連絡事項 */}
                 <div className="border-t-2 border-slate-800 pt-4">
                   <div className="flex justify-between items-baseline mb-1">
                     <label className="block text-sm font-bold text-slate-300">特記事項・連絡事項</label>
@@ -2779,6 +2827,59 @@ function ChecksheetForm() {
       </div>
 
       {/* ========================================================
+          出発時：乗車時メーターが前回最終記録から200km以上空いている場合の確認モーダル
+         ======================================================== */}
+      {startMeterGapConfirmAlert && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              🚗⚠️
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
+                乗車時メーターの確認
+              </div>
+              <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+                前回最終記録より<br />
+                <span className="text-amber-300 font-mono text-3xl sm:text-4xl underline decoration-4 underline-offset-4">
+                  +{startMeterGapConfirmAlert.gapDistance} km
+                </span>
+                <br />
+                空いています。<br />
+                間違いないですか？
+              </div>
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-700 text-xs font-bold text-slate-300 space-y-1">
+                <div>前回最終記録: <span className="text-white font-mono">{startMeterGapConfirmAlert.lastMeter.toLocaleString()} km</span></div>
+                <div>今回入力値: <span className="text-amber-300 font-mono">{startMeterGapConfirmAlert.currentMeter.toLocaleString()} km</span></div>
+              </div>
+              <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
+                ※桁数の打ち間違いや、前回の記録漏れがないかご確認ください。
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={executeStartDrive}
+                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>間違いない（出発を記録する）</span>
+                <span>✓</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStartMeterGapConfirmAlert(null)}
+                className="w-full min-h-[50px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-sm rounded-xl border border-slate-600 transition-all flex items-center justify-center"
+              >
+                数値を見直す（キャンセル）
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
           ハードブロック：当日の出勤記録がない状態で退勤時を選んだ際のアラート
          ======================================================== */}
       {missingStartForFinishAlert && (
@@ -2954,7 +3055,6 @@ function ChecksheetForm() {
                 <button
                   type="button"
                   onClick={() => {
-                    // 例外考慮：前日の退勤忘れ精算モードを有効化し、記録日時を前営業日内に自動セットして「② 退勤時」を開く
                     setUnsettledAlert(null);
                     setIsSettlingPastAlcohol(true);
                     setAlcoholDate(getPrevBusinessDayDefaultJST());
@@ -3008,7 +3108,7 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 走行距離200km超えの確認モーダル */}
+      {/* 帰社時：走行距離200km超えの確認モーダル */}
       {distanceConfirmAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
