@@ -5,8 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 // 出勤時・退勤時それぞれの確認者選択肢定義
-const CHECKER_OPTIONS_START = ['石川', '長谷川', '五十嵐'];
-const CHECKER_OPTIONS_FINISH = ['長谷川', '五十嵐'];
+const CHECKER_OPTIONS_START = ['石川', '武藤', '五十嵐'];
+const CHECKER_OPTIONS_FINISH = ['武藤', '長谷川'];
 
 const VEHICLE_OPTIONS = ['ハイゼット 0539', 'ハイゼット 4076', 'ハイゼット 4000', 'ダイナ 3694', 'プロボックス 1475', 'ISUZU 4005', 'ISUZU 4004'];
 const DESTINATION_OPTIONS = ['市内ルート', '田島方面', '喜多方方面', '新長沼店', '猪苗代方面', '只見方面'];
@@ -474,7 +474,7 @@ function ChecksheetForm() {
     setAlcoholMode(mode);
     setCustomChecker('');
     if (mode === 'finish') {
-      setCheckerType('長谷川');
+      setCheckerType('武藤');
     } else {
       setCheckerType('石川');
     }
