@@ -44,7 +44,43 @@ const getBusinessRangeJST = () => {
   return { startIso, endIso };
 };
 
-// 前日退勤の精算用に、前営業日内の日時文字列（前日15:00）を生成するヘルパー
+// 任意の日時（ISO文字列）が属する「営業日枠（16:00〜翌日16:00）」と表示ラベル・精算用デフォルト日時（15:00）を算出するヘルパー
+const getBusinessSlotForDate = (isoString: string) => {
+  const d = new Date(isoString);
+  // JST時刻として扱うため UTC+9時間 のミリ秒を加算して計算
+  const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
+  const jstDate = new Date(jstMs);
+
+  const jstHours = jstDate.getUTCHours();
+  const startBase = new Date(jstDate);
+  if (jstHours < 16) {
+    startBase.setUTCDate(startBase.getUTCDate() - 1);
+  }
+
+  const sYear = startBase.getUTCFullYear();
+  const sMonth = String(startBase.getUTCMonth() + 1).padStart(2, '0');
+  const sDay = String(startBase.getUTCDate()).padStart(2, '0');
+  const slotStartIso = `${sYear}-${sMonth}-${sDay}T16:00:00+09:00`;
+
+  const endBase = new Date(startBase);
+  endBase.setUTCDate(endBase.getUTCDate() + 1);
+  const eYear = endBase.getUTCFullYear();
+  const eMonth = String(endBase.getUTCMonth() + 1).padStart(2, '0');
+  const eDay = String(endBase.getUTCDate()).padStart(2, '0');
+  const slotEndIso = `${eYear}-${eMonth}-${eDay}T16:00:00+09:00`;
+
+  // 営業日の日付ラベル（endBase側の日付＝実稼働日の日付・曜日）
+  const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+  const dayOfWeek = dayNames[endBase.getUTCDay()];
+  const dateLabel = `${endBase.getUTCMonth() + 1}/${endBase.getUTCDate()}(${dayOfWeek})`;
+
+  // その営業日の退勤精算用デフォルト日時（15:00）
+  const defaultSettleJst = `${eYear}-${eMonth}-${eDay}T15:00`;
+
+  return { slotStartIso, slotEndIso, dateLabel, defaultSettleJst };
+};
+
+// フォールバック用の前営業日15:00生成ヘルパー
 const getPrevBusinessDayDefaultJST = () => {
   const { startIso } = getBusinessRangeJST();
   const d = new Date(startIso);
@@ -360,12 +396,14 @@ function ChecksheetForm() {
     currentMeter: number;
   } | null>(null);
 
-  // 前日分未精算ブロック用ステート
+  // 前回出勤日の未精算ブロック用ステート（日付ラベル・自動セット日時対応）
   const [unsettledAlert, setUnsettledAlert] = useState<{
     type: 'drive' | 'alcohol';
     message: string;
     targetVehicle?: string;
     targetDriveId?: string;
+    unsettledDateLabel?: string;
+    defaultSettleJst?: string;
   } | null>(null);
 
   // 車両選択時に前回の帰社記録が未完了だった場合の柔らかめなアラート用ステート
@@ -382,8 +420,10 @@ function ChecksheetForm() {
   // 基本チェック（退勤時）選択・送信時に、当日の出勤時チェックが未実施の場合のハードブロック用ステート
   const [missingStartForFinishAlert, setMissingStartForFinishAlert] = useState(false);
 
-  // 例外考慮：前日の退勤忘れを精算入力中かどうかのフラグ
+  // 例外考慮：前回出勤日の退勤忘れを精算入力中かどうかのフラグと対象日付ラベル
   const [isSettlingPastAlcohol, setIsSettlingPastAlcohol] = useState(false);
+  const [settlingDateLabel, setSettlingDateLabel] = useState('');
+  const [settlingDefaultJst, setSettlingDefaultJst] = useState('');
 
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
@@ -485,6 +525,8 @@ function ChecksheetForm() {
     if (mode === 'start') {
       if (isSettlingPastAlcohol) {
         setIsSettlingPastAlcohol(false);
+        setSettlingDateLabel('');
+        setSettlingDefaultJst('');
         setAlcoholDate(getNowJST());
       }
       applyAlcoholModeInternal('start');
@@ -974,51 +1016,76 @@ function ChecksheetForm() {
     const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
     const { startIso, endIso } = getBusinessRangeJST();
 
-    // 翌朝チェック：前営業日以前の未精算データがある場合の物理ブロック
+    // =========================================================
+    // 翌朝（次回出勤時）チェック：各自の「最終出勤日」を遡って未精算を物理ブロック
+    // =========================================================
     if (
       (activeTab === 'alcohol' && alcoholMode === 'start') ||
       (activeTab === 'drive' && driveMode === 'start')
     ) {
+      // 1. 前営業日以前の帰社メーター未入力（運行中放置）チェック
       const { data: pastDrives, error: pastDriveError } = await supabase
         .from('check_driving_report')
         .select('id, vehicle_name, start_meter, start_at, staff_name')
         .is('end_meter', null)
-        .lt('start_at', startIso);
+        .lt('start_at', startIso)
+        .order('start_at', { ascending: false });
 
       if (!pastDriveError && pastDrives) {
         const myUnfinishedDrive = pastDrives.find((d) => isNameMatch(d.staff_name, cleanStaff));
         if (myUnfinishedDrive) {
+          const driveSlot = getBusinessSlotForDate(myUnfinishedDrive.start_at);
           setUnsettledAlert({
             type: 'drive',
-            message: `前日の【${myUnfinishedDrive.vehicle_name}】の帰社メーター（降車記録）が未入力のままです！`,
+            message: `前回運行時（${driveSlot.dateLabel}）の【${myUnfinishedDrive.vehicle_name}】の帰社メーター（降車記録）が未入力のままです！`,
             targetVehicle: myUnfinishedDrive.vehicle_name,
             targetDriveId: myUnfinishedDrive.id,
+            unsettledDateLabel: driveSlot.dateLabel,
           });
           return;
         }
       }
 
-      const prevDate = new Date(startIso);
-      prevDate.setDate(prevDate.getDate() - 1);
-      const prevStartIso = prevDate.toISOString();
+      // 2. 各自の「最終出勤営業日」を遡って退勤チェック忘れを判定（直近14日間を検索）
+      const lookbackDate = new Date(startIso);
+      lookbackDate.setDate(lookbackDate.getDate() - 14);
+      const lookbackIso = lookbackDate.toISOString();
 
       const { data: pastAlcoholRecords, error: pastAlcoholError } = await supabase
         .from('check_alcohol')
         .select('checked_at, notes, staff_name')
-        .gte('checked_at', prevStartIso)
-        .lt('checked_at', startIso);
+        .gte('checked_at', lookbackIso)
+        .lt('checked_at', startIso)
+        .order('checked_at', { ascending: false });
 
       if (!pastAlcoholError && pastAlcoholRecords) {
         const myPastLogs = pastAlcoholRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
-        const hasStart = myPastLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-        const hasFinish = myPastLogs.some((r) => r.notes && r.notes.includes('退勤時'));
+        if (myPastLogs.length > 0) {
+          // そのスタッフが最後に記録を残した営業日枠（16:00〜翌16:00）を特定
+          const latestRecord = myPastLogs[0];
+          const lastSlot = getBusinessSlotForDate(latestRecord.checked_at);
+          const slotStartMs = new Date(lastSlot.slotStartIso).getTime();
+          const slotEndMs = new Date(lastSlot.slotEndIso).getTime();
 
-        if (hasStart && !hasFinish) {
-          setUnsettledAlert({
-            type: 'alcohol',
-            message: '前日の【退勤時の点呼・アルコールチェック】が完了していません！',
+          // その最終出勤営業日内の全ログを抽出
+          const logsInLastSlot = myPastLogs.filter((r) => {
+            const t = new Date(r.checked_at).getTime();
+            return t >= slotStartMs && t < slotEndMs;
           });
-          return;
+
+          const hasStartInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('出勤時'));
+          const hasFinishInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('退勤時'));
+
+          // 最終出勤営業日に「出勤時」があるのに「退勤時」がない場合、休みを挟んでいても確実にブロック
+          if (hasStartInLastSlot && !hasFinishInLastSlot) {
+            setUnsettledAlert({
+              type: 'alcohol',
+              message: `前回出勤日（${lastSlot.dateLabel}）の【退勤時の点呼・アルコールチェック】が完了していません！`,
+              unsettledDateLabel: lastSlot.dateLabel,
+              defaultSettleJst: lastSlot.defaultSettleJst,
+            });
+            return;
+          }
         }
       }
     }
@@ -1217,9 +1284,10 @@ function ChecksheetForm() {
             }
           }
         } else {
+          // 過去精算時に誤って当日の日時に戻されていた場合は、対象の前回出勤日（15:00）へ自動補正
           if (selectedIso >= new Date(startIso).toISOString()) {
-            const correctedPastJst = getPrevBusinessDayDefaultJST();
-            setAlcoholDate(correctedPastJst);
+            const fallbackPastJst = settlingDefaultJst || getPrevBusinessDayDefaultJST();
+            setAlcoholDate(fallbackPastJst);
           }
         }
 
@@ -1227,7 +1295,12 @@ function ChecksheetForm() {
 
         const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
         const handNote = alcoholMode === 'start' ? `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】` : '';
-        const settlePrefix = isPastRecord && alcoholMode === 'finish' ? '[前日分精算]' : '';
+        const settlePrefix =
+          isPastRecord && alcoholMode === 'finish'
+            ? settlingDateLabel
+              ? `[${settlingDateLabel}分精算]`
+              : '[前回分精算]'
+            : '';
 
         const finalNotes = [timingLabel, settlePrefix, healthNote, handNote, alcoholNotes]
           .filter(Boolean)
@@ -1236,7 +1309,7 @@ function ChecksheetForm() {
 
         const targetCheckedAtIso =
           isPastRecord && selectedIso >= new Date(startIso).toISOString()
-            ? new Date(getPrevBusinessDayDefaultJST()).toISOString()
+            ? new Date(settlingDefaultJst || getPrevBusinessDayDefaultJST()).toISOString()
             : selectedIso;
 
         const { error } = await supabase.from('check_alcohol').insert([
@@ -1261,10 +1334,13 @@ function ChecksheetForm() {
             type: 'alcohol_start',
           });
         } else if (isSettlingPastAlcohol) {
+          const finishedLabel = settlingDateLabel || '前回';
           setIsSettlingPastAlcohol(false);
+          setSettlingDateLabel('');
+          setSettlingDefaultJst('');
           setAlcoholDate(getNowJST());
           applyAlcoholModeInternal('start');
-          setSuccessMsg('前日の退勤記録を完了しました！続けて本日の「① 出勤時」を記録してください。');
+          setSuccessMsg(`${finishedLabel}の退勤記録を精算しました！続けて本日の「① 出勤時」を記録してください。`);
           window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
@@ -1572,27 +1648,29 @@ function ChecksheetForm() {
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
-              {/* 前日分の退勤忘れ精算モード時の案内バナー */}
+              {/* 前回出勤日の退勤忘れ精算モード時の案内バナー */}
               {isSettlingPastAlcohol && (
                 <div className="p-4 bg-amber-950 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-xl space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-base sm:text-lg font-black text-amber-300">
-                      💡 前日分の【退勤時チェック】を精算入力中です
+                      💡 前回出勤日（{settlingDateLabel || '前回'}）の【退勤時チェック】を精算入力中です
                     </span>
                     <button
                       type="button"
                       onClick={() => {
                         setIsSettlingPastAlcohol(false);
+                        setSettlingDateLabel('');
+                        setSettlingDefaultJst('');
                         setAlcoholDate(getNowJST());
                         applyAlcoholModeInternal('start');
                       }}
-                      className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-600 font-bold"
+                      className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-600 font-bold shrink-0"
                     >
                       精算をやめる
                     </button>
                   </div>
                   <p className="text-xs sm:text-sm font-bold text-slate-200 leading-snug">
-                    記録日時が前日に設定されています。このまま確認者とアルコール測定値を入れて送信すると、続けて本日の「出勤時」入力へ進めます。
+                    記録日時が前回出勤日（{settlingDateLabel || '前回'}）に設定されています。このまま確認者とアルコール測定値を入れて送信すると、続けて本日の「出勤時」入力へ進めます。
                   </p>
                 </div>
               )}
@@ -2810,7 +2888,7 @@ function ChecksheetForm() {
                 ? alcoholMode === 'start'
                   ? '① 出勤時 基本チェックを送信'
                   : isSettlingPastAlcohol
-                  ? '前日分 退勤チェックを精算送信'
+                  ? `${settlingDateLabel || '前回'}分 退勤チェックを精算送信`
                   : '② 退勤時 基本チェックを送信'
                 : activeTab === 'kowari'
                 ? '小割加工チェックを送信'
@@ -3015,7 +3093,9 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 翌朝の未精算データ ブロック全画面アラート */}
+      {/* ========================================================
+          前回出勤日の未精算データ ブロック全画面アラート
+         ======================================================== */}
       {unsettledAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3025,13 +3105,13 @@ function ChecksheetForm() {
 
             <div className="space-y-3">
               <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
-                前日の未記録があります
+                前回出勤日の未記録があります
               </div>
               <div className="text-xl sm:text-2xl font-black leading-snug tracking-wide text-white">
                 {unsettledAlert.message}
               </div>
               <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
-                ※本日の出勤・出発を記録する前に、前日分の記録を完了させてください。
+                ※本日の出勤・出発を記録する前に、前回出勤日（{unsettledAlert.unsettledDateLabel || '前回'}）の記録を完了させてください。
               </p>
             </div>
 
@@ -3048,22 +3128,26 @@ function ChecksheetForm() {
                   }}
                   className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-lg rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
                 >
-                  <span>🚗 前日の帰社メーターを入力する</span>
+                  <span>🚗 {unsettledAlert.unsettledDateLabel || '前回'}の帰社メーターを入力する</span>
                   <span>👉</span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => {
+                    const targetLabel = unsettledAlert.unsettledDateLabel || '前回';
+                    const targetJst = unsettledAlert.defaultSettleJst || getPrevBusinessDayDefaultJST();
                     setUnsettledAlert(null);
                     setIsSettlingPastAlcohol(true);
-                    setAlcoholDate(getPrevBusinessDayDefaultJST());
+                    setSettlingDateLabel(targetLabel);
+                    setSettlingDefaultJst(targetJst);
+                    setAlcoholDate(targetJst);
                     changeTab('alcohol');
                     applyAlcoholModeInternal('finish');
                   }}
                   className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-lg rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
                 >
-                  <span>📋 前日の退勤チェックを入力する</span>
+                  <span>📋 {unsettledAlert.unsettledDateLabel || '前回'}の退勤チェックを入力する</span>
                   <span>👉</span>
                 </button>
               )}
