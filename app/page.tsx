@@ -417,6 +417,12 @@ function ChecksheetForm() {
   // 基本チェック（退勤時）選択・送信時に、当日の出勤時チェックが未実施の場合のハードブロック用ステート
   const [missingStartForFinishAlert, setMissingStartForFinishAlert] = useState(false);
 
+  // 確認者が退勤済み、または退勤時に未出勤の場合のシンプル確認モーダル用ステート
+  const [checkerAttendanceAlert, setCheckerAttendanceAlert] = useState<{
+    checkerName: string;
+    statusType: 'not_started' | 'already_finished';
+  } | null>(null);
+
   // 例外考慮：前回出勤日の退勤忘れを精算入力中かどうかのフラグと対象日付ラベル
   const [isSettlingPastAlcohol, setIsSettlingPastAlcohol] = useState(false);
   const [settlingDateLabel, setSettlingDateLabel] = useState('');
@@ -624,7 +630,8 @@ function ChecksheetForm() {
       unsettledAlert ||
       vehicleUnfinishedAlert ||
       missingStartAlcoholAlert ||
-      missingStartForFinishAlert
+      missingStartForFinishAlert ||
+      checkerAttendanceAlert
     )
       return;
     const touch = e.touches[0];
@@ -878,6 +885,93 @@ function ChecksheetForm() {
     !isStartMeterDecreased &&
     !isStartMeterDigitError &&
     currentStartMeterNum - lastRecordedMeter >= 200;
+
+  // アルコールチェック登録の実行関数（直接または確認者在席アラート承認後に呼び出し）
+  const executeAlcoholInsert = async () => {
+    const checker = checkerType === 'その他' ? customChecker : checkerType;
+    const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
+    const { startIso } = getBusinessRangeJST();
+
+    const selectedIso = new Date(alcoholDate).toISOString();
+    const isPastRecord = isSettlingPastAlcohol || selectedIso < new Date(startIso).toISOString();
+
+    if (isPastRecord && selectedIso >= new Date(startIso).toISOString()) {
+      const fallbackPastJst = settlingDefaultJst || getPrevBusinessDayDefaultJST();
+      setAlcoholDate(fallbackPastJst);
+    }
+
+    setSubmitting(true);
+    setSuccessMsg('');
+
+    try {
+      saveStaffNameHistory(staffName);
+
+      const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
+      const handNote = alcoholMode === 'start' ? `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】` : '';
+      const settlePrefix =
+        isPastRecord && alcoholMode === 'finish'
+          ? settlingDateLabel
+            ? `[${settlingDateLabel}分精算]`
+            : '[前回分精算]'
+          : '';
+
+      const finalNotes = [timingLabel, settlePrefix, healthNote, handNote, alcoholNotes]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      const targetCheckedAtIso =
+        isPastRecord && selectedIso >= new Date(startIso).toISOString()
+          ? new Date(settlingDefaultJst || getPrevBusinessDayDefaultJST()).toISOString()
+          : selectedIso;
+
+      const { error } = await supabase.from('check_alcohol').insert([
+        {
+          checked_at: targetCheckedAtIso,
+          staff_name: staffName,
+          checker_name: checker,
+          alcohol_value: parseFloat(alcoholVal),
+          notes: finalNotes,
+        },
+      ]);
+      if (error) throw error;
+
+      setAlcoholVal('');
+      setAlcoholNotes('');
+      setBasicHealthStatus('');
+      setHandHygieneStatus('');
+      setCheckerAttendanceAlert(null);
+
+      if (alcoholMode === 'start') {
+        applyAlcoholModeInternal('finish');
+        setFullscreenAlert({
+          type: 'alcohol_start',
+        });
+      } else if (isSettlingPastAlcohol) {
+        const finishedLabel = settlingDateLabel || '前回';
+        setIsSettlingPastAlcohol(false);
+        setSettlingDateLabel('');
+        setSettlingDefaultJst('');
+        setAlcoholDate(getNowJST());
+        applyAlcoholModeInternal('start');
+        setSuccessMsg(`${finishedLabel}の退勤時の記録を完了しました！続けて本日の「① 出勤時」を記録してください。`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      setSuccessMsg('送信が完了しました！');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setDialogError(err.message || 'Supabase接続エラー');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setSubmitting(false);
+      setIsCooldown(true);
+      setTimeout(() => {
+        setIsCooldown(false);
+      }, 3000);
+    }
+  };
 
   // 出発記録の実行関数（直接または200km乖離確認モーダル承認後に呼び出し）
   const executeStartDrive = async () => {
@@ -1208,136 +1302,123 @@ function ChecksheetForm() {
       return;
     }
 
+    // =========================================================
+    // 基本チェック（アルコールチェック）送信前の事前チェックと確認者ステータス照合
+    // =========================================================
+    if (activeTab === 'alcohol') {
+      if (alcoholMode === 'finish' && myLatestPendingDrive) {
+        setDrivePendingAlert({
+          vehicleName: myLatestPendingDrive.vehicle_name,
+          driveId: myLatestPendingDrive.id,
+        });
+        return;
+      }
+
+      if (alcoholMode === 'start') {
+        if (!basicHealthStatus) {
+          setDialogError('体調チェックを選択してください');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        if (!handHygieneStatus) {
+          setDialogError('手の衛生チェックを選択してください');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
+
+      const checker = checkerType === 'その他' ? customChecker : checkerType;
+      if (!checker.trim()) {
+        setDialogError('確認者を入力してください');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      const cleanChecker = checker.replace(/[\s ]+/g, '').trim();
+      if (
+        cleanStaff === cleanChecker ||
+        cleanStaff.startsWith(cleanChecker) ||
+        cleanChecker.startsWith(cleanStaff) ||
+        cleanStaff.includes(cleanChecker)
+      ) {
+        setDialogError('「あなたのお名前」と「確認者」に同一人物（ご自身）は指定できません。必ず別の確認者を選んでください。');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      if (alcoholVal === '') {
+        setDialogError('アルコール測定値を入力してください');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
+      const selectedIso = new Date(alcoholDate).toISOString();
+      const isPastRecord = isSettlingPastAlcohol || selectedIso < new Date(startIso).toISOString();
+
+      if (!isPastRecord) {
+        const { data: existingRecords, error: checkError } = await supabase
+          .from('check_alcohol')
+          .select('id, checked_at, notes, staff_name')
+          .gte('checked_at', startIso)
+          .lte('checked_at', endIso);
+
+        if (!checkError && existingRecords) {
+          const myTodayLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
+
+          // 1. 退勤時で本人の出勤記録がない場合はハードブロック
+          if (alcoholMode === 'finish') {
+            const hasStartToday = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
+            if (!hasStartToday) {
+              applyAlcoholModeInternal('start');
+              setMissingStartForFinishAlert(true);
+              return;
+            }
+          }
+
+          // 2. 本人の二重投稿防止チェック
+          const duplicate = myTodayLogs.find((r) => r.notes && r.notes.includes(timingKey));
+          if (duplicate) {
+            setDuplicateAlcoholAlert({
+              isStart: alcoholMode === 'start',
+            });
+            return;
+          }
+
+          // 3. パターンC：確認者（checker）のステータス照合
+          // ・出勤時・退勤時とも、確認者が「すでに退勤済み」ならアラート
+          // ・退勤時のみ、確認者の「出勤記録がない」場合もアラート（朝は順番が前後するため免除）
+          const checkerLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanChecker));
+          const checkerHasStarted = checkerLogs.some((r) => r.notes && r.notes.includes('出勤時'));
+          const checkerHasFinished = checkerLogs.some((r) => r.notes && r.notes.includes('退勤時'));
+
+          if (checkerHasFinished) {
+            setCheckerAttendanceAlert({
+              checkerName: checker,
+              statusType: 'already_finished',
+            });
+            return;
+          }
+
+          if (alcoholMode === 'finish' && !checkerHasStarted) {
+            setCheckerAttendanceAlert({
+              checkerName: checker,
+              statusType: 'not_started',
+            });
+            return;
+          }
+        }
+      }
+
+      await executeAlcoholInsert();
+      return;
+    }
+
     setSubmitting(true);
     setSuccessMsg('');
 
     try {
-      if (activeTab === 'alcohol') {
-        if (alcoholMode === 'finish' && myLatestPendingDrive) {
-          setDrivePendingAlert({
-            vehicleName: myLatestPendingDrive.vehicle_name,
-            driveId: myLatestPendingDrive.id,
-          });
-          setSubmitting(false);
-          return;
-        }
-
-        if (alcoholMode === 'start') {
-          if (!basicHealthStatus) throw new Error('体調チェックを選択してください');
-          if (!handHygieneStatus) throw new Error('手の衛生チェックを選択してください');
-        }
-
-        const checker = checkerType === 'その他' ? customChecker : checkerType;
-        if (!checker.trim()) throw new Error('確認者を入力してください');
-
-        const cleanChecker = checker.replace(/[\s ]+/g, '').trim();
-        if (
-          cleanStaff === cleanChecker ||
-          cleanStaff.startsWith(cleanChecker) ||
-          cleanChecker.startsWith(cleanStaff) ||
-          cleanStaff.includes(cleanChecker)
-        ) {
-          throw new Error('「あなたのお名前」と「確認者」に同一人物（ご自身）は指定できません。必ず別の確認者を選んでください。');
-        }
-
-        if (alcoholVal === '') throw new Error('アルコール測定値を入力してください');
-
-        const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
-        const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
-
-        const selectedIso = new Date(alcoholDate).toISOString();
-        const isPastRecord = isSettlingPastAlcohol || selectedIso < new Date(startIso).toISOString();
-
-        if (!isPastRecord) {
-          const { data: existingRecords, error: checkError } = await supabase
-            .from('check_alcohol')
-            .select('id, checked_at, notes, staff_name')
-            .gte('checked_at', startIso)
-            .lte('checked_at', endIso);
-
-          if (!checkError && existingRecords) {
-            const myTodayLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
-
-            if (alcoholMode === 'finish') {
-              const hasStartToday = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-              if (!hasStartToday) {
-                applyAlcoholModeInternal('start');
-                setMissingStartForFinishAlert(true);
-                setSubmitting(false);
-                return;
-              }
-            }
-
-            const duplicate = myTodayLogs.find((r) => r.notes && r.notes.includes(timingKey));
-            if (duplicate) {
-              setDuplicateAlcoholAlert({
-                isStart: alcoholMode === 'start',
-              });
-              setSubmitting(false);
-              return;
-            }
-          }
-        } else {
-          if (selectedIso >= new Date(startIso).toISOString()) {
-            const fallbackPastJst = settlingDefaultJst || getPrevBusinessDayDefaultJST();
-            setAlcoholDate(fallbackPastJst);
-          }
-        }
-
-        saveStaffNameHistory(staffName);
-
-        const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
-        const handNote = alcoholMode === 'start' ? `【手の衛生: ${handHygieneStatus === '良' ? '良好' : '要確認'}】` : '';
-        const settlePrefix =
-          isPastRecord && alcoholMode === 'finish'
-            ? settlingDateLabel
-              ? `[${settlingDateLabel}分精算]`
-              : '[前回分精算]'
-            : '';
-
-        const finalNotes = [timingLabel, settlePrefix, healthNote, handNote, alcoholNotes]
-          .filter(Boolean)
-          .join(' ')
-          .trim();
-
-        const targetCheckedAtIso =
-          isPastRecord && selectedIso >= new Date(startIso).toISOString()
-            ? new Date(settlingDefaultJst || getPrevBusinessDayDefaultJST()).toISOString()
-            : selectedIso;
-
-        const { error } = await supabase.from('check_alcohol').insert([
-          {
-            checked_at: targetCheckedAtIso,
-            staff_name: staffName,
-            checker_name: checker,
-            alcohol_value: parseFloat(alcoholVal),
-            notes: finalNotes,
-          },
-        ]);
-        if (error) throw error;
-
-        setAlcoholVal('');
-        setAlcoholNotes('');
-        setBasicHealthStatus('');
-        setHandHygieneStatus('');
-
-        if (alcoholMode === 'start') {
-          applyAlcoholModeInternal('finish');
-          setFullscreenAlert({
-            type: 'alcohol_start',
-          });
-        } else if (isSettlingPastAlcohol) {
-          const finishedLabel = settlingDateLabel || '前回';
-          setIsSettlingPastAlcohol(false);
-          setSettlingDateLabel('');
-          setSettlingDefaultJst('');
-          setAlcoholDate(getNowJST());
-          applyAlcoholModeInternal('start');
-          setSuccessMsg(`${finishedLabel}の退勤時の記録を完了しました！続けて本日の「① 出勤時」を記録してください。`);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return;
-        }
-      } else if (activeTab === 'receiving') {
+      if (activeTab === 'receiving') {
         saveStaffNameHistory(staffName);
         let flightNameToSave = selectedFlight;
         if (selectedFlight === 'その他') {
@@ -2896,6 +2977,66 @@ function ChecksheetForm() {
           </div>
         </form>
       </div>
+
+      {/* ========================================================
+          確認者が退勤済み・または退勤時に未出勤の場合のシンプル確認モーダル
+         ======================================================== */}
+      {checkerAttendanceAlert && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
+            <div className="w-20 h-20 bg-red-950 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner border-2 border-red-400">
+              👤⚠️
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
+                確認者の確認
+              </div>
+              <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
+                {checkerAttendanceAlert.statusType === 'already_finished' ? (
+                  <>
+                    確認者の<br />
+                    <span className="text-amber-300 underline decoration-4 underline-offset-4">
+                      {checkerAttendanceAlert.checkerName} さん
+                    </span>
+                    は<br />
+                    すでに退勤済みです。<br />
+                    間違いないですか？
+                  </>
+                ) : (
+                  <>
+                    確認者の<br />
+                    <span className="text-amber-300 underline decoration-4 underline-offset-4">
+                      {checkerAttendanceAlert.checkerName} さん
+                    </span>
+                    は<br />
+                    出勤記録がありません。<br />
+                    間違いないですか？
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={executeAlcoholInsert}
+                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+              >
+                <span>間違いない（送信する）</span>
+                <span>✓</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCheckerAttendanceAlert(null)}
+                className="w-full min-h-[50px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-sm rounded-xl border border-slate-600 transition-all flex items-center justify-center"
+              >
+                確認者を選び直す（キャンセル）
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
           出発時：乗車時メーターが前回最終記録から200km以上空いている場合の確認モーダル

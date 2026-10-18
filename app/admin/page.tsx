@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
-// 管理者パスコード（必要に応じて自由に変更してください）[cite: 10]
+// 管理者パスコード
 const ADMIN_PASSCODE = 'gyorui370220';
 
 interface EditTarget {
@@ -24,7 +24,7 @@ interface WeatherInfo {
   humidity: number | null;
 }
 
-// 出勤・退勤の判定ヘルパー[cite: 10]
+// 出勤・退勤の判定ヘルパー
 const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown' => {
   if (!notes) return 'unknown';
   if (notes.includes('出勤時') || notes.includes('業務前')) return 'start';
@@ -32,14 +32,14 @@ const getTimingType = (notes: string | null = ''): 'start' | 'finish' | 'unknown
   return 'unknown';
 };
 
-// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得[cite: 10]
+// 開いた時点の日本時間（JST）の今日の日付文字列(YYYY-MM-DD)を取得
 const getTodayJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 10);
 };
 
-// 西暦なしの日時フォーマット（M/D HH:mm）[cite: 10]
+// 西暦なしの日時フォーマット（M/D HH:mm）
 const formatShortDateTime = (isoString: string) => {
   if (!isoString) return '-';
   const d = new Date(isoString);
@@ -50,55 +50,53 @@ const formatShortDateTime = (isoString: string) => {
   return `${month}/${date} ${hours}:${minutes}`;
 };
 
-// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出[cite: 10]
-const getBusinessPeriod = (dateStr: string) => {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  // 当日 16:00 JST[cite: 10]
-  const endD = new Date(year, month - 1, day, 16, 0, 0);
-  // 前日 16:00 JST[cite: 10]
-  const startD = new Date(year, month - 1, day - 1, 16, 0, 0);
-
-  const prevMonth = startD.getMonth() + 1;
-  const prevDay = startD.getDate();
-  const prevDateStr = `${startD.getFullYear()}-${String(prevMonth).padStart(2, '0')}-${String(prevDay).padStart(2, '0')}`;
-
+// 期間指定（開始日〜終了日）からクエリ用のISO範囲を算出
+const getPeriodRange = (startDateStr: string, endDateStr: string) => {
+  // 開始日の前日16:00 JST から 終了日の当日16:00 JST までをカバー
+  const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+  const startBase = new Date(sYear, sMonth - 1, sDay - 1, 16, 0, 0);
+  const prevMonth = startBase.getMonth() + 1;
+  const prevDay = startBase.getDate();
+  const prevDateStr = `${startBase.getFullYear()}-${String(prevMonth).padStart(2, '0')}-${String(prevDay).padStart(2, '0')}`;
   const startIso = `${prevDateStr}T16:00:00+09:00`;
-  const endIso = `${dateStr}T16:00:00+09:00`;
-  const label = `${prevMonth}/${prevDay} 16:00 ～ ${month}/${day} 16:00`;
+
+  const endIso = `${endDateStr}T16:00:00+09:00`;
+  const label = `${prevMonth}/${prevDay} 16:00 ～ ${endDateStr.replace('-', '/')} 16:00`;
 
   return { startIso, endIso, label };
 };
 
 export default function AdminDashboard() {
-  const [targetDate, setTargetDate] = useState(getTodayJST);
+  const [startDate, setStartDate] = useState(getTodayJST);
+  const [endDate, setEndDate] = useState(getTodayJST);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
 
-  // 認証ステート[cite: 10]
+  // 認証ステート
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [inputPass, setInputPass] = useState('');
   const [passError, setPassError] = useState('');
 
-  // 編集モーダルステート[cite: 10]
+  // 編集モーダルステート
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editTimeValue, setEditTimeValue] = useState('');
   const [editNotesValue, setEditNotesValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // 各種データ[cite: 10]
+  // 各種データ
   const [alcohols, setAlcohols] = useState<any[]>([]);
   const [fishes, setFishes] = useState<any[]>([]);
-  const [kowaris, setKowaris] = useState<any[]>([]); // 小割加工ステート[cite: 10]
+  const [kowaris, setKowaris] = useState<any[]>([]);
   const [temps, setTemps] = useState<any[]>([]);
   const [closings, setClosings] = useState<any[]>([]);
   const [receivings, setReceivings] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
 
-  // Supabase (daily_weather_logs) から読み込む気象データステート[cite: 10]
+  // Supabase (daily_weather_logs) から読み込む気象データステート
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
-  // 認証チェック[cite: 10]
+  // 認証チェック
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_authenticated');
     if (authStatus === 'true') {
@@ -123,7 +121,7 @@ export default function AdminDashboard() {
     setInputPass('');
   };
 
-  // daily_weather_logs テーブルから確定気象データを取得[cite: 10]
+  // daily_weather_logs テーブルから確定気象データを取得（終了日基準）
   const fetchWeather = async (dateStr: string) => {
     setWeatherLoading(true);
     try {
@@ -156,11 +154,11 @@ export default function AdminDashboard() {
     }
   };
 
-  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）[cite: 10]
-  const fetchData = async (dateStr: string) => {
+  // 業務データ取得（期間指定対応）
+  const fetchData = async (sDate: string, eDate: string) => {
     if (!isAuthenticated) return;
     setLoading(true);
-    const { startIso, endIso } = getBusinessPeriod(dateStr);
+    const { startIso, endIso } = getPeriodRange(sDate, eDate);
 
     try {
       const [rAlc, rFish, rKowari, rTemp, rClose, rRec, rDrive] = await Promise.all([
@@ -189,12 +187,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchData(targetDate);
-      fetchWeather(targetDate);
+      fetchData(startDate, endDate);
+      fetchWeather(endDate);
     }
-  }, [targetDate, isAuthenticated]);
+  }, [startDate, endDate, isAuthenticated]);
 
-  // レコード削除[cite: 10]
+  // レコード削除
   const handleDelete = async (table: string, id: string, label: string) => {
     if (!confirm(`【警告】この記録（${label}）を完全に削除しますか？\n誤入力やテストデータ以外は削除しないでください。`)) {
       return;
@@ -202,14 +200,14 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase.from(table).delete().eq('id', id);
       if (error) throw error;
-      await fetchData(targetDate);
+      await fetchData(startDate, endDate);
       alert('削除が完了しました。');
     } catch (err: any) {
       alert('削除エラー: ' + (err.message || 'Supabase接続エラー'));
     }
   };
 
-  // 編集モーダルを開く[cite: 10]
+  // 編集モーダルを開く
   const openEditModal = (target: EditTarget) => {
     setEditTarget(target);
     const d = new Date(target.currentIso);
@@ -218,7 +216,7 @@ export default function AdminDashboard() {
     setEditNotesValue(target.notes || '');
   };
 
-  // 編集の保存[cite: 10]
+  // 編集の保存
   const handleSaveEdit = async () => {
     if (!editTarget || !editTimeValue) return;
     setSavingEdit(true);
@@ -235,7 +233,7 @@ export default function AdminDashboard() {
       if (error) throw error;
 
       setEditTarget(null);
-      await fetchData(targetDate);
+      await fetchData(startDate, endDate);
       alert('修正を保存しました。');
     } catch (err: any) {
       alert('更新エラー: ' + (err.message || 'Supabase接続エラー'));
@@ -248,10 +246,94 @@ export default function AdminDashboard() {
     window.print();
   };
 
-  const currentPeriod = getBusinessPeriod(targetDate);
+  // =============================================================
+  // CSV出力機能の実装
+  // =============================================================
+  const handleExportCSV = () => {
+    let csvContent = '\uFEFF'; // 文字化け防止のBOM
+    let filename = `gyorui_report_${startDate}_to_${endDate}.csv`;
+
+    if (viewMode === 'alcohol' || viewMode === 'all') {
+      csvContent += '【基本チェック・アルコール点呼】\n';
+      csvContent += '点呼区分,日時,担当者名,確認者名,測定値(mg/L),特記事項\n';
+      alcohols.forEach((r) => {
+        const timing = getTimingType(r.notes) === 'start' ? '出勤時' : '退勤時';
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${timing},${r.checked_at},${r.staff_name},${r.checker_name},${r.alcohol_value},${notes}\n`;
+      });
+      csvContent += '\n';
+    }
+
+    if (viewMode === 'temp' || viewMode === 'all') {
+      csvContent += '【保管庫・売場管理(温度・衛生)】\n';
+      csvContent += '日時,担当者,本庫(℃),2号室(℃),鮮魚庫(℃),定温売場(℃),売場実測(℃),保管庫衛生,太物売場衛生,売場衛生,害獣痕跡,特記事項\n';
+      temps.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.main_freezer_temp},${r.room2_freezer_temp},${r.fish_storage_temp},${r.constant_floor_temp},${r.floor_temp},${r.storage_hygiene_status},${r.processing_zone_status},${r.floor_hygiene_status},${r.pest_evidence},${notes}\n`;
+      });
+      csvContent += '\n';
+
+      csvContent += '【退勤前温度】\n';
+      csvContent += '日時,担当者,本庫(℃),2号室(℃),特記事項\n';
+      closings.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.main_freezer_temp},${r.room2_freezer_temp},${notes}\n`;
+      });
+      csvContent += '\n';
+
+      csvContent += '【荷物受入】\n';
+      csvContent += '日時,担当者,便名,外観包装,鮮度におい,輸送温度,特記事項\n';
+      receivings.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.flight_name},${r.pkg_status},${r.freshness_status},${r.transit_temp_status},${notes}\n`;
+      });
+      csvContent += '\n';
+    }
+
+    if (viewMode === 'fish' || viewMode === 'all') {
+      csvContent += '【生魚加工衛生管理】\n';
+      csvContent += '日時,点検者,健康状態,手洗い,商品確認,魚体洗浄,作業温度,施設衛生,用具衛生,特記事項\n';
+      fishes.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.health_status},${r.hand_washing ? '済' : '未'},${r.product_check},${r.fish_washing},${r.work_temp},${r.facility_hygiene},${r.tools_hygiene},${notes}\n`;
+      });
+      csvContent += '\n';
+    }
+
+    if (viewMode === 'kowari' || viewMode === 'all') {
+      csvContent += '【小割加工衛生管理】\n';
+      csvContent += '日時,点検者,作業品目,健康状態,手の衛生,作業温度,施設衛生,用具衛生,ラベル貼付,特記事項\n';
+      kowaris.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.item_type},${r.health_status},${r.hand_hygiene},${r.work_temp},${r.facility_hygiene},${r.tools_hygiene},${r.label_check},${notes}\n`;
+      });
+      csvContent += '\n';
+    }
+
+    if (viewMode === 'drive' || viewMode === 'all') {
+      csvContent += '【運転日報】\n';
+      csvContent += '運転者,車両,行先,同乗者,出発日時,乗車時メーター,帰社日時,降車時メーター,走行距離(km),給油(L),特記事項\n';
+      drives.forEach((r) => {
+        const distance = r.start_meter && r.end_meter ? (Number(r.end_meter) - Number(r.start_meter)).toFixed(1) : '';
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.staff_name},${r.vehicle_name},${r.destination},${r.passenger || ''},${r.start_at},${r.start_meter},${r.end_at || ''},${r.end_meter || ''},${distance},${r.refuel_liters || ''},${notes}\n`;
+      });
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const currentPeriod = getPeriodRange(startDate, endDate);
 
   // -------------------------------------------------------------
-  // ログイン画面（未認証時）[cite: 10]
+  // ログイン画面（未認証時）
   // -------------------------------------------------------------
   if (!isAuthenticated) {
     return (
@@ -298,11 +380,11 @@ export default function AdminDashboard() {
   }
 
   // -------------------------------------------------------------
-  // 管理者メイン画面（認証完了時）[cite: 10]
+  // 管理者メイン画面（認証完了時）
   // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 print:p-0 print:bg-white font-sans">
-      {/* 画面操作コントロールバー（印刷時は非表示）[cite: 10] */}
+      {/* 画面操作コントロールバー（印刷時は非表示） */}
       <div className="max-w-5xl mx-auto mb-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -312,28 +394,44 @@ export default function AdminDashboard() {
                 管理者認証済
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-bold">点検確認・時刻修正・誤送信削除・印刷PDF出力</p>
+            <p className="text-xs text-slate-500 font-bold">点検確認・時刻修正・誤送信削除・CSV出力・印刷</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-bold text-slate-600">営業日:</label>
+            {/* 期間指定コントロール */}
+            <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+              <label className="text-[11px] font-bold text-slate-600">期間:</label>
               <input
                 type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className="p-1.5 border border-slate-300 rounded text-xs font-semibold"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="p-1 border border-slate-300 rounded text-xs font-semibold"
+              />
+              <span className="text-xs text-slate-400">～</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="p-1 border border-slate-300 rounded text-xs font-semibold"
               />
             </div>
 
             <button
               onClick={() => {
-                fetchData(targetDate);
-                fetchWeather(targetDate);
+                fetchData(startDate, endDate);
+                fetchWeather(endDate);
               }}
               className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold rounded"
             >
               🔄 更新
+            </button>
+
+            {/* CSV出力ボタン */}
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded shadow flex items-center gap-1"
+            >
+              📥 CSV出力
             </button>
 
             <button
@@ -384,13 +482,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* メイン表示エリア[cite: 10] */}
+      {/* メイン表示エリア */}
       <div className="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
-        {/* 帳票ヘッダー（対象日＋営業範囲＋確定気象情報）[cite: 10] */}
+        {/* 帳票ヘッダー（期間＋確定気象情報） */}
         <div className="border-b-2 border-slate-800 pb-2 mb-4 flex flex-wrap justify-between items-end gap-2">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
-              {viewMode === 'all' && '業務点検日報（日次取りまとめ）'}
+              {viewMode === 'all' && '業務点検日報（期間まとめ・集計）'}
               {viewMode === 'temp' && '保管庫・売場管理（温度 & 衛生） 点検記録簿'}
               {viewMode === 'fish' && '生魚加工 衛生管理点検記録簿'}
               {viewMode === 'kowari' && '小割加工 衛生管理点検記録簿'}
@@ -399,15 +497,15 @@ export default function AdminDashboard() {
             </h2>
             <div className="flex flex-wrap items-center gap-3 mt-1.5">
               <div className="text-xs font-bold text-slate-700">
-                営業日: <span className="text-sm text-blue-900 underline font-mono font-black">{targetDate}</span>
+                指定期間: <span className="text-sm text-blue-900 underline font-mono font-black">{startDate} ～ {endDate}</span>
                 <span className="ml-2 text-xs font-bold text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
                   （{currentPeriod.label}）
                 </span>
               </div>
 
-              {/* 公設市場の確定気象情報バッジ[cite: 10] */}
+              {/* 公設市場の確定気象情報バッジ */}
               <div className="text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded px-2.5 py-0.5 flex items-center gap-2 print:border-slate-400">
-                <span className="text-slate-500 font-normal">気象(08:00):</span>
+                <span className="text-slate-500 font-normal">気象(終了日):</span>
                 {weatherLoading ? (
                   <span className="text-slate-400">取得中...</span>
                 ) : weather ? (
@@ -419,7 +517,7 @@ export default function AdminDashboard() {
                     <span>湿度 {weather.humidity !== null ? `${weather.humidity}%` : '-'}</span>
                   </span>
                 ) : (
-                  <span className="text-slate-400 font-normal font-sans">（8:00記録待ち）</span>
+                  <span className="text-slate-400 font-normal font-sans">（気象ログなし）</span>
                 )}
               </div>
             </div>
@@ -556,7 +654,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* 荷物受入 点検記録[cite: 10] */}
+                {/* 荷物受入 点検記録 */}
                 <div className="border border-slate-300 rounded p-2.5 bg-white">
                   <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
                     <span>■ 荷物受入 点検記録</span>
@@ -579,46 +677,43 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {receivings.map((row) => {
-                          const hasBad = row.pkg_status === 'わるい' || row.freshness_status === 'わるい' || row.transit_temp_status === 'わるい';
-                          return (
-                            <tr key={row.id} className="text-center">
-                              <td className="border border-slate-300 p-1 font-mono">
-                                {formatShortDateTime(row.checked_at)}
-                              </td>
-                              <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
-                              <td className="border border-slate-300 p-1 font-black text-teal-800 bg-teal-50/50">
-                                {row.flight_name || '-'}
-                              </td>
-                              <td className={`border border-slate-300 p-1 ${row.pkg_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                                {row.pkg_status}
-                              </td>
-                              <td className={`border border-slate-300 p-1 ${row.freshness_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                                {row.freshness_status}
-                              </td>
-                              <td className={`border border-slate-300 p-1 ${row.transit_temp_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                                {row.transit_temp_status}
-                              </td>
-                              <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
-                                {row.notes || '-'}
-                              </td>
-                              <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
-                                <button
-                                  onClick={() => openEditModal({ table: 'check_receiving', id: row.id, name: `${row.staff_name} (${row.flight_name})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                                  className="text-[10px] text-blue-600 hover:underline mr-1"
-                                >
-                                  ✏️時刻
-                                </button>
-                                <button
-                                  onClick={() => handleDelete('check_receiving', row.id, `${row.staff_name}さんの受入記録`)}
-                                  className="text-[10px] text-red-600 hover:underline"
-                                >
-                                  🗑
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {receivings.map((row) => (
+                          <tr key={row.id} className="text-center">
+                            <td className="border border-slate-300 p-1 font-mono">
+                              {formatShortDateTime(row.checked_at)}
+                            </td>
+                            <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
+                            <td className="border border-slate-300 p-1 font-black text-teal-800 bg-teal-50/50">
+                              {row.flight_name || '-'}
+                            </td>
+                            <td className={`border border-slate-300 p-1 ${row.pkg_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                              {row.pkg_status}
+                            </td>
+                            <td className={`border border-slate-300 p-1 ${row.freshness_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                              {row.freshness_status}
+                            </td>
+                            <td className={`border border-slate-300 p-1 ${row.transit_temp_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
+                              {row.transit_temp_status}
+                            </td>
+                            <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
+                              {row.notes || '-'}
+                            </td>
+                            <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
+                              <button
+                                onClick={() => openEditModal({ table: 'check_receiving', id: row.id, name: `${row.staff_name} (${row.flight_name})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
+                                className="text-[10px] text-blue-600 hover:underline mr-1"
+                              >
+                                ✏️時刻
+                              </button>
+                              <button
+                                onClick={() => handleDelete('check_receiving', row.id, `${row.staff_name}さんの受入記録`)}
+                                className="text-[10px] text-red-600 hover:underline"
+                              >
+                                🗑
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   )}
@@ -627,7 +722,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                2. 生魚加工 衛生管理点検[cite: 10]
+                2. 生魚加工 衛生管理点検
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'fish') && (
               <section className="break-inside-avoid">
@@ -705,7 +800,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                3. 小割加工 衛生管理点検[cite: 10]
+                3. 小割加工 衛生管理点検
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'kowari') && (
               <section className="break-inside-avoid">
@@ -785,7 +880,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                4. 基本チェック・アルコール点呼記録簿（対面確認）[cite: 10]
+                4. 基本チェック・アルコール点呼記録簿（対面確認）
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
@@ -905,7 +1000,7 @@ export default function AdminDashboard() {
             )}
 
             {/* ========================================================
-                5. 運転日報[cite: 10]
+                5. 運転日報
                ======================================================== */}
             {(viewMode === 'all' || viewMode === 'drive') && (
               <section className="break-inside-avoid">
@@ -992,7 +1087,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 帳票フッター（署名・承認欄）[cite: 10] */}
+        {/* 帳票フッター（署名・承認欄） */}
         <div className="mt-8 pt-4 border-t border-slate-300 flex justify-end gap-6 text-center text-xs">
           <div className="w-24 border border-slate-400 p-1 h-20 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500">管理者確認印</span>
@@ -1006,7 +1101,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================
-          時刻修正・特記編集モーダルダイアログ[cite: 10]
+          時刻修正・特記編集モーダルダイアログ
          ======================================================== */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
