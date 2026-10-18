@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
+type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive' | 'summary';
 
 // 管理者パスコード
 const ADMIN_PASSCODE = 'gyorui370220';
@@ -52,7 +52,6 @@ const formatShortDateTime = (isoString: string) => {
 
 // 期間指定（開始日〜終了日）からクエリ用のISO範囲を算出
 const getPeriodRange = (startDateStr: string, endDateStr: string) => {
-  // 開始日の前日16:00 JST から 終了日の当日16:00 JST までをカバー
   const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
   const startBase = new Date(sYear, sMonth - 1, sDay - 1, 16, 0, 0);
   const prevMonth = startBase.getMonth() + 1;
@@ -70,7 +69,7 @@ export default function AdminDashboard() {
   const [startDate, setStartDate] = useState(getTodayJST);
   const [endDate, setEndDate] = useState(getTodayJST);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('summary'); // デフォルトを新規の期間集計タブに設定
 
   // 認証ステート
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -121,7 +120,7 @@ export default function AdminDashboard() {
     setInputPass('');
   };
 
-  // daily_weather_logs テーブルから確定気象データを取得（終了日基準）
+  // daily_weather_logs テーブルから確定気象データを取得
   const fetchWeather = async (dateStr: string) => {
     setWeatherLoading(true);
     try {
@@ -253,6 +252,40 @@ export default function AdminDashboard() {
     let csvContent = '\uFEFF'; // 文字化け防止のBOM
     let filename = `gyorui_report_${startDate}_to_${endDate}.csv`;
 
+    if (viewMode === 'summary' || viewMode === 'all') {
+      csvContent += '【期間集計：日常・出勤時 点検(温度 & 衛生)】\n';
+      csvContent += '日時,記入者,本庫(℃),2号(℃),鮮魚庫(℃),定温売場(℃),保管庫衛生,太物衛生,売場衛生,害獣痕跡,特記事項\n';
+      temps.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.main_freezer_temp ?? ''},${r.room2_freezer_temp ?? ''},${r.fish_storage_temp ?? ''},${r.constant_floor_temp ?? ''},${r.storage_hygiene_status || ''},${r.processing_zone_status || ''},${r.floor_hygiene_status || ''},${r.pest_evidence || ''},${notes}\n`;
+      });
+      csvContent += '\n';
+
+      csvContent += '【期間集計：退勤前 点検】\n';
+      csvContent += '日時,記入者,本庫(℃),2号(℃),特記事項\n';
+      closings.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.main_freezer_temp ?? ''},${r.room2_freezer_temp ?? ''},${notes}\n`;
+      });
+      csvContent += '\n';
+
+      csvContent += '【期間集計：生魚加工 衛生管理点検】\n';
+      csvContent += '日時,点検者,健康状態,手洗い,商品確認,魚体洗浄,作業温度,施設衛生,用具衛生,特記事項\n';
+      fishes.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.health_status || ''},${r.hand_washing ? '済' : '未'},${r.product_check || ''},${r.fish_washing || ''},${r.work_temp || ''},${r.facility_hygiene || ''},${r.tools_hygiene || ''},${notes}\n`;
+      });
+      csvContent += '\n';
+
+      csvContent += '【期間集計：小割加工 衛生管理点検】\n';
+      csvContent += '日時,点検者,作業品目,健康状態,手の衛生,作業温度,施設衛生,用具衛生,ラベル貼付,特記事項\n';
+      kowaris.forEach((r) => {
+        const notes = (r.notes || '').replace(/,/g, ' ');
+        csvContent += `${r.checked_at},${r.staff_name},${r.item_type || ''},${r.health_status || ''},${r.hand_hygiene || ''},${r.work_temp || ''},${r.facility_hygiene || ''},${r.tools_hygiene || ''},${r.label_check || ''},${notes}\n`;
+      });
+      csvContent += '\n';
+    }
+
     if (viewMode === 'alcohol' || viewMode === 'all') {
       csvContent += '【基本チェック・アルコール点呼】\n';
       csvContent += '点呼区分,日時,担当者名,確認者名,測定値(mg/L),特記事項\n';
@@ -260,52 +293,6 @@ export default function AdminDashboard() {
         const timing = getTimingType(r.notes) === 'start' ? '出勤時' : '退勤時';
         const notes = (r.notes || '').replace(/,/g, ' ');
         csvContent += `${timing},${r.checked_at},${r.staff_name},${r.checker_name},${r.alcohol_value},${notes}\n`;
-      });
-      csvContent += '\n';
-    }
-
-    if (viewMode === 'temp' || viewMode === 'all') {
-      csvContent += '【保管庫・売場管理(温度・衛生)】\n';
-      csvContent += '日時,担当者,本庫(℃),2号室(℃),鮮魚庫(℃),定温売場(℃),売場実測(℃),保管庫衛生,太物売場衛生,売場衛生,害獣痕跡,特記事項\n';
-      temps.forEach((r) => {
-        const notes = (r.notes || '').replace(/,/g, ' ');
-        csvContent += `${r.checked_at},${r.staff_name},${r.main_freezer_temp},${r.room2_freezer_temp},${r.fish_storage_temp},${r.constant_floor_temp},${r.floor_temp},${r.storage_hygiene_status},${r.processing_zone_status},${r.floor_hygiene_status},${r.pest_evidence},${notes}\n`;
-      });
-      csvContent += '\n';
-
-      csvContent += '【退勤前温度】\n';
-      csvContent += '日時,担当者,本庫(℃),2号室(℃),特記事項\n';
-      closings.forEach((r) => {
-        const notes = (r.notes || '').replace(/,/g, ' ');
-        csvContent += `${r.checked_at},${r.staff_name},${r.main_freezer_temp},${r.room2_freezer_temp},${notes}\n`;
-      });
-      csvContent += '\n';
-
-      csvContent += '【荷物受入】\n';
-      csvContent += '日時,担当者,便名,外観包装,鮮度におい,輸送温度,特記事項\n';
-      receivings.forEach((r) => {
-        const notes = (r.notes || '').replace(/,/g, ' ');
-        csvContent += `${r.checked_at},${r.staff_name},${r.flight_name},${r.pkg_status},${r.freshness_status},${r.transit_temp_status},${notes}\n`;
-      });
-      csvContent += '\n';
-    }
-
-    if (viewMode === 'fish' || viewMode === 'all') {
-      csvContent += '【生魚加工衛生管理】\n';
-      csvContent += '日時,点検者,健康状態,手洗い,商品確認,魚体洗浄,作業温度,施設衛生,用具衛生,特記事項\n';
-      fishes.forEach((r) => {
-        const notes = (r.notes || '').replace(/,/g, ' ');
-        csvContent += `${r.checked_at},${r.staff_name},${r.health_status},${r.hand_washing ? '済' : '未'},${r.product_check},${r.fish_washing},${r.work_temp},${r.facility_hygiene},${r.tools_hygiene},${notes}\n`;
-      });
-      csvContent += '\n';
-    }
-
-    if (viewMode === 'kowari' || viewMode === 'all') {
-      csvContent += '【小割加工衛生管理】\n';
-      csvContent += '日時,点検者,作業品目,健康状態,手の衛生,作業温度,施設衛生,用具衛生,ラベル貼付,特記事項\n';
-      kowaris.forEach((r) => {
-        const notes = (r.notes || '').replace(/,/g, ' ');
-        csvContent += `${r.checked_at},${r.staff_name},${r.item_type},${r.health_status},${r.hand_hygiene},${r.work_temp},${r.facility_hygiene},${r.tools_hygiene},${r.label_check},${notes}\n`;
       });
       csvContent += '\n';
     }
@@ -385,7 +372,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 print:p-0 print:bg-white font-sans">
       {/* 画面操作コントロールバー（印刷時は非表示） */}
-      <div className="max-w-5xl mx-auto mb-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
+      <div className="max-w-6xl mx-auto mb-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -394,7 +381,7 @@ export default function AdminDashboard() {
                 管理者認証済
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-bold">点検確認・時刻修正・誤送信削除・CSV出力・印刷</p>
+            <p className="text-xs text-slate-500 font-bold">期間指定集計・時刻修正・誤送信削除・CSV出力・印刷</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -457,13 +444,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 単体リスト切り替えタブ */}
+        {/* 単体リスト・集計タブ切り替え */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex gap-1.5 overflow-x-auto">
           {[
-            { key: 'all', label: '📋 日報まとめ（一括・印刷用）' },
-            { key: 'temp', label: `🌡️ 保管庫,売場・受入管理 (${temps.length + closings.length + receivings.length})` },
-            { key: 'fish', label: `🐟 生魚加工 (${fishes.length})` },
-            { key: 'kowari', label: `🔪 小割加工 (${kowaris.length})` },
+            { key: 'summary', label: '📊 期間集計・衛生管理簿（4項目まとめ）' },
+            { key: 'all', label: '📋 全データ一括' },
             { key: 'alcohol', label: `📋 基本・点呼 (${alcohols.length})` },
             { key: 'drive', label: `🚗 運転日報 (${drives.length})` },
           ].map((tab) => (
@@ -483,15 +468,13 @@ export default function AdminDashboard() {
       </div>
 
       {/* メイン表示エリア */}
-      <div className="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
+      <div className="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-2 print:max-w-none">
         {/* 帳票ヘッダー（期間＋確定気象情報） */}
         <div className="border-b-2 border-slate-800 pb-2 mb-4 flex flex-wrap justify-between items-end gap-2">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 print:text-lg">
-              {viewMode === 'all' && '業務点検日報（期間まとめ・集計）'}
-              {viewMode === 'temp' && '保管庫・売場管理（温度 & 衛生） 点検記録簿'}
-              {viewMode === 'fish' && '生魚加工 衛生管理点検記録簿'}
-              {viewMode === 'kowari' && '小割加工 衛生管理点検記録簿'}
+              {viewMode === 'summary' && '衛生管理・点検記録簿（期間集計）'}
+              {viewMode === 'all' && '業務点検日報（全データ一括）'}
               {viewMode === 'alcohol' && '基本チェック・点呼記録簿（対面確認）'}
               {viewMode === 'drive' && '運転日報 運行記録簿'}
             </h2>
@@ -532,374 +515,215 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-6 print:space-y-4 text-xs">
             {/* ========================================================
-                1. 保管庫・売場管理（日常温度 & 衛生管理 & 退勤前温度 & 荷物受入）
+                ■ 期間集計・衛生管理簿（4項目を単ページに集約・一列表示）
                ======================================================== */}
-            {(viewMode === 'all' || viewMode === 'temp') && (
-              <section className="break-inside-avoid">
-                <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-cyan-600 mb-2">
-                  1. 保管庫・売場管理（日常温度 & 衛生管理 & 退勤前温度 & 荷物受入）
-                </h3>
-
-                {/* 温度管理グリッド（日常・出勤時 & 退勤前） */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 mb-3">
-                  {/* 日常・出勤時（温度 ＋ 衛生管理4項目） */}
-                  <div className="border border-slate-300 rounded p-2.5">
-                    <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 日常・出勤時 点検（温度 & 衛生管理）</div>
-                    {temps.length === 0 ? (
-                      <div className="text-slate-400 italic p-1">記録なし</div>
-                    ) : (
-                      temps.map((row) => {
-                        const hasStorageBad = row.storage_hygiene_status === 'わるい';
-                        const hasProcessingBad = row.processing_zone_status === 'わるい';
-                        const hasFloorBad = row.floor_hygiene_status === 'わるい';
-                        const hasPestProblem = row.pest_evidence === '問題発生';
-
-                        return (
-                          <div key={row.id} className="space-y-1.5 mb-2 last:mb-0 border-b last:border-b-0 pb-2 last:pb-0">
-                            <div className="flex justify-between items-center text-slate-500 font-mono">
-                              <span>記入者: <b>{row.staff_name}</b></span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
-                                <button
-                                  onClick={() => openEditModal({ table: 'check_temp_hygiene', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                                  className="print:hidden text-[10px] text-blue-600 hover:underline px-1"
-                                >
-                                  ✏️時刻
-                                </button>
-                                <button
-                                  onClick={() => handleDelete('check_temp_hygiene', row.id, `${row.staff_name}さんの出勤時温度・衛生`)}
-                                  className="print:hidden text-[10px] text-red-600 hover:underline px-1"
-                                >
-                                  🗑️削除
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* 各種温度実測値 */}
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 bg-slate-50 p-2 rounded font-mono">
-                              <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
-                              <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
-                              <div>鮮魚庫: <b>{row.fish_storage_temp !== null ? `${row.fish_storage_temp}℃` : '-'}</b></div>
-                              <div>定温売場: <b>{row.constant_floor_temp !== null ? `${row.constant_floor_temp}℃` : '-'}</b></div>
-                              <div>売場(場内): <b>{row.floor_temp !== null ? `${row.floor_temp}℃` : '-'}</b></div>
-                            </div>
-
-                            {/* 衛生管理 4項目 */}
-                            <div className="text-[11px] bg-slate-100/60 p-2 rounded space-y-0.5 border border-slate-200">
-                              <div className="text-[10px] font-black text-slate-500 mb-0.5">【衛生・整頓状況】</div>
-                              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                                <div>
-                                  保管庫衛生: <b className={hasStorageBad ? 'text-red-600 font-black' : ''}>{row.storage_hygiene_status || '-'}</b>
-                                </div>
-                                <div>
-                                  太物売場衛生: <b className={hasProcessingBad ? 'text-red-600 font-black' : ''}>{row.processing_zone_status || '-'}</b>
-                                </div>
-                                <div>
-                                  売場衛生: <b className={hasFloorBad ? 'text-red-600 font-black' : ''}>{row.floor_hygiene_status || '-'}</b>
-                                </div>
-                                <div>
-                                  害獣痕跡: <b className={hasPestProblem ? 'text-red-600 font-black' : ''}>{row.pest_evidence || '-'}</b>
-                                </div>
-                              </div>
-                              {row.notes && (
-                                <div className="text-red-600 font-black bg-red-50 p-1 rounded border border-red-200 mt-1">
-                                  特記: {row.notes}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* 退勤前温度 */}
-                  <div className="border border-slate-300 rounded p-2.5">
-                    <div className="font-bold text-slate-700 mb-1.5 border-b pb-1">■ 退勤前 点検</div>
-                    {closings.length === 0 ? (
-                      <div className="text-slate-400 italic p-1">記録なし</div>
-                    ) : (
-                      closings.map((row) => (
-                        <div key={row.id} className="space-y-1.5 mb-2 last:mb-0 border-b last:border-b-0 pb-2 last:pb-0">
-                          <div className="flex justify-between items-center text-slate-500 font-mono">
-                            <span>記入者: <b>{row.staff_name}</b></span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-800">{formatShortDateTime(row.checked_at)}</span>
-                              <button
-                                onClick={() => openEditModal({ table: 'check_temp_closing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                                className="print:hidden text-[10px] text-blue-600 hover:underline px-1"
-                              >
-                                ✏️時刻
-                              </button>
-                              <button
-                                onClick={() => handleDelete('check_temp_closing', row.id, `${row.staff_name}さんの退勤前温度`)}
-                                className="print:hidden text-[10px] text-red-600 hover:underline px-1"
-                              >
-                                🗑️削除
-                              </button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 bg-slate-50 p-2 rounded font-mono">
-                            <div>本庫: <b>{row.main_freezer_temp !== null ? `${row.main_freezer_temp}℃` : '-'}</b></div>
-                            <div>2号室: <b>{row.room2_freezer_temp !== null ? `${row.room2_freezer_temp}℃` : '-'}</b></div>
-                          </div>
-                          {row.notes && (
-                            <div className="text-red-600 font-black bg-red-50 p-1 rounded border border-red-200 mt-1">
-                              特記: {row.notes}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* 荷物受入 点検記録 */}
-                <div className="border border-slate-300 rounded p-2.5 bg-white">
-                  <div className="font-bold text-slate-700 mb-1.5 border-b pb-1 flex justify-between items-center">
-                    <span>■ 荷物受入 点検記録</span>
-                    <span className="text-[11px] text-slate-500 font-normal">（外観・包装破損／鮮度におい／輸送温度）</span>
-                  </div>
-                  {receivings.length === 0 ? (
-                    <div className="text-slate-400 italic p-1">記録なし</div>
+            {(viewMode === 'summary' || viewMode === 'all') && (
+              <div className="space-y-6">
+                {/* 1. 日常・出勤時 点検（温度 & 衛生管理） */}
+                <section className="break-inside-avoid">
+                  <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-cyan-600 mb-2">
+                    1. 日常・出勤時 点検（温度 & 衛生管理）
+                  </h3>
+                  {temps.length === 0 ? (
+                    <div className="text-slate-400 italic p-2">記録なし</div>
                   ) : (
-                    <table className="w-full border-collapse border border-slate-300">
+                    <table className="w-full border-collapse border border-slate-300 text-center">
                       <thead>
-                        <tr className="bg-slate-50 text-center">
-                          <th className="border border-slate-300 p-1">受入日時</th>
-                          <th className="border border-slate-300 p-1">受入担当</th>
-                          <th className="border border-slate-300 p-1 bg-teal-50">便名</th>
-                          <th className="border border-slate-300 p-1">外観・包装</th>
-                          <th className="border border-slate-300 p-1">鮮度・におい</th>
-                          <th className="border border-slate-300 p-1">輸送温度</th>
-                          <th className="border border-slate-300 p-1">特記事項・連絡事項</th>
+                        <tr className="bg-slate-50">
+                          <th className="border border-slate-300 p-1">日時</th>
+                          <th className="border border-slate-300 p-1">記入者</th>
+                          <th className="border border-slate-300 p-1">本庫(℃)</th>
+                          <th className="border border-slate-300 p-1">2号(℃)</th>
+                          <th className="border border-slate-300 p-1">鮮魚庫(℃)</th>
+                          <th className="border border-slate-300 p-1">定温(℃)</th>
+                          <th className="border border-slate-300 p-1">保管庫衛生</th>
+                          <th className="border border-slate-300 p-1">太物衛生</th>
+                          <th className="border border-slate-300 p-1">売場衛生</th>
+                          <th className="border border-slate-300 p-1">害獣痕跡</th>
                           <th className="border border-slate-300 p-1 print:hidden w-16">管理</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {receivings.map((row) => (
-                          <tr key={row.id} className="text-center">
-                            <td className="border border-slate-300 p-1 font-mono">
-                              {formatShortDateTime(row.checked_at)}
-                            </td>
+                        {temps.map((row) => (
+                          <tr key={row.id}>
+                            <td className="border border-slate-300 p-1 font-mono">{formatShortDateTime(row.checked_at)}</td>
                             <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
-                            <td className="border border-slate-300 p-1 font-black text-teal-800 bg-teal-50/50">
-                              {row.flight_name || '-'}
-                            </td>
-                            <td className={`border border-slate-300 p-1 ${row.pkg_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                              {row.pkg_status}
-                            </td>
-                            <td className={`border border-slate-300 p-1 ${row.freshness_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                              {row.freshness_status}
-                            </td>
-                            <td className={`border border-slate-300 p-1 ${row.transit_temp_status === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                              {row.transit_temp_status}
-                            </td>
-                            <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
-                              {row.notes || '-'}
-                            </td>
+                            <td className="border border-slate-300 p-1 font-mono font-bold">{row.main_freezer_temp ?? '-'}</td>
+                            <td className="border border-slate-300 p-1 font-mono font-bold">{row.room2_freezer_temp ?? '-'}</td>
+                            <td className="border border-slate-300 p-1 font-mono font-bold">{row.fish_storage_temp ?? '-'}</td>
+                            <td className="border border-slate-300 p-1 font-mono font-bold">{row.constant_floor_temp ?? '-'}</td>
+                            <td className={`border border-slate-300 p-1 ${row.storage_hygiene_status === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.storage_hygiene_status || '-'}</td>
+                            <td className={`border border-slate-300 p-1 ${row.processing_zone_status === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.processing_zone_status || '-'}</td>
+                            <td className={`border border-slate-300 p-1 ${row.floor_hygiene_status === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.floor_hygiene_status || '-'}</td>
+                            <td className={`border border-slate-300 p-1 ${row.pest_evidence === '問題発生' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.pest_evidence || '-'}</td>
                             <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
-                              <button
-                                onClick={() => openEditModal({ table: 'check_receiving', id: row.id, name: `${row.staff_name} (${row.flight_name})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                                className="text-[10px] text-blue-600 hover:underline mr-1"
-                              >
-                                ✏️時刻
-                              </button>
-                              <button
-                                onClick={() => handleDelete('check_receiving', row.id, `${row.staff_name}さんの受入記録`)}
-                                className="text-[10px] text-red-600 hover:underline"
-                              >
-                                🗑
-                              </button>
+                              <button onClick={() => openEditModal({ table: 'check_temp_hygiene', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                              <button onClick={() => handleDelete('check_temp_hygiene', row.id, `${row.staff_name}さんの出勤時温度`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   )}
-                </div>
-              </section>
-            )}
+                </section>
 
-            {/* ========================================================
-                2. 生魚加工 衛生管理点検
-               ======================================================== */}
-            {(viewMode === 'all' || viewMode === 'fish') && (
-              <section className="break-inside-avoid">
-                <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-emerald-600 mb-2">
-                  2. 生魚加工 衛生管理点検
-                </h3>
-                {fishes.length === 0 ? (
-                  <div className="text-slate-400 italic p-2">記録なし</div>
-                ) : (
-                  <table className="w-full border-collapse border border-slate-300">
-                    <thead>
-                      <tr className="bg-slate-50 text-center">
-                        <th className="border border-slate-300 p-1.5">日時</th>
-                        <th className="border border-slate-300 p-1.5">点検者</th>
-                        <th className="border border-slate-300 p-1.5">健康状態</th>
-                        <th className="border border-slate-300 p-1.5">手洗い</th>
-                        <th className="border border-slate-300 p-1.5">商品確認</th>
-                        <th className="border border-slate-300 p-1.5">魚体洗浄</th>
-                        <th className="border border-slate-300 p-1.5">作業温度</th>
-                        <th className="border border-slate-300 p-1.5">施設衛生</th>
-                        <th className="border border-slate-300 p-1.5">用具衛生</th>
-                        <th className="border border-slate-300 p-1.5">特記事項</th>
-                        <th className="border border-slate-300 p-1.5 print:hidden w-16">管理</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fishes.map((row) => (
-                        <tr key={row.id} className="text-center">
-                          <td className="border border-slate-300 p-1.5 font-mono">
-                            {formatShortDateTime(row.checked_at)}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
-                          <td className={`border border-slate-300 p-1.5 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>
-                            {row.health_status}
-                          </td>
-                          <td className="border border-slate-300 p-1.5">
-                            {row.hand_washing ? '済' : <span className="text-red-600 font-bold">未</span>}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.product_check === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.product_check}
-                          </td>
-                          <td className="border border-slate-300 p-1.5">{row.fish_washing}</td>
-                          <td className={`border border-slate-300 p-1.5 ${row.work_temp === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.work_temp}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.facility_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.facility_hygiene}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.tools_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.tools_hygiene}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
-                            {row.notes || '-'}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
-                            <button
-                              onClick={() => openEditModal({ table: 'check_fish_processing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                              className="text-[10px] text-blue-600 hover:underline mr-1"
-                            >
-                              ✏️時刻
-                            </button>
-                            <button
-                              onClick={() => handleDelete('check_fish_processing', row.id, `${row.staff_name}さんの生魚加工記録`)}
-                              className="text-[10px] text-red-600 hover:underline"
-                            >
-                              🗑️
-                            </button>
-                          </td>
+                {/* 2. 退勤前 点検 */}
+                <section className="break-inside-avoid">
+                  <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-indigo-600 mb-2">
+                    2. 退勤前 点検
+                  </h3>
+                  {closings.length === 0 ? (
+                    <div className="text-slate-400 italic p-2">記録なし</div>
+                  ) : (
+                    <table className="w-full border-collapse border border-slate-300 text-center">
+                      <thead>
+                        <tr className="bg-slate-50">
+                          <th className="border border-slate-300 p-1">日時</th>
+                          <th className="border border-slate-300 p-1">記入者</th>
+                          <th className="border border-slate-300 p-1">本庫(℃)</th>
+                          <th className="border border-slate-300 p-1">2号(℃)</th>
+                          <th className="border border-slate-300 p-1">特記事項</th>
+                          <th className="border border-slate-300 p-1 print:hidden w-16">管理</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </section>
-            )}
+                      </thead>
+                      <tbody>
+                        {closings.map((row) => (
+                          <tr key={row.id}>
+                            <td className="border border-slate-300 p-1 font-mono">{formatShortDateTime(row.checked_at)}</td>
+                            <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
+                            <td className="border border-slate-300 p-1 font-mono font-bold">{row.main_freezer_temp ?? '-'}</td>
+                            <td className="border border-slate-300 p-1 font-mono font-bold">{row.room2_freezer_temp ?? '-'}</td>
+                            <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-bold' : ''}`}>{row.notes || '-'}</td>
+                            <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
+                              <button onClick={() => openEditModal({ table: 'check_temp_closing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                              <button onClick={() => handleDelete('check_temp_closing', row.id, `${row.staff_name}さんの退勤前温度`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
 
-            {/* ========================================================
-                3. 小割加工 衛生管理点検
-               ======================================================== */}
-            {(viewMode === 'all' || viewMode === 'kowari') && (
-              <section className="break-inside-avoid">
-                <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-purple-600 mb-2">
-                  3. 小割加工 衛生管理点検
-                </h3>
-                {kowaris.length === 0 ? (
-                  <div className="text-slate-400 italic p-2">記録なし</div>
-                ) : (
-                  <table className="w-full border-collapse border border-slate-300">
-                    <thead>
-                      <tr className="bg-slate-50 text-center">
-                        <th className="border border-slate-300 p-1.5">日時</th>
-                        <th className="border border-slate-300 p-1.5">点検者</th>
-                        <th className="border border-slate-300 p-1.5 bg-purple-50">作業品目</th>
-                        <th className="border border-slate-300 p-1.5">健康状態</th>
-                        <th className="border border-slate-300 p-1.5">手の衛生</th>
-                        <th className="border border-slate-300 p-1.5">作業温度</th>
-                        <th className="border border-slate-300 p-1.5">施設衛生</th>
-                        <th className="border border-slate-300 p-1.5">用具衛生</th>
-                        <th className="border border-slate-300 p-1.5">ラベル貼付</th>
-                        <th className="border border-slate-300 p-1.5">特記事項</th>
-                        <th className="border border-slate-300 p-1.5 print:hidden w-16">管理</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kowaris.map((row) => (
-                        <tr key={row.id} className="text-center">
-                          <td className="border border-slate-300 p-1.5 font-mono">
-                            {formatShortDateTime(row.checked_at)}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
-                          <td className="border border-slate-300 p-1.5 font-black text-purple-900 bg-purple-50/50">
-                            {row.item_type || '-'}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>
-                            {row.health_status}
-                          </td>
-                          <td className="border border-slate-300 p-1.5">
-                            {row.hand_hygiene === '実施済み' ? '済' : <span className="text-red-600 font-bold">未</span>}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.work_temp === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.work_temp}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.facility_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.facility_hygiene}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.tools_hygiene === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.tools_hygiene}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 ${row.label_check === 'わるい' ? 'text-red-600 bg-red-50 font-bold' : ''}`}>
-                            {row.label_check}
-                          </td>
-                          <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
-                            {row.notes || '-'}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
-                            <button
-                              onClick={() => openEditModal({ table: 'check_kowari_processing', id: row.id, name: `${row.staff_name} (小割:${row.item_type || ''})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                              className="text-[10px] text-blue-600 hover:underline mr-1"
-                            >
-                              ✏️時刻
-                            </button>
-                            <button
-                              onClick={() => handleDelete('check_kowari_processing', row.id, `${row.staff_name}さんの小割加工記録`)}
-                              className="text-[10px] text-red-600 hover:underline"
-                            >
-                              🗑️
-                            </button>
-                          </td>
+                {/* 3. 生魚加工 衛生管理点検 */}
+                <section className="break-inside-avoid">
+                  <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-emerald-600 mb-2">
+                    3. 生魚加工 衛生管理点検
+                  </h3>
+                  {fishes.length === 0 ? (
+                    <div className="text-slate-400 italic p-2">記録なし</div>
+                  ) : (
+                    <table className="w-full border-collapse border border-slate-300 text-center">
+                      <thead>
+                        <tr className="bg-slate-50">
+                          <th className="border border-slate-300 p-1">日時</th>
+                          <th className="border border-slate-300 p-1">点検者</th>
+                          <th className="border border-slate-300 p-1">健康状態</th>
+                          <th className="border border-slate-300 p-1">手洗い</th>
+                          <th className="border border-slate-300 p-1">商品確認</th>
+                          <th className="border border-slate-300 p-1">魚体洗浄</th>
+                          <th className="border border-slate-300 p-1">作業温度</th>
+                          <th className="border border-slate-300 p-1">施設衛生</th>
+                          <th className="border border-slate-300 p-1">用具衛生</th>
+                          <th className="border border-slate-300 p-1">特記事項</th>
+                          <th className="border border-slate-300 p-1 print:hidden w-16">管理</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </section>
+                      </thead>
+                      <tbody>
+                        {fishes.map((row) => (
+                          <tr key={row.id}>
+                            <td className="border border-slate-300 p-1 font-mono">{formatShortDateTime(row.checked_at)}</td>
+                            <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
+                            <td className={`border border-slate-300 p-1 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>{row.health_status}</td>
+                            <td className="border border-slate-300 p-1">{row.hand_washing ? '済' : <span className="text-red-600 font-bold">未</span>}</td>
+                            <td className={`border border-slate-300 p-1 ${row.product_check === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.product_check}</td>
+                            <td className="border border-slate-300 p-1">{row.fish_washing}</td>
+                            <td className={`border border-slate-300 p-1 ${row.work_temp === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.work_temp}</td>
+                            <td className={`border border-slate-300 p-1 ${row.facility_hygiene === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.facility_hygiene}</td>
+                            <td className={`border border-slate-300 p-1 ${row.tools_hygiene === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.tools_hygiene}</td>
+                            <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-bold' : ''}`}>{row.notes || '-'}</td>
+                            <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
+                              <button onClick={() => openEditModal({ table: 'check_fish_processing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                              <button onClick={() => handleDelete('check_fish_processing', row.id, `${row.staff_name}さんの生魚加工記録`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+
+                {/* 4. 小割加工 衛生管理点検 */}
+                <section className="break-inside-avoid">
+                  <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-purple-600 mb-2">
+                    4. 小割加工 衛生管理点検
+                  </h3>
+                  {kowaris.length === 0 ? (
+                    <div className="text-slate-400 italic p-2">記録なし</div>
+                  ) : (
+                    <table className="w-full border-collapse border border-slate-300 text-center">
+                      <thead>
+                        <tr className="bg-slate-50">
+                          <th className="border border-slate-300 p-1">日時</th>
+                          <th className="border border-slate-300 p-1">点検者</th>
+                          <th className="border border-slate-300 p-1 bg-purple-50">作業品目</th>
+                          <th className="border border-slate-300 p-1">健康状態</th>
+                          <th className="border border-slate-300 p-1">手の衛生</th>
+                          <th className="border border-slate-300 p-1">作業温度</th>
+                          <th className="border border-slate-300 p-1">施設衛生</th>
+                          <th className="border border-slate-300 p-1">用具衛生</th>
+                          <th className="border border-slate-300 p-1">ラベル貼付</th>
+                          <th className="border border-slate-300 p-1">特記事項</th>
+                          <th className="border border-slate-300 p-1 print:hidden w-16">管理</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kowaris.map((row) => (
+                          <tr key={row.id}>
+                            <td className="border border-slate-300 p-1 font-mono">{formatShortDateTime(row.checked_at)}</td>
+                            <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
+                            <td className="border border-slate-300 p-1 font-black text-purple-900 bg-purple-50/50">{row.item_type || '-'}</td>
+                            <td className={`border border-slate-300 p-1 font-bold ${row.health_status === '否' ? 'text-red-600 bg-red-50' : ''}`}>{row.health_status}</td>
+                            <td className="border border-slate-300 p-1">{row.hand_hygiene === '実施済み' ? '済' : <span className="text-red-600 font-bold">未</span>}</td>
+                            <td className={`border border-slate-300 p-1 ${row.work_temp === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.work_temp}</td>
+                            <td className={`border border-slate-300 p-1 ${row.facility_hygiene === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.facility_hygiene}</td>
+                            <td className={`border border-slate-300 p-1 ${row.tools_hygiene === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.tools_hygiene}</td>
+                            <td className={`border border-slate-300 p-1 ${row.label_check === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.label_check}</td>
+                            <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-bold' : ''}`}>{row.notes || '-'}</td>
+                            <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
+                              <button onClick={() => openEditModal({ table: 'check_kowari_processing', id: row.id, name: `${row.staff_name} (小割:${row.item_type || ''})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                              <button onClick={() => handleDelete('check_kowari_processing', row.id, `${row.staff_name}さんの小割加工記録`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+              </div>
             )}
 
             {/* ========================================================
-                4. 基本チェック・アルコール点呼記録簿（対面確認）
+                ■ その他個別タブ（アルコール・運転日報など）
                ======================================================== */}
-            {(viewMode === 'all' || viewMode === 'alcohol') && (
+            {viewMode === 'alcohol' && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-blue-600 mb-2">
-                  4. 基本チェック・アルコール点呼記録簿（対面確認）
+                  基本チェック・アルコール点呼記録簿（対面確認）
                 </h3>
                 {alcohols.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
                 ) : (
-                  <table className="w-full border-collapse border border-slate-300">
+                  <table className="w-full border-collapse border border-slate-300 text-center">
                     <thead>
-                      <tr className="bg-slate-50 text-center">
+                      <tr className="bg-slate-50">
                         <th className="border border-slate-300 p-1.5 w-28">点呼区分</th>
                         <th className="border border-slate-300 p-1.5">日時</th>
                         <th className="border border-slate-300 p-1.5">担当者名</th>
                         <th className="border border-slate-300 p-1.5">確認者名</th>
                         <th className="border border-slate-300 p-1.5">測定値 (mg/L)</th>
                         <th className="border border-slate-300 p-1.5">判定</th>
-                        <th className="border border-slate-300 p-1.5">点検・特記事項</th>
+                        <th className="border border-slate-300 p-1.5">特記事項</th>
                         <th className="border border-slate-300 p-1.5 print:hidden w-16">管理</th>
                       </tr>
                     </thead>
@@ -910,85 +734,24 @@ export default function AdminDashboard() {
                         const timing = getTimingType(row.notes);
                         const isStart = timing === 'start';
                         const isFinish = timing === 'finish';
-
-                        const notesText = row.notes || '';
-                        const hasProblem =
-                          v > 0 ||
-                          notesText.includes('要報告') ||
-                          notesText.includes('要確認') ||
-                          notesText.includes('問題') ||
-                          notesText.includes('超過');
-
                         return (
-                          <tr
-                            key={row.id}
-                            className={`text-center transition-colors ${
-                              isStart
-                                ? 'bg-sky-50/60 print:bg-white'
-                                : isFinish
-                                ? 'bg-purple-50/60 print:bg-slate-50'
-                                : 'bg-white'
-                            }`}
-                          >
-                            <td className="border border-slate-300 p-1.5 whitespace-nowrap">
-                              {isStart && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-blue-100 text-blue-900 border border-blue-300 print:border-slate-400 print:text-black print:bg-transparent">
-                                  <span>☀️</span>
-                                  <span>出勤時</span>
-                                </span>
-                              )}
-                              {isFinish && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-purple-100 text-purple-900 border border-purple-300 print:border-slate-800 print:text-black print:bg-slate-200">
-                                  <span>🌙</span>
-                                  <span>退勤時</span>
-                                </span>
-                              )}
-                              {!isStart && !isFinish && (
-                                <span className="text-[11px] text-slate-400 font-bold">-</span>
-                              )}
+                          <tr key={row.id}>
+                            <td className="border border-slate-300 p-1.5">
+                              {isStart && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-900">出勤時</span>}
+                              {isFinish && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-900">退勤時</span>}
+                              {!isStart && !isFinish && <span>-</span>}
                             </td>
-
-                            <td className="border border-slate-300 p-1.5 font-mono">
-                              {formatShortDateTime(row.checked_at)}
-                            </td>
+                            <td className="border border-slate-300 p-1.5 font-mono">{formatShortDateTime(row.checked_at)}</td>
                             <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
                             <td className="border border-slate-300 p-1.5">{row.checker_name}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold font-mono">
-                              {Number(row.alcohol_value).toFixed(2)}
-                            </td>
+                            <td className="border border-slate-300 p-1.5 font-mono font-bold">{Number(row.alcohol_value).toFixed(2)}</td>
                             <td className="border border-slate-300 p-1.5 font-bold">
-                              {v === 0 ? (
-                                <span className="text-emerald-700">合格 (0.00)</span>
-                              ) : isDanger ? (
-                                <span className="text-red-700 bg-red-50 px-1 py-0.5 rounded border border-red-300">
-                                  🚨 基準値超過 (乗車禁止)
-                                </span>
-                              ) : (
-                                <span className="text-amber-700">微量検出</span>
-                              )}
+                              {v === 0 ? <span className="text-emerald-700">合格 (0.00)</span> : isDanger ? <span className="text-red-700">🚨 超過</span> : <span className="text-amber-700">微量</span>}
                             </td>
-                            <td
-                              className={`border border-slate-300 p-1.5 text-left ${
-                                hasProblem
-                                  ? 'text-red-600 font-black bg-red-50/50'
-                                  : 'text-slate-600'
-                              }`}
-                            >
-                              {notesText || '-'}
-                            </td>
-                            <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
-                              <button
-                                onClick={() => openEditModal({ table: 'check_alcohol', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })}
-                                className="text-[10px] text-blue-600 hover:underline mr-1"
-                              >
-                                ✏️時刻
-                              </button>
-                              <button
-                                onClick={() => handleDelete('check_alcohol', row.id, `${row.staff_name}さんの点呼記録`)}
-                                className="text-[10px] text-red-600 hover:underline"
-                              >
-                                🗑
-                              </button>
+                            <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-bold' : ''}`}>{row.notes || '-'}</td>
+                            <td className="border border-slate-300 p-1.5 print:hidden">
+                              <button onClick={() => openEditModal({ table: 'check_alcohol', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                              <button onClick={() => handleDelete('check_alcohol', row.id, `${row.staff_name}さんの点呼記録`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
                             </td>
                           </tr>
                         );
@@ -999,82 +762,42 @@ export default function AdminDashboard() {
               </section>
             )}
 
-            {/* ========================================================
-                5. 運転日報
-               ======================================================== */}
-            {(viewMode === 'all' || viewMode === 'drive') && (
+            {viewMode === 'drive' && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-amber-600 mb-2">
-                  5. 運転日報
+                  運転日報 運行記録簿
                 </h3>
                 {drives.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
                 ) : (
-                  <table className="w-full border-collapse border border-slate-300">
+                  <table className="w-full border-collapse border border-slate-300 text-center">
                     <thead>
-                      <tr className="bg-slate-50 text-center">
+                      <tr className="bg-slate-50">
                         <th className="border border-slate-300 p-1.5">運転者</th>
                         <th className="border border-slate-300 p-1.5">車両</th>
                         <th className="border border-slate-300 p-1.5">行先</th>
-                        <th className="border border-slate-300 p-1.5">同乗者</th>
                         <th className="border border-slate-300 p-1.5">出発 / メーター</th>
                         <th className="border border-slate-300 p-1.5">帰社 / メーター</th>
                         <th className="border border-slate-300 p-1.5">走行距離</th>
-                        <th className="border border-slate-300 p-1.5">給油</th>
                         <th className="border border-slate-300 p-1.5">特記事項</th>
                         <th className="border border-slate-300 p-1.5 print:hidden w-16">管理</th>
                       </tr>
                     </thead>
                     <tbody>
                       {drives.map((row) => {
-                        const distance =
-                          row.start_meter && row.end_meter
-                            ? (Number(row.end_meter) - Number(row.start_meter)).toFixed(1)
-                            : '-';
+                        const distance = row.start_meter && row.end_meter ? (Number(row.end_meter) - Number(row.start_meter)).toFixed(1) : '-';
                         return (
-                          <tr key={row.id} className="text-center">
+                          <tr key={row.id}>
                             <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
                             <td className="border border-slate-300 p-1.5">{row.vehicle_name}</td>
                             <td className="border border-slate-300 p-1.5">{row.destination}</td>
-                            <td className="border border-slate-300 p-1.5">{row.passenger || '-'}</td>
-                            <td className="border border-slate-300 p-1.5 font-mono">
-                              {formatShortDateTime(row.start_at)}
-                              <br />
-                              <span className="text-slate-500 font-bold">{row.start_meter} km</span>
-                            </td>
-                            <td className="border border-slate-300 p-1.5 font-mono">
-                              {row.end_at ? (
-                                <>
-                                  {formatShortDateTime(row.end_at)}
-                                  <br />
-                                  <span className="text-slate-500 font-bold">{row.end_meter} km</span>
-                                </>
-                              ) : (
-                                <span className="text-amber-600 font-bold">運行中</span>
-                              )}
-                            </td>
-                            <td className="border border-slate-300 p-1.5 font-bold font-mono">
-                              {distance !== '-' ? `${distance} km` : '-'}
-                            </td>
-                            <td className="border border-slate-300 p-1.5 font-mono">
-                              {row.refuel_liters ? `${row.refuel_liters} L` : '-'}
-                            </td>
-                            <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-black' : ''}`}>
-                              {row.notes || '-'}
-                            </td>
-                            <td className="border border-slate-300 p-1.5 print:hidden whitespace-nowrap">
-                              <button
-                                onClick={() => openEditModal({ table: 'check_driving_report', id: row.id, name: row.staff_name, currentIso: row.start_at, notes: row.notes, timeField: 'start_at' })}
-                                className="text-[10px] text-blue-600 hover:underline mr-1"
-                              >
-                                ✏️時刻
-                              </button>
-                              <button
-                                onClick={() => handleDelete('check_driving_report', row.id, `${row.staff_name}さんの運行記録`)}
-                                className="text-[10px] text-red-600 hover:underline"
-                              >
-                                🗑️
-                              </button>
+                            <td className="border border-slate-300 p-1.5 font-mono">{formatShortDateTime(row.start_at)}<br />{row.start_meter} km</td>
+                            <td className="border border-slate-300 p-1.5 font-mono">{row.end_at ? <>{formatShortDateTime(row.end_at)}<br />{row.end_meter} km</> : <span className="text-amber-600 font-bold">運行中</span>}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold font-mono">{distance !== '-' ? `${distance} km` : '-'}</td>
+                            <td className={`border border-slate-300 p-1.5 text-left ${row.notes ? 'text-red-600 font-bold' : ''}`}>{row.notes || '-'}</td>
+                            <td className="border border-slate-300 p-1.5 print:hidden">
+                              <button onClick={() => openEditModal({ table: 'check_driving_report', id: row.id, name: row.staff_name, currentIso: row.start_at, notes: row.notes, timeField: 'start_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                              <button onClick={() => handleDelete('check_driving_report', row.id, `${row.staff_name}さんの運行記録`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
                             </td>
                           </tr>
                         );
