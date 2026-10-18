@@ -448,7 +448,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* タブ切り替え（各シート独立抽出 ＆ 一括まとめ） */}
+        {/* タブ切り替え */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex gap-1.5 overflow-x-auto">
           {[
             { key: 'all', label: '📋 日報まとめ（一括表示）' },
@@ -523,12 +523,21 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-6 print:space-y-4 text-xs">
             {/* ========================================================
-                1. 日常・出勤時 点検（温度 & 衛生管理）
+                ■ 日報まとめ（一括表示）の順序指定反映部分
+                順序: 
+                1.日常・出勤時 点検（温度 & 衛生管理）
+                2.荷受管理
+                3.生魚加工 衛生管理点検
+                4.小割加工 衛生管理点検
+                5.基本、アルコールチェック
+                6.運転日報
                ======================================================== */}
+
+            {/* 1. 日常・出勤時 点検（温度 & 衛生管理） */}
             {(viewMode === 'all' || viewMode === 'temp_sheet') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-cyan-600 mb-2">
-                  日常・出勤時 点検（温度 & 衛生管理）
+                  1. 日常・出勤時 点検（温度 & 衛生管理）
                 </h3>
                 {temps.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
@@ -574,39 +583,41 @@ export default function AdminDashboard() {
               </section>
             )}
 
-            {/* ========================================================
-                2. 退勤前 点検
-               ======================================================== */}
+            {/* 2. 荷受管理 */}
             {(viewMode === 'all' || viewMode === 'temp_sheet') && (
               <section className="break-inside-avoid">
-                <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-indigo-600 mb-2">
-                  退勤前 点検
+                <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-teal-600 mb-2">
+                  2. 荷受管理
                 </h3>
-                {closings.length === 0 ? (
+                {receivings.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
                 ) : (
                   <table className="w-full border-collapse border border-slate-300 text-center">
                     <thead>
                       <tr className="bg-slate-50">
-                        <th className="border border-slate-300 p-1">日時</th>
-                        <th className="border border-slate-300 p-1">点検者</th>
-                        <th className="border border-slate-300 p-1">本庫(℃)</th>
-                        <th className="border border-slate-300 p-1">2号室(℃)</th>
+                        <th className="border border-slate-300 p-1">受入日時</th>
+                        <th className="border border-slate-300 p-1">受入担当</th>
+                        <th className="border border-slate-300 p-1 bg-teal-50">便名</th>
+                        <th className="border border-slate-300 p-1">外観・包装</th>
+                        <th className="border border-slate-300 p-1">鮮度・におい</th>
+                        <th className="border border-slate-300 p-1">輸送温度</th>
                         <th className="border border-slate-300 p-1">特記事項</th>
                         <th className="border border-slate-300 p-1 print:hidden w-16">管理</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {closings.map((row) => (
+                      {receivings.map((row) => (
                         <tr key={row.id}>
                           <td className="border border-slate-300 p-1 font-mono">{formatShortDateTime(row.checked_at)}</td>
                           <td className="border border-slate-300 p-1 font-bold">{row.staff_name}</td>
-                          <td className="border border-slate-300 p-1 font-mono font-bold">{row.main_freezer_temp ?? '-'}</td>
-                          <td className="border border-slate-300 p-1 font-mono font-bold">{row.room2_freezer_temp ?? '-'}</td>
+                          <td className="border border-slate-300 p-1 font-black text-teal-800 bg-teal-50/50">{row.flight_name || '-'}</td>
+                          <td className={`border border-slate-300 p-1 ${row.pkg_status === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.pkg_status}</td>
+                          <td className={`border border-slate-300 p-1 ${row.freshness_status === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.freshness_status}</td>
+                          <td className={`border border-slate-300 p-1 ${row.transit_temp_status === 'わるい' ? 'text-red-600 font-bold bg-red-50' : ''}`}>{row.transit_temp_status}</td>
                           <td className={`border border-slate-300 p-1 text-left ${row.notes ? 'text-red-600 font-bold' : ''}`}>{row.notes || '-'}</td>
                           <td className="border border-slate-300 p-1 print:hidden whitespace-nowrap">
-                            <button onClick={() => openEditModal({ table: 'check_temp_closing', id: row.id, name: row.staff_name, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
-                            <button onClick={() => handleDelete('check_temp_closing', row.id, `${row.staff_name}さんの退勤前温度`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
+                            <button onClick={() => openEditModal({ table: 'check_receiving', id: row.id, name: `${row.staff_name} (${row.flight_name})`, currentIso: row.checked_at, notes: row.notes, timeField: 'checked_at' })} className="text-[10px] text-blue-600 hover:underline mr-1">✏️時刻</button>
+                            <button onClick={() => handleDelete('check_receiving', row.id, `${row.staff_name}さんの受入記録`)} className="text-[10px] text-red-600 hover:underline">🗑️</button>
                           </td>
                         </tr>
                       ))}
@@ -616,13 +627,11 @@ export default function AdminDashboard() {
               </section>
             )}
 
-            {/* ========================================================
-                3. 生魚加工 衛生管理点検
-               ======================================================== */}
+            {/* 3. 生魚加工 衛生管理点検 */}
             {(viewMode === 'all' || viewMode === 'fish_sheet') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-emerald-600 mb-2">
-                  生魚加工 衛生管理点検
+                  3. 生魚加工 衛生管理点検
                 </h3>
                 {fishes.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
@@ -668,13 +677,11 @@ export default function AdminDashboard() {
               </section>
             )}
 
-            {/* ========================================================
-                4. 小割加工 衛生管理点検
-               ======================================================== */}
+            {/* 4. 小割加工 衛生管理点検 */}
             {(viewMode === 'all' || viewMode === 'kowari_sheet') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-purple-600 mb-2">
-                  小割加工 衛生管理点検
+                  4. 小割加工 衛生管理点検
                 </h3>
                 {kowaris.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
@@ -720,13 +727,11 @@ export default function AdminDashboard() {
               </section>
             )}
 
-            {/* ========================================================
-                ■ その他個別タブ（アルコール・運転日報など）
-               ======================================================== */}
-            {viewMode === 'alcohol' && (
+            {/* 5. 基本、アルコールチェック */}
+            {(viewMode === 'all' || viewMode === 'alcohol') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-blue-600 mb-2">
-                  基本チェック・アルコール点呼記録簿（対面確認）
+                  5. 基本、アルコールチェック
                 </h3>
                 {alcohols.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
@@ -779,10 +784,11 @@ export default function AdminDashboard() {
               </section>
             )}
 
-            {viewMode === 'drive' && (
+            {/* 6. 運転日報 */}
+            {(viewMode === 'all' || viewMode === 'drive') && (
               <section className="break-inside-avoid">
                 <h3 className="font-bold text-sm bg-slate-100 print:bg-slate-200 px-2 py-1 border-l-4 border-amber-600 mb-2">
-                  運転日報 運行記録簿
+                  6. 運転日報
                 </h3>
                 {drives.length === 0 ? (
                   <div className="text-slate-400 italic p-2">記録なし</div>
