@@ -47,7 +47,6 @@ const getBusinessRangeJST = () => {
 // 任意の日時（ISO文字列）が属する「営業日枠（16:00〜翌日16:00）」と表示ラベル・精算用デフォルト日時（15:00）を算出するヘルパー
 const getBusinessSlotForDate = (isoString: string) => {
   const d = new Date(isoString);
-  // JST時刻として扱うため UTC+9時間 のミリ秒を加算して計算
   const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
   const jstDate = new Date(jstMs);
 
@@ -69,12 +68,10 @@ const getBusinessSlotForDate = (isoString: string) => {
   const eDay = String(endBase.getUTCDate()).padStart(2, '0');
   const slotEndIso = `${eYear}-${eMonth}-${eDay}T16:00:00+09:00`;
 
-  // 営業日の日付ラベル（endBase側の日付＝実稼働日の日付・曜日）
   const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
   const dayOfWeek = dayNames[endBase.getUTCDay()];
   const dateLabel = `${endBase.getUTCMonth() + 1}/${endBase.getUTCDate()}(${dayOfWeek})`;
 
-  // その営業日の退勤精算用デフォルト日時（15:00）
   const defaultSettleJst = `${eYear}-${eMonth}-${eDay}T15:00`;
 
   return { slotStartIso, slotEndIso, dateLabel, defaultSettleJst };
@@ -1037,7 +1034,7 @@ function ChecksheetForm() {
           const driveSlot = getBusinessSlotForDate(myUnfinishedDrive.start_at);
           setUnsettledAlert({
             type: 'drive',
-            message: `前回運行時（${driveSlot.dateLabel}）の【${myUnfinishedDrive.vehicle_name}】の帰社メーター（降車記録）が未入力のままです！`,
+            message: `${driveSlot.dateLabel}の【${myUnfinishedDrive.vehicle_name}】の帰社記録が完了していません！`,
             targetVehicle: myUnfinishedDrive.vehicle_name,
             targetDriveId: myUnfinishedDrive.id,
             unsettledDateLabel: driveSlot.dateLabel,
@@ -1061,13 +1058,11 @@ function ChecksheetForm() {
       if (!pastAlcoholError && pastAlcoholRecords) {
         const myPastLogs = pastAlcoholRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
         if (myPastLogs.length > 0) {
-          // そのスタッフが最後に記録を残した営業日枠（16:00〜翌16:00）を特定
           const latestRecord = myPastLogs[0];
           const lastSlot = getBusinessSlotForDate(latestRecord.checked_at);
           const slotStartMs = new Date(lastSlot.slotStartIso).getTime();
           const slotEndMs = new Date(lastSlot.slotEndIso).getTime();
 
-          // その最終出勤営業日内の全ログを抽出
           const logsInLastSlot = myPastLogs.filter((r) => {
             const t = new Date(r.checked_at).getTime();
             return t >= slotStartMs && t < slotEndMs;
@@ -1076,11 +1071,11 @@ function ChecksheetForm() {
           const hasStartInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('出勤時'));
           const hasFinishInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('退勤時'));
 
-          // 最終出勤営業日に「出勤時」があるのに「退勤時」がない場合、休みを挟んでいても確実にブロック
+          // シンプルな文言：「10/17(土)の【退勤時の記録】が完了していません！」
           if (hasStartInLastSlot && !hasFinishInLastSlot) {
             setUnsettledAlert({
               type: 'alcohol',
-              message: `前回出勤日（${lastSlot.dateLabel}）の【退勤時の点呼・アルコールチェック】が完了していません！`,
+              message: `${lastSlot.dateLabel}の【退勤時の記録】が完了していません！`,
               unsettledDateLabel: lastSlot.dateLabel,
               defaultSettleJst: lastSlot.defaultSettleJst,
             });
@@ -1116,7 +1111,6 @@ function ChecksheetForm() {
         return;
       }
 
-      // 前回最終記録と200km以上空いている場合は確認アラートを表示してストップ
       if (lastRecordedMeter !== null && currentStartMeterNum - lastRecordedMeter >= 200) {
         setStartMeterGapConfirmAlert({
           gapDistance: (currentStartMeterNum - lastRecordedMeter).toFixed(1),
@@ -1284,7 +1278,6 @@ function ChecksheetForm() {
             }
           }
         } else {
-          // 過去精算時に誤って当日の日時に戻されていた場合は、対象の前回出勤日（15:00）へ自動補正
           if (selectedIso >= new Date(startIso).toISOString()) {
             const fallbackPastJst = settlingDefaultJst || getPrevBusinessDayDefaultJST();
             setAlcoholDate(fallbackPastJst);
@@ -1340,7 +1333,7 @@ function ChecksheetForm() {
           setSettlingDefaultJst('');
           setAlcoholDate(getNowJST());
           applyAlcoholModeInternal('start');
-          setSuccessMsg(`${finishedLabel}の退勤記録を精算しました！続けて本日の「① 出勤時」を記録してください。`);
+          setSuccessMsg(`${finishedLabel}の退勤時の記録を完了しました！続けて本日の「① 出勤時」を記録してください。`);
           window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
@@ -1653,7 +1646,7 @@ function ChecksheetForm() {
                 <div className="p-4 bg-amber-950 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-xl space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-base sm:text-lg font-black text-amber-300">
-                      💡 前回出勤日（{settlingDateLabel || '前回'}）の【退勤時チェック】を精算入力中です
+                      💡 {settlingDateLabel || '前回'}の【退勤時の記録】を精算入力中です
                     </span>
                     <button
                       type="button"
@@ -1670,7 +1663,7 @@ function ChecksheetForm() {
                     </button>
                   </div>
                   <p className="text-xs sm:text-sm font-bold text-slate-200 leading-snug">
-                    記録日時が前回出勤日（{settlingDateLabel || '前回'}）に設定されています。このまま確認者とアルコール測定値を入れて送信すると、続けて本日の「出勤時」入力へ進めます。
+                    記録日時が{settlingDateLabel || '前回'}に設定されています。このまま確認者とアルコール測定値を入れて送信すると、続けて本日の「出勤時」入力へ進めます。
                   </p>
                 </div>
               )}
@@ -2888,7 +2881,7 @@ function ChecksheetForm() {
                 ? alcoholMode === 'start'
                   ? '① 出勤時 基本チェックを送信'
                   : isSettlingPastAlcohol
-                  ? `${settlingDateLabel || '前回'}分 退勤チェックを精算送信`
+                  ? `${settlingDateLabel || '前回'}分 退勤時の記録を精算送信`
                   : '② 退勤時 基本チェックを送信'
                 : activeTab === 'kowari'
                 ? '小割加工チェックを送信'
@@ -3105,13 +3098,13 @@ function ChecksheetForm() {
 
             <div className="space-y-3">
               <div className="text-xs font-black text-red-300 bg-red-950 px-3 py-1 rounded-full border border-red-500 inline-block">
-                前回出勤日の未記録があります
+                未完了の記録があります
               </div>
-              <div className="text-xl sm:text-2xl font-black leading-snug tracking-wide text-white">
+              <div className="text-2xl sm:text-3xl font-black leading-snug tracking-wide text-white">
                 {unsettledAlert.message}
               </div>
               <p className="text-xs font-bold text-slate-300 leading-relaxed pt-1">
-                ※本日の出勤・出発を記録する前に、前回出勤日（{unsettledAlert.unsettledDateLabel || '前回'}）の記録を完了させてください。
+                ※本日の記録を行う前に、{unsettledAlert.unsettledDateLabel || '前回'}の記録を完了させてください。
               </p>
             </div>
 
@@ -3147,7 +3140,7 @@ function ChecksheetForm() {
                   }}
                   className="w-full min-h-[64px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-lg rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
                 >
-                  <span>📋 {unsettledAlert.unsettledDateLabel || '前回'}の退勤チェックを入力する</span>
+                  <span>📋 {unsettledAlert.unsettledDateLabel || '前回'}の退勤時の記録を入力する</span>
                   <span>👉</span>
                 </button>
               )}
