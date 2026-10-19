@@ -2,8 +2,8 @@ name: Record Daily Weather at 08:00 JST
 
 on:
   schedule:
-    # 日本時間 08:00 = UTC 23:00 (前日)
-    - cron: '0 23 * * *'
+    # 日本時間 08:15 (UTC 23:15) に設定（00分の混雑を回避）
+    - cron: '15 23 * * *'
   workflow_dispatch:
 
 jobs:
@@ -23,6 +23,7 @@ jobs:
               const now = new Date();
               const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
               const dateStr = jstNow.toISOString().slice(0, 10);
+              const targetTimeStr = `${dateStr}T08:00`;
               const recordedAt = `${dateStr}T08:00:00+09:00`;
 
               const parseWmo = (code) => {
@@ -39,11 +40,21 @@ jobs:
                 return "☁️ 曇り";
               };
 
-              const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=Asia%2FTokyo`;
+              // hourly から 1時間ごとのデータを取得（降水量・降雪量も含む）
+              const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation,snowfall&timezone=Asia%2FTokyo`;
               
               const resWeather = await fetch(weatherUrl);
               const weatherJson = await resWeather.json();
-              const cur = weatherJson.current;
+
+              // 何時にアクションが起動しても、確実に "08:00" のインデックスを探す
+              const timeIndex = weatherJson.hourly.time.findIndex(t => t === targetTimeStr);
+              const idx = timeIndex !== -1 ? timeIndex : 8;
+
+              const temp = weatherJson.hourly.temperature_2m[idx];
+              const hum = weatherJson.hourly.relative_humidity_2m[idx];
+              const code = weatherJson.hourly.weather_code[idx];
+              const prec = weatherJson.hourly.precipitation ? weatherJson.hourly.precipitation[idx] : 0;
+              const snow = weatherJson.hourly.snowfall ? weatherJson.hourly.snowfall[idx] : 0;
 
               const baseUrl = (process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
               const apiKey = (process.env.SUPABASE_KEY || "").trim();
@@ -52,9 +63,11 @@ jobs:
               const payload = [{
                 target_date: dateStr,
                 recorded_at: recordedAt,
-                weather_text: parseWmo(cur.weather_code),
-                temperature: Math.round(cur.temperature_2m * 10) / 10,
-                humidity: Math.round(cur.relative_humidity_2m)
+                weather_text: parseWmo(code),
+                temperature: Math.round(temp * 10) / 10,
+                humidity: Math.round(hum),
+                precipitation: Math.round(prec * 10) / 10,
+                snowfall: Math.round(snow * 10) / 10
               }];
 
               const resDb = await fetch(targetUrl, {
@@ -76,7 +89,7 @@ jobs:
                 process.exit(1);
               }
 
-              console.log("Successfully stored weather for:", dateStr);
+              console.log("Successfully stored weather for:", dateStr, "At target time:", targetTimeStr, "Payload:", payload[0]);
             }
 
             main().catch((err) => {
