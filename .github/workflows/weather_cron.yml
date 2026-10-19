@@ -40,13 +40,13 @@ jobs:
                 return "☁️ 曇り";
               };
 
-              // hourly から 1時間ごとのデータを取得（降水量・降雪量も含む）
+              // hourly から 1時間ごとのデータを取得（降水量・降雪量を含む）
               const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation,snowfall&timezone=Asia%2FTokyo`;
               
               const resWeather = await fetch(weatherUrl);
               const weatherJson = await resWeather.json();
 
-              // 何時にアクションが起動しても、確実に "08:00" のインデックスを探す
+              // 確実に "08:00" のインデックスを探す
               const timeIndex = weatherJson.hourly.time.findIndex(t => t === targetTimeStr);
               const idx = timeIndex !== -1 ? timeIndex : 8;
 
@@ -58,7 +58,9 @@ jobs:
 
               const baseUrl = (process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
               const apiKey = (process.env.SUPABASE_KEY || "").trim();
-              const targetUrl = `${baseUrl}/rest/v1/daily_weather_logs`;
+              
+              // 重複更新（Upsert）のため on_conflict=target_date を付与
+              const targetUrl = `${baseUrl}/rest/v1/daily_weather_logs?on_conflict=target_date`;
 
               const payload = [{
                 target_date: dateStr,
