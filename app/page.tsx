@@ -393,7 +393,7 @@ function ChecksheetForm() {
     currentMeter: number;
   } | null>(null);
 
-  // 前回出勤日の未精算ブロック用ステート（日付ラベル・自動セット日時対応）
+  // 前回出勤日の未精算ブロック用ステート
   const [unsettledAlert, setUnsettledAlert] = useState<{
     type: 'drive' | 'alcohol';
     message: string;
@@ -431,7 +431,7 @@ function ChecksheetForm() {
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
 
-  // 1. 基本チェック（初期値: 出勤時は石川、退勤時は武藤）
+  // 1. 基本チェック
   const [alcoholMode, setAlcoholMode] = useState<'start' | 'finish'>('start');
   const [alcoholDate, setAlcoholDate] = useState(getNowJST());
   const [basicHealthStatus, setBasicHealthStatus] = useState<'良' | '否' | ''>('');
@@ -474,7 +474,7 @@ function ChecksheetForm() {
   const [transitTempStatus, setTransitTempStatus] = useState<'よい' | 'わるい' | ''>('');
   const [receivingNotes, setReceivingNotes] = useState('');
 
-  // 5. 保管庫,売場管理（温度 ＋ 衛生管理4項目）
+  // 5. 保管庫,売場管理
   const [tempDate, setTempDate] = useState(getNowJST());
   const [mainFreezerTemp, setMainFreezerTemp] = useState('');
   const [room2Temp, setRoom2Temp] = useState('');
@@ -539,18 +539,20 @@ function ChecksheetForm() {
     if (!isSettlingPastAlcohol && staffName.trim()) {
       const clean = staffName.replace(/[\s ]+/g, '').trim();
       try {
-        const { startIso, endIso } = getBusinessRangeJST();
+        // 退勤時刻が16:00以降になっても正しく当日の出勤を拾えるよう、直近24時間または本日0:00以降を広く検索
+        const now = new Date();
+        const searchStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
         const { data, error } = await supabase
           .from('check_alcohol')
-          .select('id, staff_name, notes')
-          .gte('checked_at', startIso)
-          .lte('checked_at', endIso);
+          .select('id, staff_name, notes, checked_at')
+          .gte('checked_at', searchStart)
+          .order('checked_at', { ascending: false });
 
         if (!error && data) {
-          const hasStartToday = data.some(
-            (r) => isNameMatch(r.staff_name, clean) && r.notes && r.notes.includes('出勤時')
-          );
-          if (!hasStartToday) {
+          const myLogs = data.filter((r) => isNameMatch(r.staff_name, clean));
+          const hasStartRecently = myLogs.some((r) => r.notes && r.notes.includes('出勤時'));
+          if (!hasStartRecently) {
             applyAlcoholModeInternal('start');
             setMissingStartForFinishAlert(true);
             return;
@@ -564,7 +566,7 @@ function ChecksheetForm() {
     applyAlcoholModeInternal('finish');
   };
 
-  // スマートアシスト：入力されているスタッフの当日の出勤・退勤状況を調べ、自動でモードをセットする
+  // スマートアシスト：入力されているスタッフの直近出勤状況を調べ、自動でモードをセットする（16:00以降の退勤も安全に検知）
   useEffect(() => {
     if (activeTab !== 'alcohol') return;
     if (isSettlingPastAlcohol) return;
@@ -578,19 +580,23 @@ function ChecksheetForm() {
     let isCancelled = false;
     const autoDetectAlcoholMode = async () => {
       try {
-        const { startIso, endIso } = getBusinessRangeJST();
+        const now = new Date();
+        const searchStart = new Date(now.getTime() - 20 * 60 * 60 * 1000).toISOString();
+
         const { data, error } = await supabase
           .from('check_alcohol')
-          .select('id, staff_name, notes')
-          .gte('checked_at', startIso)
-          .lte('checked_at', endIso);
+          .select('id, staff_name, notes, checked_at')
+          .gte('checked_at', searchStart)
+          .order('checked_at', { ascending: false });
 
         if (isCancelled || error || !data) return;
 
         const myLogs = data.filter((r) => isNameMatch(r.staff_name, clean));
         const hasStart = myLogs.some((r) => r.notes && r.notes.includes('出勤時'));
+        const hasFinish = myLogs.some((r) => r.notes && r.notes.includes('退勤時'));
 
-        if (hasStart) {
+        // 直近に出勤があり、まだ退勤していない場合は、16:00以降であっても「② 退勤時」をセット
+        if (hasStart && !hasFinish) {
           applyAlcoholModeInternal('finish');
         } else {
           applyAlcoholModeInternal('start');
@@ -742,12 +748,13 @@ function ChecksheetForm() {
     if (!clean) return true;
 
     try {
-      const { startIso, endIso } = getBusinessRangeJST();
+      const now = new Date();
+      const searchStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
       const { data, error } = await supabase
         .from('check_alcohol')
-        .select('id, staff_name, notes')
-        .gte('checked_at', startIso)
-        .lte('checked_at', endIso);
+        .select('id, staff_name, notes, checked_at')
+        .gte('checked_at', searchStart);
 
       if (error || !data) return true;
 
@@ -878,7 +885,6 @@ function ChecksheetForm() {
     lastRecordedMeter > 0 &&
     !isNaN(currentStartMeterNum) &&
     (currentStartMeterNum < lastRecordedMeter * 0.2 || currentStartMeterNum > lastRecordedMeter * 2.5);
-  // 出発時：乗車時メーターが前回最終記録と200km以上空いているか判定
   const isStartMeterGapLarge =
     lastRecordedMeter !== null &&
     !isNaN(currentStartMeterNum) &&
@@ -886,19 +892,14 @@ function ChecksheetForm() {
     !isStartMeterDigitError &&
     currentStartMeterNum - lastRecordedMeter >= 200;
 
-  // アルコールチェック登録の実行関数（直接または確認者在席アラート承認後に呼び出し）
+  // アルコールチェック登録の実行関数
   const executeAlcoholInsert = async () => {
     const checker = checkerType === 'その他' ? customChecker : checkerType;
     const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
-    const { startIso } = getBusinessRangeJST();
 
-    const selectedIso = new Date(alcoholDate).toISOString();
-    const isPastRecord = isSettlingPastAlcohol || selectedIso < new Date(startIso).toISOString();
-
-    if (isPastRecord && selectedIso >= new Date(startIso).toISOString()) {
-      const fallbackPastJst = settlingDefaultJst || getPrevBusinessDayDefaultJST();
-      setAlcoholDate(fallbackPastJst);
-    }
+    // 事務員さんの遅い退勤（16:00以降）でも誤って精算扱いにならないよう、
+    // 明示的に精算アラートから入った場合（isSettlingPastAlcohol === true）のみ精算扱いにする
+    const isPastRecord = isSettlingPastAlcohol;
 
     setSubmitting(true);
     setSuccessMsg('');
@@ -920,10 +921,8 @@ function ChecksheetForm() {
         .join(' ')
         .trim();
 
-      const targetCheckedAtIso =
-        isPastRecord && selectedIso >= new Date(startIso).toISOString()
-          ? new Date(settlingDefaultJst || getPrevBusinessDayDefaultJST()).toISOString()
-          : selectedIso;
+      // 日時が勝手に前日15:00に書き換わらないよう、選択された日時をそのまま正しく保存
+      const targetCheckedAtIso = new Date(alcoholDate).toISOString();
 
       const { error } = await supabase.from('check_alcohol').insert([
         {
@@ -973,7 +972,7 @@ function ChecksheetForm() {
     }
   };
 
-  // 出発記録の実行関数（直接または200km乖離確認モーダル承認後に呼び出し）
+  // 出発記録の実行関数
   const executeStartDrive = async () => {
     saveStaffNameHistory(staffName);
     const v = vehicle === 'その他' ? customVehicle : vehicle;
@@ -1021,7 +1020,7 @@ function ChecksheetForm() {
     }
   };
 
-  // 帰社記録の実行関数（直接または200km超過確認モーダル承認後に呼び出し）
+  // 帰社記録の実行関数
   const executeFinishDrive = async () => {
     if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
     if (!endMeter) throw new Error('降車時メーターを入力してください');
@@ -1105,7 +1104,7 @@ function ChecksheetForm() {
     }
 
     const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
-    const { startIso, endIso } = getBusinessRangeJST();
+    const { startIso } = getBusinessRangeJST();
 
     // =========================================================
     // 翌朝（次回出勤時）チェック：各自の「最終出勤日」を遡って未精算を物理ブロック
@@ -1165,7 +1164,6 @@ function ChecksheetForm() {
           const hasStartInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('出勤時'));
           const hasFinishInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('退勤時'));
 
-          // シンプルな文言：「10/17(土)の【退勤時の記録】が完了していません！」
           if (hasStartInLastSlot && !hasFinishInLastSlot) {
             setUnsettledAlert({
               type: 'alcohol',
@@ -1182,9 +1180,7 @@ function ChecksheetForm() {
     // 運転日報の出発時：バリデーションと200km乖離確認モーダル判定
     if (activeTab === 'drive' && driveMode === 'start') {
       const ok = await verifyTodayStartAlcohol(staffName);
-      if (!ok) {
-        return;
-      }
+      if (!ok) return;
 
       if (!startMeter) {
         setDialogError('乗車時メーターを入力してください');
@@ -1303,7 +1299,7 @@ function ChecksheetForm() {
     }
 
     // =========================================================
-    // 基本チェック（アルコールチェック）送信前の事前チェックと確認者ステータス照合
+    // 基本チェック（アルコールチェック）送信前の事前チェック（遅い退勤時刻に対応）
     // =========================================================
     if (activeTab === 'alcohol') {
       if (alcoholMode === 'finish' && myLatestPendingDrive) {
@@ -1353,31 +1349,39 @@ function ChecksheetForm() {
       }
 
       const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
-      const selectedIso = new Date(alcoholDate).toISOString();
-      const isPastRecord = isSettlingPastAlcohol || selectedIso < new Date(startIso).toISOString();
+      const isPastRecord = isSettlingPastAlcohol;
 
       if (!isPastRecord) {
+        // 16:00以降の退勤でも午前中の出勤記録を正しく照合できるよう、直近24時間を検索
+        const now = new Date();
+        const searchStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
           .select('id, checked_at, notes, staff_name')
-          .gte('checked_at', startIso)
-          .lte('checked_at', endIso);
+          .gte('checked_at', searchStart)
+          .order('checked_at', { ascending: false });
 
         if (!checkError && existingRecords) {
           const myTodayLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
 
           // 1. 退勤時で本人の出勤記録がない場合はハードブロック
           if (alcoholMode === 'finish') {
-            const hasStartToday = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-            if (!hasStartToday) {
+            const hasStartRecently = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
+            if (!hasStartRecently) {
               applyAlcoholModeInternal('start');
               setMissingStartForFinishAlert(true);
               return;
             }
           }
 
-          // 2. 本人の二重投稿防止チェック
-          const duplicate = myTodayLogs.find((r) => r.notes && r.notes.includes(timingKey));
+          // 2. 本人の二重投稿防止チェック（直近12時間以内の同一タイミング）
+          const twelveHoursAgoMs = now.getTime() - 12 * 60 * 60 * 1000;
+          const duplicate = myTodayLogs.find((r) => {
+            const t = new Date(r.checked_at).getTime();
+            return t >= twelveHoursAgoMs && r.notes && r.notes.includes(timingKey);
+          });
+
           if (duplicate) {
             setDuplicateAlcoholAlert({
               isStart: alcoholMode === 'start',
@@ -1385,9 +1389,7 @@ function ChecksheetForm() {
             return;
           }
 
-          // 3. パターンC：確認者（checker）のステータス照合
-          // ・出勤時・退勤時とも、確認者が「すでに退勤済み」ならアラート
-          // ・退勤時のみ、確認者の「出勤記録がない」場合もアラート（朝は順番が前後するため免除）
+          // 3. 確認者（checker）のステータス照合
           const checkerLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanChecker));
           const checkerHasStarted = checkerLogs.some((r) => r.notes && r.notes.includes('出勤時'));
           const checkerHasFinished = checkerLogs.some((r) => r.notes && r.notes.includes('退勤時'));
@@ -3174,7 +3176,7 @@ function ChecksheetForm() {
       )}
 
       {/* ========================================================
-          車両選択時の前回帰社未記録お知らせモーダル（柔らかめな表現）
+          車両選択時の前回帰社未記録お知らせモーダル
          ======================================================== */}
       {vehicleUnfinishedAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
