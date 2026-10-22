@@ -539,7 +539,6 @@ function ChecksheetForm() {
     if (!isSettlingPastAlcohol && staffName.trim()) {
       const clean = staffName.replace(/[\s ]+/g, '').trim();
       try {
-        // 退勤時刻が16:00以降になっても正しく当日の出勤を拾えるよう、直近24時間または本日0:00以降を広く検索
         const now = new Date();
         const searchStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -566,7 +565,7 @@ function ChecksheetForm() {
     applyAlcoholModeInternal('finish');
   };
 
-  // スマートアシスト：入力されているスタッフの直近出勤状況を調べ、自動でモードをセットする（16:00以降の退勤も安全に検知）
+  // スマートアシスト：入力されているスタッフの直近出勤状況を調べ、自動でモードをセットする
   useEffect(() => {
     if (activeTab !== 'alcohol') return;
     if (isSettlingPastAlcohol) return;
@@ -595,7 +594,6 @@ function ChecksheetForm() {
         const hasStart = myLogs.some((r) => r.notes && r.notes.includes('出勤時'));
         const hasFinish = myLogs.some((r) => r.notes && r.notes.includes('退勤時'));
 
-        // 直近に出勤があり、まだ退勤していない場合は、16:00以降であっても「② 退勤時」をセット
         if (hasStart && !hasFinish) {
           applyAlcoholModeInternal('finish');
         } else {
@@ -896,9 +894,6 @@ function ChecksheetForm() {
   const executeAlcoholInsert = async () => {
     const checker = checkerType === 'その他' ? customChecker : checkerType;
     const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
-
-    // 事務員さんの遅い退勤（16:00以降）でも誤って精算扱いにならないよう、
-    // 明示的に精算アラートから入った場合（isSettlingPastAlcohol === true）のみ精算扱いにする
     const isPastRecord = isSettlingPastAlcohol;
 
     setSubmitting(true);
@@ -921,7 +916,6 @@ function ChecksheetForm() {
         .join(' ')
         .trim();
 
-      // 日時が勝手に前日15:00に書き換わらないよう、選択された日時をそのまま正しく保存
       const targetCheckedAtIso = new Date(alcoholDate).toISOString();
 
       const { error } = await supabase.from('check_alcohol').insert([
@@ -1299,7 +1293,7 @@ function ChecksheetForm() {
     }
 
     // =========================================================
-    // 基本チェック（アルコールチェック）送信前の事前チェック（遅い退勤時刻に対応）
+    // 基本チェック（アルコールチェック）送信前の事前チェック（夜勤・早朝・遅い退勤に対応）
     // =========================================================
     if (activeTab === 'alcohol') {
       if (alcoholMode === 'finish' && myLatestPendingDrive) {
@@ -1352,9 +1346,9 @@ function ChecksheetForm() {
       const isPastRecord = isSettlingPastAlcohol;
 
       if (!isPastRecord) {
-        // 16:00以降の退勤でも午前中の出勤記録を正しく照合できるよう、直近24時間を検索
+        // 夜勤（前日21:00〜）を含む全シフトの打刻を網羅するため直近36時間を検索
         const now = new Date();
-        const searchStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+        const searchStart = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString();
 
         const { data: existingRecords, error: checkError } = await supabase
           .from('check_alcohol')
@@ -1389,25 +1383,31 @@ function ChecksheetForm() {
             return;
           }
 
-          // 3. 確認者（checker）のステータス照合
+          // 3. 確認者（checker）のステータス照合（時系列・最新1件基準で判定）
+          // 時系列降順（新しい順）で並んでいるため、最初の1件が最新の打刻
           const checkerLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanChecker));
-          const checkerHasStarted = checkerLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-          const checkerHasFinished = checkerLogs.some((r) => r.notes && r.notes.includes('退勤時'));
 
-          if (checkerHasFinished) {
-            setCheckerAttendanceAlert({
-              checkerName: checker,
-              statusType: 'already_finished',
-            });
-            return;
-          }
+          if (checkerLogs.length > 0) {
+            const latestCheckerLog = checkerLogs[0];
+            const isLatestFinished = latestCheckerLog.notes && latestCheckerLog.notes.includes('退勤時');
 
-          if (alcoholMode === 'finish' && !checkerHasStarted) {
-            setCheckerAttendanceAlert({
-              checkerName: checker,
-              statusType: 'not_started',
-            });
-            return;
+            // 最新打刻が「退勤時」であれば現在退勤済みと判定
+            if (isLatestFinished) {
+              setCheckerAttendanceAlert({
+                checkerName: checker,
+                statusType: 'already_finished',
+              });
+              return;
+            }
+          } else {
+            // 直近36時間以内に打刻自体が全くない場合、退勤時チェックでのみ「未出勤」アラート
+            if (alcoholMode === 'finish') {
+              setCheckerAttendanceAlert({
+                checkerName: checker,
+                statusType: 'not_started',
+              });
+              return;
+            }
           }
         }
       }
