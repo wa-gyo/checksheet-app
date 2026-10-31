@@ -44,7 +44,6 @@ const getBusinessRangeJST = () => {
   return { startIso, endIso };
 };
 
-// 任意の日時（ISO文字列）が属する「営業日枠（16:00〜翌日16:00）」と表示ラベル・精算用デフォルト日時（15:00）を算出するヘルパー
 const getBusinessSlotForDate = (isoString: string) => {
   const d = new Date(isoString);
   const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
@@ -77,7 +76,6 @@ const getBusinessSlotForDate = (isoString: string) => {
   return { slotStartIso, slotEndIso, dateLabel, defaultSettleJst };
 };
 
-// フォールバック用の前営業日15:00生成ヘルパー
 const getPrevBusinessDayDefaultJST = () => {
   const { startIso } = getBusinessRangeJST();
   const d = new Date(startIso);
@@ -131,7 +129,7 @@ const isNameMatch = (nameA: string, nameB: string): boolean => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-// 日時表示コンポーネント（白抜き文字ベース）
+// 日時表示コンポーネント（type="button" を付与してフォームの誤送信を完全に防止）
 function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -140,20 +138,32 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
     setTempValue(value);
   }, [value]);
 
-  const handleOpen = () => {
+  const handleOpen = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setTempValue(value);
     setIsOpen(true);
   };
 
-  const handleApply = () => {
+  const handleApply = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     onChange(tempValue);
     setIsOpen(false);
   };
 
-  const handleResetNow = () => {
+  const handleResetNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const now = getNowJST();
     setTempValue(now);
     onChange(now);
+    setIsOpen(false);
+  };
+
+  const handleCloseModal = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsOpen(false);
   };
 
@@ -180,8 +190,8 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 animate-fade-in backdrop-blur-sm">
-          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-blue-500 space-y-4 max-h-[92vh] overflow-y-auto text-white">
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 animate-fade-in backdrop-blur-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-blue-500 space-y-4 max-h-[92vh] overflow-y-auto text-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b border-slate-700 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🕒</span>
@@ -189,7 +199,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
               </div>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={handleCloseModal}
                 className="text-slate-400 hover:text-white text-2xl font-black w-10 h-10 flex items-center justify-center"
               >
                 ✕
@@ -232,7 +242,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleCloseModal}
                   className="min-h-[46px] py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border-2 border-slate-600 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center"
                 >
                   キャンセル
@@ -523,7 +533,6 @@ function ChecksheetForm() {
     }
   };
 
-  // ユーザーが「① 出勤時」「② 退勤時」ボタンを手動でタップした際のハンドラー
   const handleSwitchAlcoholMode = async (mode: 'start' | 'finish') => {
     if (mode === 'start') {
       if (isSettlingPastAlcohol) {
@@ -565,14 +574,13 @@ function ChecksheetForm() {
     applyAlcoholModeInternal('finish');
   };
 
-  // スマートアシスト：入力されているスタッフの直近出勤状況を調べ、自動でモードをセットする
+  // スマートアシスト（※ユーザーが入力に集中できるよう、タブ切替時等の意図しない自動モード上書きを抑制）
   useEffect(() => {
     if (activeTab !== 'alcohol') return;
     if (isSettlingPastAlcohol) return;
 
     const clean = staffName.replace(/[\s ]+/g, '').trim();
     if (!clean) {
-      applyAlcoholModeInternal('start');
       return;
     }
 
@@ -596,8 +604,6 @@ function ChecksheetForm() {
 
         if (hasStart && !hasFinish) {
           applyAlcoholModeInternal('finish');
-        } else {
-          applyAlcoholModeInternal('start');
         }
       } catch (e) {
         console.error('Auto detect alcohol mode error:', e);
@@ -830,7 +836,7 @@ function ChecksheetForm() {
         .select('*')
         .is('end_meter', null)
         .order('start_at', { ascending: false })
-        .limit(20);
+        .limit(50);
       if (error) throw error;
 
       const driveList = data || [];
@@ -1014,7 +1020,7 @@ function ChecksheetForm() {
     }
   };
 
-  // 帰社記録の実行関数
+  // 帰社記録の実行関数（選択された自分の古い運行データに対して、個別の乗車時メーターを基準に安全に更新）
   const executeFinishDrive = async () => {
     if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
     if (!endMeter) throw new Error('降車時メーターを入力してください');
@@ -1025,7 +1031,7 @@ function ChecksheetForm() {
 
     if (endM < startM) {
       throw new Error(
-        `降車時メーター（${endM} km）が乗車時メーター（${startM} km）より小さくなっています。数値を再確認してください。`
+        `選択した運行の乗車時メーター（${startM} km）に対し、降車時メーター（${endM} km）が小さくなっています。数値を再確認してください。`
       );
     }
 
@@ -1044,28 +1050,6 @@ function ChecksheetForm() {
         .eq('id', selectedDriveId);
 
       if (error) throw error;
-
-      if (selectedDrive) {
-        const duplicatePendingIds = activeDrives
-          .filter(
-            (d) =>
-              d.id !== selectedDriveId &&
-              isNameMatch(d.staff_name, selectedDrive.staff_name) &&
-              d.vehicle_name === selectedDrive.vehicle_name
-          )
-          .map((d) => d.id);
-
-        if (duplicatePendingIds.length > 0) {
-          await supabase
-            .from('check_driving_report')
-            .update({
-              end_at: new Date(driveEnd).toISOString(),
-              end_meter: endM,
-              notes: '[出発時重複により自動同期完了]',
-            })
-            .in('id', duplicatePendingIds);
-        }
-      }
 
       setEndMeter('');
       setRefuelLiters('');
@@ -1100,14 +1084,10 @@ function ChecksheetForm() {
     const cleanStaff = staffName.replace(/[\s ]+/g, '').trim();
     const { startIso } = getBusinessRangeJST();
 
-    // =========================================================
-    // 翌朝（次回出勤時）チェック：各自の「最終出勤日」を遡って未精算を物理ブロック
-    // =========================================================
     if (
       (activeTab === 'alcohol' && alcoholMode === 'start') ||
       (activeTab === 'drive' && driveMode === 'start')
     ) {
-      // 1. 前営業日以前の帰社メーター未入力（運行中放置）チェック
       const { data: pastDrives, error: pastDriveError } = await supabase
         .from('check_driving_report')
         .select('id, vehicle_name, start_meter, start_at, staff_name')
@@ -1130,7 +1110,6 @@ function ChecksheetForm() {
         }
       }
 
-      // 2. 各自の「最終出勤営業日」を遡って退勤チェック忘れを判定（直近14日間を検索）
       const lookbackDate = new Date(startIso);
       lookbackDate.setDate(lookbackDate.getDate() - 14);
       const lookbackIso = lookbackDate.toISOString();
@@ -1171,7 +1150,6 @@ function ChecksheetForm() {
       }
     }
 
-    // 運転日報の出発時：バリデーションと200km乖離確認モーダル判定
     if (activeTab === 'drive' && driveMode === 'start') {
       const ok = await verifyTodayStartAlcohol(staffName);
       if (!ok) return;
@@ -1261,7 +1239,6 @@ function ChecksheetForm() {
       }
     }
 
-    // 運転日報・帰社時: 走行距離が200kmを超える場合は確認モーダルを出してストップ
     if (activeTab === 'drive' && driveMode === 'finish') {
       if (!selectedDriveId) {
         setDialogError('完了対象の運行データを選択してください');
@@ -1276,7 +1253,7 @@ function ChecksheetForm() {
       const endM = parseFloat(endMeter);
 
       if (endM < startM) {
-        setDialogError(`降車時メーター（${endM} km）が乗車時メーター（${startM} km）より小さくなっています。数値を再確認してください。`);
+        setDialogError(`選択した運行の乗車時メーター（${startM} km）に対し、降車時メーター（${endM} km）が小さくなっています。数値を再確認してください。`);
         return;
       }
 
@@ -1292,9 +1269,6 @@ function ChecksheetForm() {
       return;
     }
 
-    // =========================================================
-    // 基本チェック（アルコールチェック）送信前の事前チェック（夜勤・早朝・遅い退勤に対応）
-    // =========================================================
     if (activeTab === 'alcohol') {
       if (alcoholMode === 'finish' && myLatestPendingDrive) {
         setDrivePendingAlert({
@@ -1346,7 +1320,6 @@ function ChecksheetForm() {
       const isPastRecord = isSettlingPastAlcohol;
 
       if (!isPastRecord) {
-        // 夜勤（前日21:00〜）を含む全シフトの打刻を網羅するため直近36時間を検索
         const now = new Date();
         const searchStart = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString();
 
@@ -1359,7 +1332,6 @@ function ChecksheetForm() {
         if (!checkError && existingRecords) {
           const myTodayLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
 
-          // 1. 退勤時で本人の出勤記録がない場合はハードブロック
           if (alcoholMode === 'finish') {
             const hasStartRecently = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
             if (!hasStartRecently) {
@@ -1369,7 +1341,6 @@ function ChecksheetForm() {
             }
           }
 
-          // 2. 本人の二重投稿防止チェック（直近12時間以内の同一タイミング）
           const twelveHoursAgoMs = now.getTime() - 12 * 60 * 60 * 1000;
           const duplicate = myTodayLogs.find((r) => {
             const t = new Date(r.checked_at).getTime();
@@ -1383,15 +1354,12 @@ function ChecksheetForm() {
             return;
           }
 
-          // 3. 確認者（checker）のステータス照合（時系列・最新1件基準で判定）
-          // 時系列降順（新しい順）で並んでいるため、最初の1件が最新の打刻
           const checkerLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanChecker));
 
           if (checkerLogs.length > 0) {
             const latestCheckerLog = checkerLogs[0];
             const isLatestFinished = latestCheckerLog.notes && latestCheckerLog.notes.includes('退勤時');
 
-            // 最新打刻が「退勤時」であれば現在退勤済みと判定
             if (isLatestFinished) {
               setCheckerAttendanceAlert({
                 checkerName: checker,
@@ -1400,7 +1368,6 @@ function ChecksheetForm() {
               return;
             }
           } else {
-            // 直近36時間以内に打刻自体が全くない場合、退勤時チェックでのみ「未出勤」アラート
             if (alcoholMode === 'finish') {
               setCheckerAttendanceAlert({
                 checkerName: checker,
@@ -1724,7 +1691,6 @@ function ChecksheetForm() {
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
-              {/* 前回出勤日の退勤忘れ精算モード時の案内バナー */}
               {isSettlingPastAlcohol && (
                 <div className="p-4 bg-amber-950 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-xl space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1751,18 +1717,15 @@ function ChecksheetForm() {
                 </div>
               )}
 
-              {/* ② 記録日時 */}
               <div className="space-y-2">
                 <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
               </div>
 
-              {/* ③ アルコールチェックカード */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h3 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   アルコールチェック
                 </h3>
 
-                {/* 出勤時・退勤時ボタン */}
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                   <button
                     type="button"
@@ -1889,7 +1852,6 @@ function ChecksheetForm() {
                 </div>
               </div>
 
-              {/* ④ 体調、衛生チェック（出勤時のみ表示、退勤時は不要） */}
               {alcoholMode === 'start' && (
                 <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                   <h3 className="font-black text-2xl text-white border-l-8 border-emerald-600 pl-3">
@@ -1987,7 +1949,6 @@ function ChecksheetForm() {
                 運転日報
               </h2>
 
-              {/* 出発時・帰社時ボタン */}
               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border-2 border-slate-800">
                 <button
                   type="button"
@@ -2176,12 +2137,15 @@ function ChecksheetForm() {
                               const isMine = isNameMatch(d.staff_name, staffName);
                               return (
                                 <option key={d.id} value={d.id} className="font-black py-1">
-                                  {isMine ? '★ ' : ''}{d.vehicle_name} ({d.staff_name}さん / 乗車: {d.start_meter} km)
+                                  {isMine ? '★ ' : ''}{d.vehicle_name} ({d.staff_name}さん / 乗車: {d.start_meter} km / {formatDisplayJST(d.start_at)})
                                 </option>
                               );
                             })}
                           </select>
                         )}
+                        <p className="text-xs text-slate-400 mt-1">
+                          ※後から一括記録する場合も、リストから自分の過去の出発データを選んで帰社完了できます。
+                        </p>
                       </div>
 
                       <div>
@@ -2212,7 +2176,7 @@ function ChecksheetForm() {
 
                       {isMeterInvalid && (
                         <div className="p-3.5 bg-red-950 border-2 border-red-500 text-red-200 rounded-xl text-sm font-black animate-pulse leading-snug">
-                          🚨 メーター逆行エラー：乗車時（{currentStartMeter} km）より小さくなっています。
+                          🚨 メーター逆行エラー：選択した運行の乗車時（{currentStartMeter} km）より小さくなっています。
                         </div>
                       )}
 
@@ -2644,7 +2608,6 @@ function ChecksheetForm() {
                 />
               </div>
 
-              {/* 衛生管理カード */}
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
                 <h2 className="font-black text-2xl text-white border-l-8 border-blue-600 pl-3">
                   保管庫・売場 衛生管理
@@ -2932,7 +2895,6 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 直近エラー表示 */}
           {dialogError && (
             <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
@@ -2940,7 +2902,6 @@ function ChecksheetForm() {
             </div>
           )}
 
-          {/* 送信ボタン：高コントラストな青 */}
           <div className="pt-3">
             <button
               type="submit"
@@ -2980,9 +2941,6 @@ function ChecksheetForm() {
         </form>
       </div>
 
-      {/* ========================================================
-          確認者が退勤済み・または退勤時に未出勤の場合のシンプル確認モーダル
-         ======================================================== */}
       {checkerAttendanceAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3040,9 +2998,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          出発時：乗車時メーターが前回最終記録から200km以上空いている場合の確認モーダル
-         ======================================================== */}
       {startMeterGapConfirmAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3093,9 +3048,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          ハードブロック：当日の出勤記録がない状態で退勤時を選んだ際のアラート
-         ======================================================== */}
       {missingStartForFinishAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3133,9 +3085,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          運転日報（出発時）：当日の出勤時アルコールチェック未実施アラート
-         ======================================================== */}
       {missingStartAlcoholAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3175,9 +3124,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          車両選択時の前回帰社未記録お知らせモーダル
-         ======================================================== */}
       {vehicleUnfinishedAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-amber-400 text-center text-white space-y-5">
@@ -3229,9 +3175,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* ========================================================
-          前回出勤日の未精算データ ブロック全画面アラート
-         ======================================================== */}
       {unsettledAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3292,7 +3235,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 運行中放置時の退勤ブロック全画面アラート */}
       {drivePendingAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3328,7 +3270,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 帰社時：走行距離200km超えの確認モーダル */}
       {distanceConfirmAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3375,7 +3316,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 基本チェック 重複送信防止シンプルアラート */}
       {duplicateAlcoholAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-red-500 text-center text-white space-y-6">
@@ -3403,7 +3343,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 送信後シンプル全画面アラート */}
       {fullscreenAlert && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl border-4 border-blue-500 text-center text-white space-y-6">
@@ -3431,7 +3370,6 @@ function ChecksheetForm() {
         </div>
       )}
 
-      {/* 特記事項 未入力時の全画面ブロックモーダル */}
       {notesRequiredAlert && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-3 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border-4 border-red-500 text-center text-white">
