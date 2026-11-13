@@ -17,8 +17,8 @@ jobs:
         run: |
           node -e '
             async function main() {
-              const LAT = 37.5282;
-              const LON = 139.9465;
+              const LAT = 37.526823;
+              const LON = 139.94667;
 
               const now = new Date();
               const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));

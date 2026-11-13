@@ -6,9 +6,6 @@ import { supabase } from '@/lib/supabase';
 
 type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
-// 管理者パスコード
-const ADMIN_PASSCODE = 'gyorui370220';
-
 interface EditTarget {
   table: string;
   id: string;
@@ -69,6 +66,33 @@ const getBusinessPeriod = (dateStr: string) => {
   return { startIso, endIso, label };
 };
 
+// 勤怠記録の位置判定表示（位置情報の列が無い古い記録は「-」）
+function GeoBadge({ row }: { row: { geo_status?: string | null; geo_distance_m?: number | null } }) {
+  const status = row.geo_status;
+  if (!status) return <div className="text-slate-400">-</div>;
+  if (status === 'inside') {
+    return <div className="text-emerald-700 font-bold">📍事業所内 {row.geo_distance_m != null ? `${row.geo_distance_m}m` : ''}</div>;
+  }
+  if (status === 'outside') {
+    return <div className="text-red-700 font-black">🚨事業所外 {row.geo_distance_m != null ? `${row.geo_distance_m}m` : ''}</div>;
+  }
+  return <div className="text-amber-700 font-black">⚠️位置確認不可</div>;
+}
+
+// 記録上の日時と、サーバーが受け付けた実際の送信時刻の差が大きい場合に表示
+function ServerTimeGap({ row, timeField }: { row: Record<string, unknown>; timeField: string }) {
+  const serverAt = row.server_recorded_at;
+  const recordedAt = row[timeField];
+  if (typeof serverAt !== 'string' || typeof recordedAt !== 'string') return null;
+  const gapMin = Math.round((new Date(serverAt).getTime() - new Date(recordedAt).getTime()) / 60000);
+  if (Math.abs(gapMin) < 30) return null;
+  return (
+    <div className="text-amber-700 font-bold" title="入力された日時と、実際に送信された時刻の差">
+      送信 {formatShortDateTime(serverAt)}（差 {gapMin > 0 ? '+' : ''}{gapMin}分）
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [targetDate, setTargetDate] = useState(getTodayJST);
   const [loading, setLoading] = useState(false);
@@ -76,7 +100,9 @@ export default function AdminDashboard() {
 
   // 認証ステート
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [inputEmail, setInputEmail] = useState('');
   const [inputPass, setInputPass] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
   const [passError, setPassError] = useState('');
 
   // 編集モーダルステート
@@ -98,27 +124,40 @@ export default function AdminDashboard() {
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
-  // 認証チェック
+  // 認証チェック（Supabase Auth のログイン状態）
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('admin_authenticated');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
+    // 旧パスコード方式のフラグは不要になったため削除
+    try {
+      sessionStorage.removeItem('admin_authenticated');
+    } catch {}
+
+    supabase.auth.getSession().then(({ data }) => {
+      setIsAuthenticated(!!data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputPass === ADMIN_PASSCODE) {
-      sessionStorage.setItem('admin_authenticated', 'true');
-      setIsAuthenticated(true);
-      setPassError('');
-    } else {
-      setPassError('パスコードが正しくありません');
+    setLoggingIn(true);
+    setPassError('');
+    const { error } = await supabase.auth.signInWithPassword({
+      email: inputEmail.trim(),
+      password: inputPass,
+    });
+    setLoggingIn(false);
+    if (error) {
+      setPassError('メールアドレスまたはパスワードが正しくありません');
+      return;
     }
+    setInputPass('');
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('admin_authenticated');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
     setInputPass('');
   };
@@ -202,8 +241,10 @@ export default function AdminDashboard() {
       return;
     }
     try {
-      const { error } = await supabase.from(table).delete().eq('id', id);
+      const { data, error } = await supabase.from(table).delete().eq('id', id).select('id');
       if (error) throw error;
+      // 権限が無い場合、エラーにならず0件削除になるため明示的に確認する
+      if (!data || data.length === 0) throw new Error('削除できませんでした（権限がないか、既に削除されています）。再ログインしてください。');
       await fetchData(targetDate);
       alert('削除が完了しました。');
     } catch (err: any) {
@@ -233,8 +274,9 @@ export default function AdminDashboard() {
         updatePayload.notes = editNotesValue;
       }
 
-      const { error } = await supabase.from(editTarget.table).update(updatePayload).eq('id', editTarget.id);
+      const { data, error } = await supabase.from(editTarget.table).update(updatePayload).eq('id', editTarget.id).select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('保存できませんでした（権限がありません）。再ログインしてください。');
 
       setEditTarget(null);
       await fetchData(targetDate);
@@ -263,19 +305,30 @@ export default function AdminDashboard() {
             <span className="text-4xl">🔐</span>
             <h1 className="text-2xl font-black text-slate-900">管理者ログイン</h1>
             <p className="text-xs font-bold text-slate-500">
-              業務管理簿の閲覧・修正・削除にはパスコードが必要です
+              業務管理簿の閲覧・修正・削除には管理者アカウントでのログインが必要です
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">管理者パスコード</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">メールアドレス</label>
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                value={inputEmail}
+                onChange={(e) => setInputEmail(e.target.value)}
+                placeholder="admin@example.com"
+                className="w-full h-14 px-4 text-lg font-bold border-2 border-slate-400 rounded-xl focus:border-blue-600 outline-none mb-3"
+              />
+              <label className="block text-sm font-bold text-slate-700 mb-1">パスワード</label>
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={inputPass}
                 onChange={(e) => setInputPass(e.target.value)}
-                placeholder="パスコードを入力"
+                placeholder="パスワードを入力"
                 className="w-full h-14 px-4 text-center text-2xl tracking-widest font-black border-2 border-slate-400 rounded-xl focus:border-blue-600 outline-none"
               />
               {passError && <p className="text-xs font-bold text-red-600 mt-2 text-center">{passError}</p>}
@@ -283,9 +336,10 @@ export default function AdminDashboard() {
 
             <button
               type="submit"
-              className="w-full h-14 bg-blue-700 hover:bg-blue-800 text-white font-black text-lg rounded-xl shadow-lg transition-all"
+              disabled={loggingIn}
+              className="w-full h-14 bg-blue-700 hover:bg-blue-800 text-white font-black text-lg rounded-xl shadow-lg transition-all disabled:opacity-50"
             >
-              認証して管理画面を開く
+              {loggingIn ? '認証中...' : 'ログインして管理画面を開く'}
             </button>
           </form>
 
@@ -707,6 +761,7 @@ export default function AdminDashboard() {
                         <th className="border border-slate-300 p-1.5">確認者名</th>
                         <th className="border border-slate-300 p-1.5">測定値 (mg/L)</th>
                         <th className="border border-slate-300 p-1.5">判定</th>
+                        <th className="border border-slate-300 p-1.5">位置・送信時刻</th>
                         <th className="border border-slate-300 p-1.5">特記事項</th>
                         <th className="border border-slate-300 p-1.5 print:hidden w-24">管理</th>
                       </tr>
@@ -741,6 +796,10 @@ export default function AdminDashboard() {
                             <td className="border border-slate-300 p-1.5 font-mono font-bold">{Number(row.alcohol_value).toFixed(2)}</td>
                             <td className="border border-slate-300 p-1.5 font-bold">
                               {v === 0 ? <span className="text-emerald-700">合格 (0.00)</span> : isDanger ? <span className="text-red-700">🚨 超過</span> : <span className="text-amber-700">微量</span>}
+                            </td>
+                            <td className="border border-slate-300 p-1.5 text-[11px] whitespace-nowrap">
+                              <GeoBadge row={row} />
+                              <ServerTimeGap row={row} timeField="checked_at" />
                             </td>
                             <td className={`border border-slate-300 p-1.5 text-left ${hasProblem ? 'text-red-600 font-black bg-red-50/50' : 'text-slate-600'}`}>
                               {notesText || '-'}

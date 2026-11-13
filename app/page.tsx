@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { checkGeofence, GEOFENCE_MODE, GEOFENCE_RADIUS_M } from '@/lib/geofence';
 
 // 出勤時・退勤時それぞれの確認者選択肢定義
 const CHECKER_OPTIONS_START = ['石川', '武藤', '五十嵐'];
@@ -359,6 +360,7 @@ function ChecksheetForm() {
   const initialParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(initialParam));
   const [submitting, setSubmitting] = useState(false);
+  const [geoChecking, setGeoChecking] = useState(false);
   const [isCooldown, setIsCooldown] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
@@ -906,6 +908,26 @@ function ChecksheetForm() {
     setSuccessMsg('');
 
     try {
+      // 位置情報による事業所内判定（半径 GEOFENCE_RADIUS_M 以内）
+      setGeoChecking(true);
+      const geo = await checkGeofence().finally(() => setGeoChecking(false));
+
+      if (geo.status === 'outside' && GEOFENCE_MODE === 'block') {
+        setCheckerAttendanceAlert(null);
+        setDialogError(
+          `事業所の外からは記録できません。\n現在地は事業所から約${geo.distanceM}m 離れています（許容範囲 ${GEOFENCE_RADIUS_M}m、測位誤差 ±${geo.accuracyM}m）。\n事業所内にいる場合は、窓際などで少し待ってから再度送信してください。`
+        );
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      const geoNote =
+        geo.status === 'unavailable'
+          ? `【位置確認不可: ${geo.reason}】`
+          : geo.status === 'outside'
+          ? `【位置: 事業所外 約${geo.distanceM}m】`
+          : '';
+
       saveStaffNameHistory(staffName);
 
       const healthNote = alcoholMode === 'start' ? `【体調: ${basicHealthStatus === '良' ? '異常なし' : '要報告'}】` : '';
@@ -917,22 +939,39 @@ function ChecksheetForm() {
             : '[前回分精算]'
           : '';
 
-      const finalNotes = [timingLabel, settlePrefix, healthNote, handNote, alcoholNotes]
+      const finalNotes = [timingLabel, settlePrefix, geoNote, healthNote, handNote, alcoholNotes]
         .filter(Boolean)
         .join(' ')
         .trim();
 
       const targetCheckedAtIso = new Date(alcoholDate).toISOString();
 
-      const { error } = await supabase.from('check_alcohol').insert([
+      const baseRow = {
+        checked_at: targetCheckedAtIso,
+        staff_name: staffName,
+        checker_name: checker,
+        alcohol_value: parseFloat(alcoholVal),
+        notes: finalNotes,
+      };
+
+      let { error } = await supabase.from('check_alcohol').insert([
         {
-          checked_at: targetCheckedAtIso,
-          staff_name: staffName,
-          checker_name: checker,
-          alcohol_value: parseFloat(alcoholVal),
-          notes: finalNotes,
+          ...baseRow,
+          geo_status: geo.status,
+          geo_lat: geo.lat,
+          geo_lng: geo.lng,
+          geo_accuracy_m: geo.accuracyM,
+          geo_distance_m: geo.distanceM,
         },
       ]);
+
+      // データベースに位置情報の列がまだ無い場合（SQL適用前）は、従来どおりの形式で記録する
+      if (error && /geo_/.test(`${error.message || ''} ${error.details || ''}`)) {
+        const fallbackNote = geo.status === 'inside' ? `【位置: 事業所内 約${geo.distanceM}m】` : '';
+        ({ error } = await supabase
+          .from('check_alcohol')
+          .insert([{ ...baseRow, notes: [finalNotes, fallbackNote].filter(Boolean).join(' ') }]));
+      }
       if (error) throw error;
 
       setAlcoholVal('');
@@ -1655,7 +1694,7 @@ function ChecksheetForm() {
               <span>⚠️</span>
               <span>入力内容をご確認ください</span>
             </div>
-            <p className="text-base font-bold text-center leading-snug">{dialogError}</p>
+            <p className="text-base font-bold text-center leading-snug whitespace-pre-line">{dialogError}</p>
             <button
               type="button"
               onClick={() => setDialogError('')}
@@ -2898,11 +2937,16 @@ function ChecksheetForm() {
           {dialogError && (
             <div className="p-4 bg-red-950 border-2 border-red-500 text-red-100 rounded-xl text-base font-bold flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
-              <span>{dialogError}</span>
+              <span className="whitespace-pre-line">{dialogError}</span>
             </div>
           )}
 
           <div className="pt-3">
+            {activeTab === 'alcohol' && (
+              <p className="mb-2 text-center text-sm font-bold text-sky-200">
+                📍 送信時に位置情報を確認します（事業所から{GEOFENCE_RADIUS_M}m以内のみ記録可）
+              </p>
+            )}
             <button
               type="submit"
               disabled={
@@ -2913,7 +2957,9 @@ function ChecksheetForm() {
               }
               className="w-full min-h-[68px] py-4 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black text-2xl rounded-2xl shadow-2xl transition-all disabled:opacity-40 tracking-wider flex items-center justify-center text-center leading-tight border-2 border-blue-400"
             >
-              {submitting
+              {geoChecking
+                ? '📍 位置情報を確認中...'
+                : submitting
                 ? '送信中...'
                 : isCooldown
                 ? '受付済（再送信防止中）'
