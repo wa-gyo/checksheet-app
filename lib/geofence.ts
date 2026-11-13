@@ -2,16 +2,15 @@
 //
 // 事業所: 〒965-0006 福島県会津若松市一箕町大字鶴賀船ケ森東470
 // 座標は環境変数 NEXT_PUBLIC_STORE_LAT / NEXT_PUBLIC_STORE_LNG で上書きできます。
-// 既定値は天気記録ワークフロー（.github/workflows/weather_cron.yml）と同じ地点です。
-// 必ず地図で事業所の位置と一致しているか確認してください。
+// 既定値は事業所の敷地（Google マップで確認済みの座標）です。
 
 const parseEnvNumber = (raw: string | undefined, fallback: number): number => {
   const n = raw !== undefined && raw !== '' ? Number(raw) : NaN;
   return Number.isFinite(n) ? n : fallback;
 };
 
-export const STORE_LAT = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LAT, 37.5282);
-export const STORE_LNG = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LNG, 139.9465);
+export const STORE_LAT = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LAT, 37.526823);
+export const STORE_LNG = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LNG, 139.94667);
 export const GEOFENCE_RADIUS_M = parseEnvNumber(process.env.NEXT_PUBLIC_GEOFENCE_RADIUS_M, 300);
 
 // 屋内ではGPSの誤差が大きくなるため、測位誤差のうち最大この距離までは許容する
