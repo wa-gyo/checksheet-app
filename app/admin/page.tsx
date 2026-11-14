@@ -755,9 +755,9 @@ export default function AdminDashboard() {
                   <table className="w-full border-collapse border border-slate-300 text-center">
                     <thead>
                       <tr className="bg-slate-50">
-                        <th className="border border-slate-300 p-1.5 w-28">点呼区分</th>
+                        <th className="border border-slate-300 p-1 w-12 whitespace-nowrap">区分</th>
                         <th className="border border-slate-300 p-1.5">日時</th>
-                        <th className="border border-slate-300 p-1.5">担当者名</th>
+                        <th className="border border-slate-300 p-1.5 whitespace-nowrap min-w-[7rem]">担当者名</th>
                         <th className="border border-slate-300 p-1.5">確認者名</th>
                         <th className="border border-slate-300 p-1.5">測定値 (mg/L)</th>
                         <th className="border border-slate-300 p-1.5">判定</th>
@@ -785,13 +785,13 @@ export default function AdminDashboard() {
 
                         return (
                           <tr key={row.id}>
-                            <td className="border border-slate-300 p-1.5">
-                              {isStart && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-900">出勤時</span>}
-                              {isFinish && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-900">退勤時</span>}
+                            <td className="border border-slate-300 p-1 w-12">
+                              {isStart && <span title="出勤時" className="inline-block px-1.5 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-900">出</span>}
+                              {isFinish && <span title="退勤時" className="inline-block px-1.5 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-900">退</span>}
                               {!isStart && !isFinish && <span>-</span>}
                             </td>
                             <td className="border border-slate-300 p-1.5 font-mono">{formatShortDateTime(row.checked_at)}</td>
-                            <td className="border border-slate-300 p-1.5 font-bold">{row.staff_name}</td>
+                            <td className="border border-slate-300 p-1.5 font-bold whitespace-nowrap min-w-[7rem]">{row.staff_name}</td>
                             <td className="border border-slate-300 p-1.5">{row.checker_name}</td>
                             <td className="border border-slate-300 p-1.5 font-mono font-bold">{Number(row.alcohol_value).toFixed(2)}</td>
                             <td className="border border-slate-300 p-1.5 font-bold">
