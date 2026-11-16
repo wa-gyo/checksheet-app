@@ -314,6 +314,9 @@ function ChecksheetForm() {
   // 送信前の確認中（通信待ち）も二重送信を防ぐ
   const [prechecking, setPrechecking] = useState(false);
   const submitLockRef = useRef(false);
+  // 記録日時を手動で変更した項目（変更していない項目は現在時刻に自動で追従させる）
+  const manualDateRef = useRef<Record<string, boolean>>({});
+  const settlingRef = useRef(false);
   const actionLockRef = useRef(false);
   const [isCooldown, setIsCooldown] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -494,6 +497,41 @@ function ChecksheetForm() {
       setCheckerType('石川');
     }
   };
+
+  // 記録日時の「変更」ボタンから時刻を変えたら、その項目は自動追従を止める（「現在時刻」を選んだ場合は追従を続ける）
+  const manualDate = (key: string, setter: (v: string) => void) => (v: string) => {
+    manualDateRef.current[key] = v !== getNowJST();
+    setter(v);
+  };
+
+  useEffect(() => {
+    settlingRef.current = isSettlingPastAlcohol;
+  }, [isSettlingPastAlcohol]);
+
+  // 「自動」の記録日時を現在時刻に追従させる（ページを開いたままでも、送信時の時刻で記録されるように）
+  useEffect(() => {
+    const refresh = () => {
+      const now = getNowJST();
+      const m = manualDateRef.current;
+      if (!m.alcohol && !settlingRef.current) setAlcoholDate(now);
+      if (!m.fish) setFishDate(now);
+      if (!m.kowari) setKowariDate(now);
+      if (!m.temp) setTempDate(now);
+      if (!m.closing) setClosingDate(now);
+      if (!m.receiving) setReceivingDate(now);
+      if (!m.driveStart) setDriveStart(now);
+      if (!m.driveEnd) setDriveEnd(now);
+    };
+    const timer = setInterval(refresh, 15000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   // 後日入力（退勤忘れの精算）モードを終了する
   const resetSettling = () => {
@@ -689,6 +727,7 @@ function ChecksheetForm() {
 
   useEffect(() => {
     const now = getNowJST();
+    manualDateRef.current = {};
     if (activeTab === 'alcohol') {
       if (!isSettlingPastAlcohol) {
         setAlcoholDate(now);
@@ -977,6 +1016,8 @@ function ChecksheetForm() {
       setCheckerAttendanceAlert(null);
 
       if (alcoholMode === 'start') {
+        manualDateRef.current.alcohol = false;
+        setAlcoholDate(getNowJST());
         applyAlcoholModeInternal('finish');
         setFullscreenAlert({
           type: 'alcohol_start',
@@ -984,16 +1025,27 @@ function ChecksheetForm() {
       } else if (isSettlingPastAlcohol) {
         const finishedLabel = settlingDateLabel || '前回';
         resetSettling();
+        manualDateRef.current.alcohol = false;
         applyAlcoholModeInternal('start');
         setSuccessMsg(`${finishedLabel}の退勤時の記録を完了しました！続けて本日の「① 出勤時」を記録してください。`);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
+      manualDateRef.current.alcohol = false;
+      setAlcoholDate(getNowJST());
       setSuccessMsg('送信が完了しました！');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      setDialogError(err.message || 'Supabase接続エラー');
+      // 確認者の確認ダイアログが開いたままだとエラーが裏に隠れて見えないため、必ず閉じる
+      setCheckerAttendanceAlert(null);
+      const msg: string = err?.message || 'Supabase接続エラー';
+      if (msg.includes('二重送信を防止')) {
+        // データベース側で同じ記録が既にあると判定された → 「すでに完了」画面で知らせる
+        setDuplicateAlcoholAlert({ isStart: alcoholMode === 'start' });
+      } else {
+        setDialogError(msg);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
@@ -1041,6 +1093,8 @@ function ChecksheetForm() {
       setSuccessMsg('送信が完了しました！');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
+      // 確認ダイアログの裏にエラーが隠れないように閉じる
+      setStartMeterGapConfirmAlert(null);
       setDialogError(err.message || 'Supabase接続エラー');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
@@ -1092,6 +1146,8 @@ function ChecksheetForm() {
       setSuccessMsg('送信が完了しました！');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
+      // 確認ダイアログの裏にエラーが隠れないように閉じる
+      setDistanceConfirmAlert(null);
       setDialogError(err.message || 'Supabase接続エラー');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
@@ -1625,6 +1681,8 @@ function ChecksheetForm() {
         setClosingNotes('');
       }
 
+      // 送信後は記録日時を自動（現在時刻）に戻す
+      manualDateRef.current = {};
       setSuccessMsg('送信が完了しました！');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
@@ -1784,7 +1842,7 @@ function ChecksheetForm() {
               )}
 
               <div className="space-y-2">
-                <BigDateDisplay value={alcoholDate} onChange={setAlcoholDate} />
+                <BigDateDisplay value={alcoholDate} onChange={manualDate('alcohol', setAlcoholDate)} />
               </div>
 
               <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700 space-y-5">
@@ -2112,7 +2170,7 @@ function ChecksheetForm() {
                   </div>
 
                   <div>
-                    <BigDateDisplay value={driveStart} onChange={setDriveStart} />
+                    <BigDateDisplay value={driveStart} onChange={manualDate('driveStart', setDriveStart)} />
 
                     <div className="flex justify-between items-baseline mb-1.5 mt-3">
                       <label className="text-lg font-black text-white leading-snug">
@@ -2215,7 +2273,7 @@ function ChecksheetForm() {
                       </div>
 
                       <div>
-                        <BigDateDisplay value={driveEnd} onChange={setDriveEnd} />
+                        <BigDateDisplay value={driveEnd} onChange={manualDate('driveEnd', setDriveEnd)} />
 
                         <div className="flex justify-between items-baseline mb-1.5 mt-3">
                           <label className="text-lg font-black text-white leading-snug">
@@ -2289,7 +2347,7 @@ function ChecksheetForm() {
                 生魚加工衛生管理
               </h2>
 
-              <BigDateDisplay value={fishDate} onChange={setFishDate} />
+              <BigDateDisplay value={fishDate} onChange={manualDate('fish', setFishDate)} />
 
               <div className="border-t-2 border-slate-800 pt-4">
                 <div className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -2414,7 +2472,7 @@ function ChecksheetForm() {
                 小割加工衛生管理
               </h2>
 
-              <BigDateDisplay value={kowariDate} onChange={setKowariDate} />
+              <BigDateDisplay value={kowariDate} onChange={manualDate('kowari', setKowariDate)} />
 
               <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-baseline gap-1">
@@ -2575,7 +2633,7 @@ function ChecksheetForm() {
                 退勤前温度管理
               </h2>
 
-              <BigDateDisplay value={closingDate} onChange={setClosingDate} />
+              <BigDateDisplay value={closingDate} onChange={manualDate('closing', setClosingDate)} />
 
               <TempInputRow
                 label="本庫温度"
@@ -2621,7 +2679,7 @@ function ChecksheetForm() {
                   ⚠️ 全ての温度入力が必須です。「目安」ボタンで基準値を一発入力し、「↓」「↑」で1℃単位の微調整が可能です。
                 </div>
 
-                <BigDateDisplay value={tempDate} onChange={setTempDate} />
+                <BigDateDisplay value={tempDate} onChange={manualDate('temp', setTempDate)} />
 
                 <TempInputRow
                   label="本庫温度"
@@ -2821,7 +2879,7 @@ function ChecksheetForm() {
                 荷物受入チェック
               </h2>
 
-              <BigDateDisplay value={receivingDate} onChange={setReceivingDate} />
+              <BigDateDisplay value={receivingDate} onChange={manualDate('receiving', setReceivingDate)} />
 
               <div className="bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-baseline gap-1">

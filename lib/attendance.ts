@@ -132,7 +132,13 @@ export const getAttendanceState = (myLogs: AttendanceLog[], now: Date = new Date
   const nowMs = now.getTime();
   const typed = myLogs
     .filter((r) => attendanceKindOf(r.notes) !== null && new Date(r.checked_at).getTime() <= nowMs + 5 * 60 * 1000)
-    .sort((a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime());
+    .sort((a, b) => {
+      const diff = new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime();
+      if (diff !== 0) return diff;
+      // 記録日時がまったく同じ場合は、退勤を出勤より後とみなす
+      const rank = (r: AttendanceLog) => (attendanceKindOf(r.notes) === 'finish' ? 1 : 0);
+      return rank(b) - rank(a);
+    });
   const latest = typed[0] || null;
   const latestKind = latest ? attendanceKindOf(latest.notes) : null;
   return { latest, latestKind, openStart: latestKind === 'start' ? latest : null };
