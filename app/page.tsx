@@ -4,6 +4,18 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { checkGeofence, GEOFENCE_MODE, GEOFENCE_RADIUS_M } from '@/lib/geofence';
+import {
+  getBusinessRangeJST,
+  getBusinessSlotForDate,
+  getAttendanceState,
+  decideStart,
+  decideFinish,
+  decideSettle,
+  defaultSettleTime,
+  toJstInputValue,
+  OPEN_SHIFT_MAX_HOURS,
+  type AttendanceLog,
+} from '@/lib/attendance';
 
 // 出勤時・退勤時それぞれの確認者選択肢定義
 const CHECKER_OPTIONS_START = ['石川', '武藤', '五十嵐'];
@@ -21,68 +33,6 @@ const getNowJST = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
-};
-
-const getBusinessRangeJST = () => {
-  const now = new Date();
-  const jstHours = now.getHours();
-  const baseDate = new Date(now);
-  if (jstHours < 16) {
-    baseDate.setDate(baseDate.getDate() - 1);
-  }
-  const year = baseDate.getFullYear();
-  const month = String(baseDate.getMonth() + 1).padStart(2, '0');
-  const day = String(baseDate.getDate()).padStart(2, '0');
-  const startIso = `${year}-${month}-${day}T16:00:00+09:00`;
-
-  const endDate = new Date(baseDate);
-  endDate.setDate(endDate.getDate() + 1);
-  const endYear = endDate.getFullYear();
-  const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-  const endDay = String(endDate.getDate()).padStart(2, '0');
-  const endIso = `${endYear}-${endMonth}-${endDay}T16:00:00+09:00`;
-
-  return { startIso, endIso };
-};
-
-const getBusinessSlotForDate = (isoString: string) => {
-  const d = new Date(isoString);
-  const jstMs = d.getTime() + 9 * 60 * 60 * 1000;
-  const jstDate = new Date(jstMs);
-
-  const jstHours = jstDate.getUTCHours();
-  const startBase = new Date(jstDate);
-  if (jstHours < 16) {
-    startBase.setUTCDate(startBase.getUTCDate() - 1);
-  }
-
-  const sYear = startBase.getUTCFullYear();
-  const sMonth = String(startBase.getUTCMonth() + 1).padStart(2, '0');
-  const sDay = String(startBase.getUTCDate()).padStart(2, '0');
-  const slotStartIso = `${sYear}-${sMonth}-${sDay}T16:00:00+09:00`;
-
-  const endBase = new Date(startBase);
-  endBase.setUTCDate(endBase.getUTCDate() + 1);
-  const eYear = endBase.getUTCFullYear();
-  const eMonth = String(endBase.getUTCMonth() + 1).padStart(2, '0');
-  const eDay = String(endBase.getUTCDate()).padStart(2, '0');
-  const slotEndIso = `${eYear}-${eMonth}-${eDay}T16:00:00+09:00`;
-
-  const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-  const dayOfWeek = dayNames[endBase.getUTCDay()];
-  const dateLabel = `${endBase.getUTCMonth() + 1}/${endBase.getUTCDate()}(${dayOfWeek})`;
-
-  const defaultSettleJst = `${eYear}-${eMonth}-${eDay}T15:00`;
-
-  return { slotStartIso, slotEndIso, dateLabel, defaultSettleJst };
-};
-
-const getPrevBusinessDayDefaultJST = () => {
-  const { startIso } = getBusinessRangeJST();
-  const d = new Date(startIso);
-  d.setHours(d.getHours() - 1);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
 };
 
 const formatDisplayJST = (isoString: string) => {
@@ -361,6 +311,10 @@ function ChecksheetForm() {
   const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(initialParam));
   const [submitting, setSubmitting] = useState(false);
   const [geoChecking, setGeoChecking] = useState(false);
+  // 送信前の確認中（通信待ち）も二重送信を防ぐ
+  const [prechecking, setPrechecking] = useState(false);
+  const submitLockRef = useRef(false);
+  const actionLockRef = useRef(false);
   const [isCooldown, setIsCooldown] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [dialogError, setDialogError] = useState('');
@@ -413,6 +367,8 @@ function ChecksheetForm() {
     targetDriveId?: string;
     unsettledDateLabel?: string;
     defaultSettleJst?: string;
+    settleStartId?: string;
+    settleStartIso?: string;
   } | null>(null);
 
   // 車両選択時に前回の帰社記録が未完了だった場合の柔らかめなアラート用ステート
@@ -439,6 +395,10 @@ function ChecksheetForm() {
   const [isSettlingPastAlcohol, setIsSettlingPastAlcohol] = useState(false);
   const [settlingDateLabel, setSettlingDateLabel] = useState('');
   const [settlingDefaultJst, setSettlingDefaultJst] = useState('');
+  // 後日入力（退勤忘れ）の対象となる出勤記録と、遅れた理由
+  const [settlingStartId, setSettlingStartId] = useState('');
+  const [settlingStartIso, setSettlingStartIso] = useState('');
+  const [settleReason, setSettleReason] = useState('');
 
   const [staffName, setStaffName] = useState('');
   const [staffHistory, setStaffHistory] = useState<string[]>([]);
@@ -535,13 +495,47 @@ function ChecksheetForm() {
     }
   };
 
+  // 後日入力（退勤忘れの精算）モードを終了する
+  const resetSettling = () => {
+    setIsSettlingPastAlcohol(false);
+    setSettlingDateLabel('');
+    setSettlingDefaultJst('');
+    setSettlingStartId('');
+    setSettlingStartIso('');
+    setSettleReason('');
+    setAlcoholDate(getNowJST());
+  };
+
+  // 本人の直近14日分の出勤・退勤記録から現在の状態を取得（通信失敗時は null）
+  const fetchMyAttendanceState = async (cleanStaff: string) => {
+    const lookback = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('check_alcohol')
+      .select('id, checked_at, notes, staff_name')
+      .gte('checked_at', lookback)
+      .order('checked_at', { ascending: false });
+    if (error || !data) return null;
+    const mine = (data as AttendanceLog[]).filter((r) => isNameMatch(r.staff_name || '', cleanStaff));
+    return getAttendanceState(mine);
+  };
+
+  // 退勤忘れの案内（後日入力へ誘導）
+  const showUnsettledAlcohol = (start: AttendanceLog) => {
+    const slot = getBusinessSlotForDate(start.checked_at);
+    setUnsettledAlert({
+      type: 'alcohol',
+      message: `${formatDisplayJST(start.checked_at)} の出勤に対する【退勤時の記録】がありません！`,
+      unsettledDateLabel: slot.dateLabel,
+      defaultSettleJst: toJstInputValue(defaultSettleTime(start.checked_at)),
+      settleStartId: start.id,
+      settleStartIso: start.checked_at,
+    });
+  };
+
   const handleSwitchAlcoholMode = async (mode: 'start' | 'finish') => {
     if (mode === 'start') {
       if (isSettlingPastAlcohol) {
-        setIsSettlingPastAlcohol(false);
-        setSettlingDateLabel('');
-        setSettlingDefaultJst('');
-        setAlcoholDate(getNowJST());
+        resetSettling();
       }
       applyAlcoholModeInternal('start');
       return;
@@ -550,19 +544,15 @@ function ChecksheetForm() {
     if (!isSettlingPastAlcohol && staffName.trim()) {
       const clean = staffName.replace(/[\s ]+/g, '').trim();
       try {
-        const now = new Date();
-        const searchStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-
-        const { data, error } = await supabase
-          .from('check_alcohol')
-          .select('id, staff_name, notes, checked_at')
-          .gte('checked_at', searchStart)
-          .order('checked_at', { ascending: false });
-
-        if (!error && data) {
-          const myLogs = data.filter((r) => isNameMatch(r.staff_name, clean));
-          const hasStartRecently = myLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-          if (!hasStartRecently) {
+        const state = await fetchMyAttendanceState(clean);
+        if (state) {
+          const decision = decideFinish(state);
+          if (decision.kind === 'duplicate') {
+            applyAlcoholModeInternal('start');
+            setDuplicateAlcoholAlert({ isStart: false });
+            return;
+          }
+          if (decision.kind === 'missing_start') {
             applyAlcoholModeInternal('start');
             setMissingStartForFinishAlert(true);
             return;
@@ -589,22 +579,12 @@ function ChecksheetForm() {
     let isCancelled = false;
     const autoDetectAlcoholMode = async () => {
       try {
-        const now = new Date();
-        const searchStart = new Date(now.getTime() - 20 * 60 * 60 * 1000).toISOString();
+        const state = await fetchMyAttendanceState(clean);
+        if (isCancelled || !state || !state.openStart) return;
 
-        const { data, error } = await supabase
-          .from('check_alcohol')
-          .select('id, staff_name, notes, checked_at')
-          .gte('checked_at', searchStart)
-          .order('checked_at', { ascending: false });
-
-        if (isCancelled || error || !data) return;
-
-        const myLogs = data.filter((r) => isNameMatch(r.staff_name, clean));
-        const hasStart = myLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-        const hasFinish = myLogs.some((r) => r.notes && r.notes.includes('退勤時'));
-
-        if (hasStart && !hasFinish) {
+        // 退勤していない出勤が直近 OPEN_SHIFT_MAX_HOURS 時間以内にあれば「退勤時」に切り替える
+        const hoursSince = (Date.now() - new Date(state.openStart.checked_at).getTime()) / (60 * 60 * 1000);
+        if (hoursSince <= OPEN_SHIFT_MAX_HOURS) {
           applyAlcoholModeInternal('finish');
         }
       } catch (e) {
@@ -899,7 +879,18 @@ function ChecksheetForm() {
     currentStartMeterNum - lastRecordedMeter >= 200;
 
   // アルコールチェック登録の実行関数
-  const executeAlcoholInsert = async () => {
+  // 記録処理の多重実行を防ぐ（確認ダイアログのボタン連打などで二重・三重に記録されるのを防止）
+  const withActionLock = (fn: () => Promise<void>) => async () => {
+    if (actionLockRef.current) return;
+    actionLockRef.current = true;
+    try {
+      await fn();
+    } finally {
+      actionLockRef.current = false;
+    }
+  };
+
+  const executeAlcoholInsert = withActionLock(async () => {
     const checker = checkerType === 'その他' ? customChecker : checkerType;
     const timingLabel = alcoholMode === 'start' ? '出勤時' : '退勤時';
     const isPastRecord = isSettlingPastAlcohol;
@@ -939,7 +930,12 @@ function ChecksheetForm() {
             : '[前回分精算]'
           : '';
 
-      const finalNotes = [timingLabel, settlePrefix, geoNote, healthNote, handNote, alcoholNotes]
+      const settleReasonNote =
+        isPastRecord && alcoholMode === 'finish' && settleReason.trim()
+          ? `【後日入力の理由: ${settleReason.trim()}】`
+          : '';
+
+      const finalNotes = [timingLabel, settlePrefix, settleReasonNote, geoNote, healthNote, handNote, alcoholNotes]
         .filter(Boolean)
         .join(' ')
         .trim();
@@ -987,10 +983,7 @@ function ChecksheetForm() {
         });
       } else if (isSettlingPastAlcohol) {
         const finishedLabel = settlingDateLabel || '前回';
-        setIsSettlingPastAlcohol(false);
-        setSettlingDateLabel('');
-        setSettlingDefaultJst('');
-        setAlcoholDate(getNowJST());
+        resetSettling();
         applyAlcoholModeInternal('start');
         setSuccessMsg(`${finishedLabel}の退勤時の記録を完了しました！続けて本日の「① 出勤時」を記録してください。`);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1009,10 +1002,10 @@ function ChecksheetForm() {
         setIsCooldown(false);
       }, 3000);
     }
-  };
+  });
 
   // 出発記録の実行関数
-  const executeStartDrive = async () => {
+  const executeStartDrive = withActionLock(async () => {
     saveStaffNameHistory(staffName);
     const v = vehicle === 'その他' ? customVehicle : vehicle;
     const d = destination === 'その他' ? customDestination : destination;
@@ -1057,10 +1050,10 @@ function ChecksheetForm() {
         setIsCooldown(false);
       }, 3000);
     }
-  };
+  });
 
   // 帰社記録の実行関数（選択された自分の古い運行データに対して、個別の乗車時メーターを基準に安全に更新）
-  const executeFinishDrive = async () => {
+  const executeFinishDrive = withActionLock(async () => {
     if (!selectedDriveId) throw new Error('完了対象の運行データを選択してください');
     if (!endMeter) throw new Error('降車時メーターを入力してください');
 
@@ -1108,11 +1101,23 @@ function ChecksheetForm() {
         setIsCooldown(false);
       }, 3000);
     }
-  };
+  });
 
+  // 送信ボタンの連打・通信待ち中の再送信を防ぐ（確認中の通信が終わるまで次の送信を受け付けない）
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting || isCooldown) return;
+    if (submitLockRef.current || submitting || isCooldown) return;
+    submitLockRef.current = true;
+    setPrechecking(true);
+    try {
+      await handleSubmitInner();
+    } finally {
+      submitLockRef.current = false;
+      setPrechecking(false);
+    }
+  };
+
+  const handleSubmitInner = async () => {
 
     if (!staffName.trim()) {
       setDialogError('あなたのお名前を入力してください');
@@ -1149,42 +1154,17 @@ function ChecksheetForm() {
         }
       }
 
-      const lookbackDate = new Date(startIso);
-      lookbackDate.setDate(lookbackDate.getDate() - 14);
-      const lookbackIso = lookbackDate.toISOString();
-
-      const { data: pastAlcoholRecords, error: pastAlcoholError } = await supabase
-        .from('check_alcohol')
-        .select('checked_at, notes, staff_name')
-        .gte('checked_at', lookbackIso)
-        .lt('checked_at', startIso)
-        .order('checked_at', { ascending: false });
-
-      if (!pastAlcoholError && pastAlcoholRecords) {
-        const myPastLogs = pastAlcoholRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
-        if (myPastLogs.length > 0) {
-          const latestRecord = myPastLogs[0];
-          const lastSlot = getBusinessSlotForDate(latestRecord.checked_at);
-          const slotStartMs = new Date(lastSlot.slotStartIso).getTime();
-          const slotEndMs = new Date(lastSlot.slotEndIso).getTime();
-
-          const logsInLastSlot = myPastLogs.filter((r) => {
-            const t = new Date(r.checked_at).getTime();
-            return t >= slotStartMs && t < slotEndMs;
-          });
-
-          const hasStartInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('出勤時'));
-          const hasFinishInLastSlot = logsInLastSlot.some((r) => r.notes && r.notes.includes('退勤時'));
-
-          if (hasStartInLastSlot && !hasFinishInLastSlot) {
-            setUnsettledAlert({
-              type: 'alcohol',
-              message: `${lastSlot.dateLabel}の【退勤時の記録】が完了していません！`,
-              unsettledDateLabel: lastSlot.dateLabel,
-              defaultSettleJst: lastSlot.defaultSettleJst,
-            });
-            return;
-          }
+      // 出勤と退勤のペアで判定（稼働枠や日付をまたぐ勤務・残業でも誤判定しない）
+      const attendance = await fetchMyAttendanceState(cleanStaff);
+      if (attendance) {
+        const decision = decideStart(attendance);
+        if (decision.kind === 'unsettled') {
+          showUnsettledAlcohol(decision.start);
+          return;
+        }
+        if (decision.kind === 'duplicate' && activeTab === 'alcohol') {
+          setDuplicateAlcoholAlert({ isStart: true });
+          return;
         }
       }
     }
@@ -1355,8 +1335,64 @@ function ChecksheetForm() {
         return;
       }
 
-      const timingKey = alcoholMode === 'start' ? '出勤時' : '退勤時';
       const isPastRecord = isSettlingPastAlcohol;
+
+      if (isPastRecord) {
+        // 後日入力（退勤忘れの精算）
+        if (!settleReason.trim()) {
+          setDialogError('後日入力の理由（退勤を記録できなかった理由）を入力してください');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        if (settlingStartIso) {
+          const attendance = await fetchMyAttendanceState(cleanStaff);
+          if (attendance) {
+            const settle = decideSettle(
+              attendance,
+              { id: settlingStartId || undefined, checkedAtIso: settlingStartIso },
+              new Date(alcoholDate)
+            );
+            if (settle.kind === 'already_settled') {
+              resetSettling();
+              applyAlcoholModeInternal('start');
+              setDialogError('この出勤に対する退勤はすでに記録されています（二重入力を防止しました）。続けて「① 出勤時」を記録してください。');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+            if (settle.kind === 'before_start') {
+              setDialogError(`退勤時刻が出勤時刻（${formatDisplayJST(settlingStartIso)}）より前になっています。実際に退勤した時刻に直してください。`);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+            if (settle.kind === 'in_future') {
+              setDialogError('退勤時刻が現在より後になっています。実際に退勤した時刻に直してください。');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+          }
+        }
+      }
+
+      if (!isPastRecord && alcoholMode === 'finish') {
+        // 出勤とのペアで判定（出勤時の重複は上の出勤チェックで判定済み）
+        const attendance = await fetchMyAttendanceState(cleanStaff);
+        if (attendance) {
+          const decision = decideFinish(attendance);
+          if (decision.kind === 'missing_start') {
+            applyAlcoholModeInternal('start');
+            setMissingStartForFinishAlert(true);
+            return;
+          }
+          if (decision.kind === 'duplicate') {
+            setDuplicateAlcoholAlert({ isStart: false });
+            return;
+          }
+          if (decision.kind === 'unsettled') {
+            showUnsettledAlcohol(decision.start);
+            return;
+          }
+        }
+      }
 
       if (!isPastRecord) {
         const now = new Date();
@@ -1369,30 +1405,6 @@ function ChecksheetForm() {
           .order('checked_at', { ascending: false });
 
         if (!checkError && existingRecords) {
-          const myTodayLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanStaff));
-
-          if (alcoholMode === 'finish') {
-            const hasStartRecently = myTodayLogs.some((r) => r.notes && r.notes.includes('出勤時'));
-            if (!hasStartRecently) {
-              applyAlcoholModeInternal('start');
-              setMissingStartForFinishAlert(true);
-              return;
-            }
-          }
-
-          const twelveHoursAgoMs = now.getTime() - 12 * 60 * 60 * 1000;
-          const duplicate = myTodayLogs.find((r) => {
-            const t = new Date(r.checked_at).getTime();
-            return t >= twelveHoursAgoMs && r.notes && r.notes.includes(timingKey);
-          });
-
-          if (duplicate) {
-            setDuplicateAlcoholAlert({
-              isStart: alcoholMode === 'start',
-            });
-            return;
-          }
-
           const checkerLogs = existingRecords.filter((r) => isNameMatch(r.staff_name, cleanChecker));
 
           if (checkerLogs.length > 0) {
@@ -1734,15 +1746,12 @@ function ChecksheetForm() {
                 <div className="p-4 bg-amber-950 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-xl space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-base sm:text-lg font-black text-amber-300">
-                      💡 {settlingDateLabel || '前回'}の【退勤時の記録】を精算入力中です
+                      💡 {settlingDateLabel || '前回'}分の【退勤時の記録】を後日入力しています
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        setIsSettlingPastAlcohol(false);
-                        setSettlingDateLabel('');
-                        setSettlingDefaultJst('');
-                        setAlcoholDate(getNowJST());
+                        resetSettling();
                         applyAlcoholModeInternal('start');
                       }}
                       className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-600 font-bold shrink-0"
@@ -1750,9 +1759,27 @@ function ChecksheetForm() {
                       精算をやめる
                     </button>
                   </div>
+                  {settlingStartIso && (
+                    <p className="text-sm font-black text-white">
+                      対象の出勤：{formatDisplayJST(settlingStartIso)}
+                    </p>
+                  )}
                   <p className="text-xs sm:text-sm font-bold text-slate-200 leading-snug">
-                    記録日時が{settlingDateLabel || '前回'}に設定されています。このまま確認者とアルコール測定値を入れて送信すると、続けて本日の「出勤時」入力へ進めます。
+                    下の日時を<span className="text-amber-300">実際に退勤した時刻</span>に直してください（仮の時刻が入っています）。送信すると、続けて本日の「出勤時」入力へ進めます。
+                    後日入力であることと実際の送信時刻は、記録に自動で残ります。
                   </p>
+                  <div>
+                    <label className="block text-sm font-black text-amber-300 mb-1">
+                      後日入力の理由 <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={settleReason}
+                      onChange={(e) => setSettleReason(e.target.value)}
+                      placeholder="例：退勤時に記録を忘れた"
+                      className="w-full min-h-[52px] px-3 text-base font-bold rounded-xl border-2 border-amber-400 bg-white text-slate-950"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -2951,6 +2978,7 @@ function ChecksheetForm() {
               type="submit"
               disabled={
                 submitting ||
+                prechecking ||
                 isCooldown ||
                 (activeTab === 'drive' && driveMode === 'finish' && activeDrives.length === 0) ||
                 (activeTab === 'drive' && driveMode === 'start' && (isStartMeterDecreased || isStartMeterDigitError))
@@ -2961,6 +2989,8 @@ function ChecksheetForm() {
                 ? '📍 位置情報を確認中...'
                 : submitting
                 ? '送信中...'
+                : prechecking
+                ? '確認中...'
                 : isCooldown
                 ? '受付済（再送信防止中）'
                 : activeTab === 'drive'
@@ -3027,10 +3057,17 @@ function ChecksheetForm() {
               <button
                 type="button"
                 onClick={executeAlcoholInsert}
-                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+                disabled={submitting}
+                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide disabled:opacity-60"
               >
-                <span>間違いない（送信する）</span>
-                <span>✓</span>
+                {submitting ? (
+                  <span>{geoChecking ? '📍 位置情報を確認中...' : '送信中...'}</span>
+                ) : (
+                  <>
+                    <span>間違いない（送信する）</span>
+                    <span>✓</span>
+                  </>
+                )}
               </button>
               <button
                 type="button"
@@ -3077,7 +3114,8 @@ function ChecksheetForm() {
               <button
                 type="button"
                 onClick={executeStartDrive}
-                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+                disabled={submitting}
+                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide disabled:opacity-60"
               >
                 <span>間違いない（出発を記録する）</span>
                 <span>✓</span>
@@ -3261,11 +3299,14 @@ function ChecksheetForm() {
                   type="button"
                   onClick={() => {
                     const targetLabel = unsettledAlert.unsettledDateLabel || '前回';
-                    const targetJst = unsettledAlert.defaultSettleJst || getPrevBusinessDayDefaultJST();
+                    const targetJst = unsettledAlert.defaultSettleJst || getNowJST();
                     setUnsettledAlert(null);
                     setIsSettlingPastAlcohol(true);
                     setSettlingDateLabel(targetLabel);
                     setSettlingDefaultJst(targetJst);
+                    setSettlingStartId(unsettledAlert.settleStartId || '');
+                    setSettlingStartIso(unsettledAlert.settleStartIso || '');
+                    setSettleReason('');
                     setAlcoholDate(targetJst);
                     changeTab('alcohol');
                     applyAlcoholModeInternal('finish');
@@ -3345,7 +3386,8 @@ function ChecksheetForm() {
               <button
                 type="button"
                 onClick={executeFinishDrive}
-                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide"
+                disabled={submitting}
+                className="w-full min-h-[60px] bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-black text-xl rounded-2xl shadow-xl border-2 border-red-300 transition-all flex items-center justify-center gap-2 tracking-wide disabled:opacity-60"
               >
                 <span>間違いない（送信する）</span>
                 <span>✓</span>

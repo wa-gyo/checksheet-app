@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+// 対象日（YYYY-MM-DD）の営業日範囲（前日20:00 〜 当日20:00 JST）
+import { getBusinessPeriod } from '@/lib/attendance';
 
 type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
@@ -49,23 +51,6 @@ const formatShortDateTime = (isoString: string) => {
   return `${month}/${date} ${hours}:${minutes}`;
 };
 
-// 対象日（YYYY-MM-DD）から営業日範囲（前日16:00 〜 当日16:00 JST）を算出
-const getBusinessPeriod = (dateStr: string) => {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const endD = new Date(year, month - 1, day, 16, 0, 0);
-  const startD = new Date(year, month - 1, day - 1, 16, 0, 0);
-
-  const prevMonth = startD.getMonth() + 1;
-  const prevDay = startD.getDate();
-  const prevDateStr = `${startD.getFullYear()}-${String(prevMonth).padStart(2, '0')}-${String(prevDay).padStart(2, '0')}`;
-
-  const startIso = `${prevDateStr}T16:00:00+09:00`;
-  const endIso = `${dateStr}T16:00:00+09:00`;
-  const label = `${prevMonth}/${prevDay} 16:00 ～ ${month}/${day} 16:00`;
-
-  return { startIso, endIso, label };
-};
-
 // 勤怠記録の位置判定表示（位置情報の列が無い古い記録は「-」）
 function GeoBadge({ row }: { row: { geo_status?: string | null; geo_distance_m?: number | null } }) {
   const status = row.geo_status;
@@ -83,11 +68,15 @@ function GeoBadge({ row }: { row: { geo_status?: string | null; geo_distance_m?:
 function ServerTimeGap({ row, timeField }: { row: Record<string, unknown>; timeField: string }) {
   const serverAt = row.server_recorded_at;
   const recordedAt = row[timeField];
-  if (typeof serverAt !== 'string' || typeof recordedAt !== 'string') return null;
+  const isLateEntry = typeof row.notes === 'string' && row.notes.includes('分精算]');
+  if (typeof serverAt !== 'string' || typeof recordedAt !== 'string') {
+    return isLateEntry ? <div className="text-amber-700 font-black">📝後日入力</div> : null;
+  }
   const gapMin = Math.round((new Date(serverAt).getTime() - new Date(recordedAt).getTime()) / 60000);
-  if (Math.abs(gapMin) < 30) return null;
+  if (Math.abs(gapMin) < 30 && !isLateEntry) return null;
   return (
     <div className="text-amber-700 font-bold" title="入力された日時と、実際に送信された時刻の差">
+      {isLateEntry && <span className="font-black">📝後日入力 </span>}
       送信 {formatShortDateTime(serverAt)}（差 {gapMin > 0 ? '+' : ''}{gapMin}分）
     </div>
   );
@@ -197,7 +186,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // 業務データ取得（前日16:00 ～ 当日16:00 JST 営業日基準）
+  // 業務データ取得（前日20:00 ～ 当日20:00 JST 営業日基準）
   const fetchData = async (dateStr: string) => {
     if (!isAuthenticated) return;
     setLoading(true);
