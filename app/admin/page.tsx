@@ -4,7 +4,13 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 // 対象日（YYYY-MM-DD）の営業日範囲（前日20:00 〜 当日20:00 JST）
-import { getBusinessPeriod } from '@/lib/attendance';
+import { getBusinessPeriod, findMissingAttendance, type ActivityRecord } from '@/lib/attendance';
+import {
+  MissingAttendancePanel,
+  CorrectionModal,
+  correctionInitialFromMissing,
+  type CorrectionInitial,
+} from './AttendanceCorrection';
 
 type ViewMode = 'all' | 'temp' | 'fish' | 'kowari' | 'alcohol' | 'drive';
 
@@ -52,7 +58,18 @@ const formatShortDateTime = (isoString: string) => {
 };
 
 // 勤怠記録の位置判定表示（位置情報の列が無い古い記録は「-」）
-function GeoBadge({ row }: { row: { geo_status?: string | null; geo_distance_m?: number | null } }) {
+function GeoBadge({
+  row,
+}: {
+  row: { geo_status?: string | null; geo_distance_m?: number | null; is_admin_correction?: boolean | null; corrected_by_email?: string | null };
+}) {
+  if (row.is_admin_correction) {
+    return (
+      <div className="text-amber-800 font-black" title={row.corrected_by_email || ''}>
+        🛠管理者補正
+      </div>
+    );
+  }
   const status = row.geo_status;
   if (!status) return <div className="text-slate-400">-</div>;
   if (status === 'inside') {
@@ -96,6 +113,8 @@ export default function AdminDashboard() {
 
   // 編集モーダルステート
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  // 勤怠の補正入力ダイアログ
+  const [correctionInitial, setCorrectionInitial] = useState<CorrectionInitial | null>(null);
   const [editTimeValue, setEditTimeValue] = useState('');
   const [editNotesValue, setEditNotesValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
@@ -283,6 +302,24 @@ export default function AdminDashboard() {
 
   const currentPeriod = getBusinessPeriod(targetDate);
 
+  // 勤怠の記録漏れ検出: 業務記録はあるのに出勤・退勤の記録が無い人
+  const activityRecords: ActivityRecord[] = [
+    ...temps.map((r) => ({ staff_name: r.staff_name, at: r.checked_at, source: '温度管理' })),
+    ...closings.map((r) => ({ staff_name: r.staff_name, at: r.checked_at, source: '退勤前温度' })),
+    ...receivings.map((r) => ({ staff_name: r.staff_name, at: r.checked_at, source: '荷物受入' })),
+    ...fishes.map((r) => ({ staff_name: r.staff_name, at: r.checked_at, source: '生魚加工' })),
+    ...kowaris.map((r) => ({ staff_name: r.staff_name, at: r.checked_at, source: '小割加工' })),
+    ...drives.map((r) => ({ staff_name: r.staff_name, at: r.start_at, source: '運転日報' })),
+  ];
+  const missingAttendance = findMissingAttendance(alcohols, activityRecords);
+  const staffSuggestions = Array.from(
+    new Set(
+      [...alcohols, ...activityRecords]
+        .map((r) => (r.staff_name || '').trim())
+        .filter(Boolean)
+    )
+  );
+
   // -------------------------------------------------------------
   // ログイン画面（未認証時）
   // -------------------------------------------------------------
@@ -379,6 +416,13 @@ export default function AdminDashboard() {
               className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold rounded"
             >
               🔄 更新
+            </button>
+
+            <button
+              onClick={() => setCorrectionInitial({})}
+              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded shadow"
+            >
+              🛠 勤怠の補正入力
             </button>
 
             <button
@@ -486,6 +530,12 @@ export default function AdminDashboard() {
           <div className="py-12 text-center text-slate-500 font-bold text-xs">データを取得中...</div>
         ) : (
           <div className="space-y-6 print:space-y-4 text-xs">
+            {(viewMode === 'all' || viewMode === 'alcohol') && (
+              <MissingAttendancePanel
+                items={missingAttendance}
+                onCorrect={(m) => setCorrectionInitial(correctionInitialFromMissing(m))}
+              />
+            )}
             {/* ========================================================
                 1. 日常・出勤時 点検（温度 & 衛生管理）
                ======================================================== */}
@@ -757,6 +807,7 @@ export default function AdminDashboard() {
                     </thead>
                     <tbody>
                       {alcohols.map((row) => {
+                        const notMeasured = row.alcohol_value === null || row.alcohol_value === undefined;
                         const v = Number(row.alcohol_value);
                         const isDanger = v >= 0.15;
                         const timing = getTimingType(row.notes);
@@ -767,6 +818,7 @@ export default function AdminDashboard() {
                         // 異常時（アルコール検出、要報告、要確認、問題発生など）のみ赤の太文字
                         const hasProblem =
                           v > 0 ||
+                          notMeasured ||
                           notesText.includes('要報告') ||
                           notesText.includes('要確認') ||
                           notesText.includes('問題') ||
@@ -781,10 +833,10 @@ export default function AdminDashboard() {
                             </td>
                             <td className="border border-slate-300 p-1.5 font-mono">{formatShortDateTime(row.checked_at)}</td>
                             <td className="border border-slate-300 p-1.5 font-bold whitespace-nowrap min-w-[7rem]">{row.staff_name}</td>
-                            <td className="border border-slate-300 p-1.5">{row.checker_name}</td>
-                            <td className="border border-slate-300 p-1.5 font-mono font-bold">{Number(row.alcohol_value).toFixed(2)}</td>
+                            <td className="border border-slate-300 p-1.5 whitespace-nowrap">{row.checker_name}</td>
+                            <td className="border border-slate-300 p-1.5 font-mono font-bold">{notMeasured ? '-' : Number(row.alcohol_value).toFixed(2)}</td>
                             <td className="border border-slate-300 p-1.5 font-bold">
-                              {v === 0 ? <span className="text-emerald-700">合格 (0.00)</span> : isDanger ? <span className="text-red-700">🚨 超過</span> : <span className="text-amber-700">微量</span>}
+                              {notMeasured ? <span className="text-red-700">未実施</span> : v === 0 ? <span className="text-emerald-700">合格 (0.00)</span> : isDanger ? <span className="text-red-700">🚨 超過</span> : <span className="text-amber-700">微量</span>}
                             </td>
                             <td className="border border-slate-300 p-1.5 text-[11px] whitespace-nowrap">
                               <GeoBadge row={row} />
@@ -877,6 +929,19 @@ export default function AdminDashboard() {
       {/* ========================================================
           時刻修正・特記編集モーダルダイアログ
          ======================================================== */}
+      {correctionInitial && (
+        <CorrectionModal
+          initial={correctionInitial}
+          staffSuggestions={staffSuggestions}
+          onClose={() => setCorrectionInitial(null)}
+          onSaved={async () => {
+            setCorrectionInitial(null);
+            await fetchData(targetDate);
+            alert('勤怠の補正を記録しました。');
+          }}
+        />
+      )}
+
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-4 border-blue-600 space-y-4">

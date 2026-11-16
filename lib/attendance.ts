@@ -203,3 +203,147 @@ export const defaultSettleTime = (startIso: string, now: Date = new Date()): Dat
   const t = Math.min(start + DEFAULT_SETTLE_HOURS * HOUR_MS, slotEnd - 60 * 1000, now.getTime() - 60 * 1000);
   return new Date(Math.max(t, start + 60 * 1000));
 };
+
+// ------------------------------------------------------------------
+// 担当者名の照合（入力画面と同じルール: 空白を除いて一致、または一方が他方を含む）
+// ------------------------------------------------------------------
+
+export const normalizeStaffName = (name: string | null | undefined) => (name || '').replace(/[\s　]+/g, '').trim();
+
+export const isSameStaff = (a: string | null | undefined, b: string | null | undefined) => {
+  const x = normalizeStaffName(a);
+  const y = normalizeStaffName(b);
+  if (!x || !y) return false;
+  return x === y || x.includes(y) || y.includes(x);
+};
+
+// ------------------------------------------------------------------
+// 勤怠の記録漏れ検出（案A）
+// その稼働枠に他の業務記録があるのに、出勤・退勤の記録が1件も無い人を探す
+// ------------------------------------------------------------------
+
+export interface ActivityRecord {
+  staff_name: string | null;
+  at: string; // 記録日時
+  source: string; // 例: 温度管理、運転日報
+}
+
+export interface MissingAttendance {
+  name: string;
+  sources: { source: string; count: number }[];
+  firstAt: string;
+  lastAt: string;
+}
+
+export const findMissingAttendance = (
+  attendanceLogs: { staff_name?: string | null; notes: string | null }[],
+  activities: ActivityRecord[]
+): MissingAttendance[] => {
+  const hasAttendance = (name: string) =>
+    attendanceLogs.some((r) => attendanceKindOf(r.notes) !== null && isSameStaff(r.staff_name, name));
+
+  const groups: { name: string; items: ActivityRecord[] }[] = [];
+  for (const a of activities) {
+    if (!normalizeStaffName(a.staff_name)) continue;
+    const g = groups.find((x) => isSameStaff(x.name, a.staff_name));
+    if (g) g.items.push(a);
+    else groups.push({ name: (a.staff_name || '').trim(), items: [a] });
+  }
+
+  return groups
+    .filter((g) => !hasAttendance(g.name))
+    .map((g) => {
+      const times = g.items.map((i) => new Date(i.at).getTime()).sort((a, b) => a - b);
+      const counts = new Map<string, number>();
+      g.items.forEach((i) => counts.set(i.source, (counts.get(i.source) || 0) + 1));
+      return {
+        name: g.name,
+        sources: Array.from(counts, ([source, count]) => ({ source, count })),
+        firstAt: new Date(times[0]).toISOString(),
+        lastAt: new Date(times[times.length - 1]).toISOString(),
+      };
+    })
+    .sort((a, b) => a.firstAt.localeCompare(b.firstAt));
+};
+
+// ------------------------------------------------------------------
+// 管理者による勤怠の補正入力（案B）の妥当性チェック
+// ------------------------------------------------------------------
+
+export type CorrectionKind = 'both' | 'start' | 'finish';
+
+const fmt = (iso: string) => {
+  const p = jstParts(new Date(iso));
+  return `${p.m}/${p.d} ${pad(p.h)}:${pad(p.min)}`;
+};
+
+// 問題があればエラーメッセージ、なければ null
+export const validateCorrection = (
+  kind: CorrectionKind,
+  staffLogs: AttendanceLog[], // その人の出勤・退勤の記録
+  startAt: Date | null,
+  finishAt: Date | null,
+  now: Date = new Date()
+): string | null => {
+  const logs = staffLogs
+    .filter((r) => attendanceKindOf(r.notes) !== null)
+    .map((r) => ({ ...r, t: new Date(r.checked_at).getTime(), k: attendanceKindOf(r.notes) }))
+    .sort((a, b) => a.t - b.t);
+  const lastBefore = (t: number) => [...logs].reverse().find((r) => r.t < t) || null;
+  const firstAfter = (t: number) => logs.find((r) => r.t > t) || null;
+  const nowMs = now.getTime();
+
+  if (kind === 'both') {
+    if (!startAt || !finishAt) return '出勤時刻と退勤時刻を入力してください';
+    const s = startAt.getTime();
+    const f = finishAt.getTime();
+    if (f <= s) return '退勤時刻は出勤時刻より後にしてください';
+    if (f > nowMs) return '退勤時刻が現在より後になっています';
+    if (f - s > 24 * HOUR_MS) return '勤務時間が24時間を超えています。時刻を確認してください';
+    const overlap = logs.find((r) => r.t >= s && r.t <= f);
+    if (overlap) return `この時間帯にすでに${overlap.k === 'start' ? '出勤' : '退勤'}の記録があります（${fmt(overlap.checked_at)}）`;
+    const prev = lastBefore(s);
+    if (prev && prev.k === 'start') {
+      return `${fmt(prev.checked_at)} の出勤に退勤の記録がありません。先にその出勤の「退勤のみ」を補正してください`;
+    }
+    return null;
+  }
+
+  if (kind === 'finish') {
+    if (!finishAt) return '退勤時刻を入力してください';
+    const f = finishAt.getTime();
+    if (f > nowMs) return '退勤時刻が現在より後になっています';
+    const prev = lastBefore(f);
+    if (!prev || prev.k !== 'start') {
+      return '退勤のみの補正は「出勤の記録はあるが退勤の記録が無い」場合に使います。この時刻の前に、退勤していない出勤が見つかりません';
+    }
+    if (f - prev.t > 24 * HOUR_MS) return `対象の出勤（${fmt(prev.checked_at)}）から24時間を超えています。時刻を確認してください`;
+    const next = firstAfter(prev.t);
+    if (next && next.t < f) return `この出勤のあとに別の記録があります（${fmt(next.checked_at)}）。時刻を確認してください`;
+    return null;
+  }
+
+  // kind === 'start'
+  if (!startAt) return '出勤時刻を入力してください';
+  const s = startAt.getTime();
+  if (s > nowMs) return '出勤時刻が現在より後になっています';
+  const prev = lastBefore(s);
+  if (prev && prev.k === 'start') {
+    return `${fmt(prev.checked_at)} の出勤に退勤の記録がありません。時刻を確認してください`;
+  }
+  const next = firstAfter(s);
+  if (next) {
+    if (next.k !== 'finish') return `この時刻のあとに別の出勤の記録があります（${fmt(next.checked_at)}）。「出勤と退勤」で補正してください`;
+    if (next.t - s > 24 * HOUR_MS) return `次の退勤（${fmt(next.checked_at)}）まで24時間を超えています。時刻を確認してください`;
+    return null;
+  }
+  // 次の記録が無い = 今まさに勤務中で出勤を忘れた場合のみ
+  if (nowMs - s > OPEN_SHIFT_MAX_HOURS * HOUR_MS) {
+    return '出勤のみの補正は「退勤の記録はあるが出勤の記録が無い」場合か、勤務中に出勤を記録し忘れた場合に使います。両方無い場合は「出勤と退勤」で補正してください';
+  }
+  return null;
+};
+
+// 補正記録の特記事項
+export const buildCorrectionNotes = (kind: AttendanceKind, basis: string, reason: string) =>
+  `${kind === 'start' ? '出勤時' : '退勤時'} 【管理者補正】【根拠: ${basis}】【理由: ${reason}】【アルコールチェック未実施】`;
