@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { checkGeofence, GEOFENCE_MODE, GEOFENCE_RADIUS_M } from '@/lib/geofence';
+import GeoPermissionNotice from './GeoPermissionNotice';
 import {
   getBusinessRangeJST,
   getBusinessSlotForDate,
@@ -311,6 +312,8 @@ function ChecksheetForm() {
   const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(initialParam));
   const [submitting, setSubmitting] = useState(false);
   const [geoChecking, setGeoChecking] = useState(false);
+  // 送信時に位置情報が「許可しない」だった（許可状態を取得できない端末向けの案内表示用）
+  const [geoDenied, setGeoDenied] = useState(false);
   // 送信前の確認中（通信待ち）も二重送信を防ぐ
   const [prechecking, setPrechecking] = useState(false);
   const submitLockRef = useRef(false);
@@ -941,6 +944,7 @@ function ChecksheetForm() {
       // 位置情報による事業所内判定（半径 GEOFENCE_RADIUS_M 以内）
       setGeoChecking(true);
       const geo = await checkGeofence().finally(() => setGeoChecking(false));
+      setGeoDenied(!!geo.permissionDenied);
 
       if (geo.status === 'outside' && GEOFENCE_MODE === 'block') {
         setCheckerAttendanceAlert(null);
@@ -1800,6 +1804,7 @@ function ChecksheetForm() {
           {/* 1. 基本チェック */}
           {activeTab === 'alcohol' && (
             <div className="space-y-6">
+              <GeoPermissionNotice forceDenied={geoDenied} />
               {isSettlingPastAlcohol && (
                 <div className="p-4 bg-amber-950 border-3 border-amber-400 text-amber-200 rounded-2xl shadow-xl space-y-2">
                   <div className="flex items-center justify-between gap-2">

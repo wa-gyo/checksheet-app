@@ -30,6 +30,8 @@ export interface GeoResult {
   accuracyM: number | null;
   distanceM: number | null;
   reason?: string;
+  /** 利用者が位置情報を「許可しない」にしている */
+  permissionDenied?: boolean;
 }
 
 export const distanceMeters = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -77,6 +79,19 @@ export const checkGeofence = async (): Promise<GeoResult> => {
     if (e && e.code === 1) reason = '位置情報の利用が許可されていません';
     else if (e && e.code === 2) reason = '現在地を特定できませんでした';
     else if (e && e.code === 3) reason = '位置情報の取得がタイムアウトしました';
-    return { status: 'unavailable', ...empty, reason };
+    return { status: 'unavailable', ...empty, reason, permissionDenied: !!e && e.code === 1 };
+  }
+};
+
+// 位置情報の許可状態（'granted' 許可 / 'denied' 不許可 / 'prompt' 未選択 / 'unknown' 判定できない）
+export type GeoPermission = 'granted' | 'denied' | 'prompt' | 'unknown';
+
+export const queryGeoPermission = async (): Promise<{ state: GeoPermission; status?: PermissionStatus }> => {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return { state: 'unknown' };
+    const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+    return { state: status.state as GeoPermission, status };
+  } catch {
+    return { state: 'unknown' };
   }
 };
