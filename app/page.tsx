@@ -97,7 +97,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
     setIsOpen(true);
   };
 
-  const handleApply = (e: React.MouseEvent) => {
+  const handleApply = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onChange(tempValue);
@@ -142,7 +142,7 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 animate-fade-in backdrop-blur-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+        <div data-dialog className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 animate-fade-in backdrop-blur-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
           <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-blue-500 space-y-4 max-h-[92vh] overflow-y-auto text-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b border-slate-700 pb-3">
               <div className="flex items-center gap-2">
@@ -167,6 +167,10 @@ function BigDateDisplay({ value, onChange }: { value: string; onChange: (v: stri
                 type="datetime-local"
                 value={tempValue}
                 onChange={(e) => setTempValue(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter は「この日時で決定する」と同じ（フォームは送信しない）
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleApply(e);
+                }}
                 className="w-full min-h-[56px] py-2 px-3 border-2 border-slate-300 rounded-xl text-xl font-black bg-white text-slate-950 focus:border-blue-600 outline-none text-center shadow-inner"
               />
 
@@ -1163,8 +1167,38 @@ function ChecksheetForm() {
     }
   });
 
+  // フォームの自動送信（入力欄で Enter・スマホの「実行」キーなど）は無効にする。
+  // 送信は最下段の記録ボタンを押したときだけ（handleSubmit をボタンの onClick から呼ぶ）
+  const blockImplicitSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
+  // 入力欄で Enter / 「次へ」を押したら、送信せずに次の入力欄へ移動する
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const native = e.nativeEvent as KeyboardEvent;
+    // 日本語入力の変換確定の Enter はそのまま通す
+    if (native.isComposing || native.keyCode === 229) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName !== 'INPUT') return; // 複数行の欄（改行）やボタンは対象外
+    e.preventDefault();
+
+    // 時刻の変更画面などのダイアログ内では移動しない
+    if (target.closest('[data-dialog]')) return;
+
+    const fields = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>('input, select, textarea')
+    ).filter((el) => {
+      const input = el as HTMLInputElement;
+      return !input.disabled && input.type !== 'hidden' && el.offsetParent !== null && !el.closest('[data-dialog]');
+    });
+    const next = fields[fields.indexOf(target) + 1];
+    if (next) next.focus();
+    else target.blur(); // 最後の欄ならキーボードを閉じるだけ
+  };
+
   // 送信ボタンの連打・通信待ち中の再送信を防ぐ（確認中の通信が終わるまで次の送信を受け付けない）
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (submitLockRef.current || submitting || isCooldown) return;
     submitLockRef.current = true;
@@ -1779,7 +1813,7 @@ function ChecksheetForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={blockImplicitSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
           {/* ① あなたのお名前入力カード */}
           <div className="bg-slate-900 p-5 rounded-3xl shadow-xl border-2 border-slate-700">
             <label className="block text-xl font-black text-white mb-2 leading-tight">
@@ -3038,7 +3072,9 @@ function ChecksheetForm() {
               </p>
             )}
             <button
-              type="submit"
+              id="final-submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={
                 submitting ||
                 prechecking ||
