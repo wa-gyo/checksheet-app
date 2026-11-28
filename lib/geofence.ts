@@ -9,8 +9,8 @@ const parseEnvNumber = (raw: string | undefined, fallback: number): number => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export const STORE_LAT = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LAT, 37.526823);
-export const STORE_LNG = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LNG, 139.94667);
+export const STORE_LAT = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LAT, 37.526981);
+export const STORE_LNG = parseEnvNumber(process.env.NEXT_PUBLIC_STORE_LNG, 139.946542);
 export const GEOFENCE_RADIUS_M = parseEnvNumber(process.env.NEXT_PUBLIC_GEOFENCE_RADIUS_M, 300);
 
 // 屋内ではGPSの誤差が大きくなるため、測位誤差のうち最大この距離までは許容する
